@@ -19,7 +19,7 @@ import { SKIES, createWeather, stepWeather, skyOf } from './world/weather.js';
 import { createWater } from './world/water.js';
 import { conditions, updateConditions, windAt, currentAt, currentScale, waveHeight, waveHeightHere, compass, bearingOf, windWords, seaWords, shelterAt, bakeShelter, shelterRect, TIDE, tidalTexture, shelterSteps, dropShelter } from './world/conditions.js';
 import { SOUTH_WATER, SOUTH_MAP, LANDFALL, POSADA, PUERTO as PUERTO_AT, PONTOON_S, FINGERS_S, ISLANDS } from './world/brasa.js';
-import { NORTH_WATER, ISLES_WATER, ISLES_MAP, COAST_SHEET, NORTH_BEDS, NORTH_M, NORTH_LANDFALL, HALVIG_PIER, northWaters, regionOf as seaAt, inNorth } from './world/north.js';
+import { NORTH_WATER, ISLES_WATER, ISLES_MAP, COAST_SHEET, NORTH_BEDS, NORTH_M, NORTH_LANDFALL, HALVIG_PIER, NORTH_DOORS, northWaters, regionOf as seaAt, inNorth } from './world/north.js';
 import { buildWorld } from './world/world.js';
 import { createHabitat } from './world/habitat.js';
 import { HEAVY as PRESSURE_HEAVY, CELL as PRESSURE_CELL } from './world/pressure.js';
@@ -2282,7 +2282,7 @@ function buyBoxIce(kind, where = 'chandlery') {
     return false;
   }
   iceBox(state, kind, now);
-  hud.toast(where === 'kitchen' ? `The kitchen fills the ${S.name}’s ${FISHBOX[kind]} from the bar’s ice machine: three days of ice, for the voyage home.` : `Bert wheels a sack of crushed ice down the pontoon and fills the ${S.name}’s ${FISHBOX[kind]}: three days of it. Your catch keeps in it while you’re aboard her.`, 6);
+  hud.toast(where === 'kitchen' ? `The kitchen fills the ${S.name}’s ${FISHBOX[kind]} from the bar’s ice machine: three days of ice, for the voyage home.` : where === 'halvig' ? `Two sacks of ice from the shop’s freezer, wheeled down the pier in a barrow and tipped into the ${S.name}’s ${FISHBOX[kind]}: three days of it.` : `Bert wheels a sack of crushed ice down the pontoon and fills the ${S.name}’s ${FISHBOX[kind]}: three days of it. Your catch keeps in it while you’re aboard her.`, 6);
   save();
   return true;
 }
@@ -2299,6 +2299,56 @@ function stockBoat(kind) {
   packUI.render();
   save();
   return true;
+}
+
+// (Step 5's last: docs/NORTH.md) Halvig Stores, at the top of the pier: stores for her lockers
+// and ice for her fish box, for whichever of your boats you came up in, if she's up the coast. At
+// any hour: when nobody's behind the counter there's an honesty box.
+function openHalvigStores() {
+  const S = BOATS[state.vessel], now = state.day * 24 + state.hour;
+  const here = !!S && seaAt(S.pos.x, S.pos.z) === 'north';
+  const open = clock.hour >= 9 && clock.hour < 17.5;
+  const list = [], acts = [];
+  if (here && storesAboard(state, S.id).most) {
+    const q = stockUp(state, S.id, state.economy, true);
+    if (q.days > 0.01) {
+      list.push({ ok: false, text: `The ${S.name}’s lockers: ${storesWordsOf(S.id)}. Topped up: ${daysWords(q.days)} more of food and water, ${money(q.price)}.` });
+      acts.push({ text: `Stock her: ${money(q.price)}`, run: () => stockBoat(S.kind) });
+    } else list.push({ ok: true, text: `The ${S.name}’s lockers are full: ${storesWordsOf(S.id)}.` });
+  }
+  if (here && hasBox(S.kind)) {
+    if (boxHoursLeft(state, S.id, now) >= 60) list.push({ ok: true, text: `The ${S.name}: ${boxWords(state, S.id, now)}.` });
+    else {
+      list.push({ ok: false, text: `The ${S.name}: ${boxWords(state, S.id, now)}. Three days of ice from the freezer at the back, ${money(BOX_PRICE)}.` });
+      acts.push({ text: `Ice it: ${money(BOX_PRICE)}`, run: () => buyBoxIce(S.kind, 'halvig') });
+    }
+  }
+  if (!here) list.push({ ok: true, text: 'None of your boats is up the coast to stock: bring her in alongside the pier, and the shop will fill her lockers and her fish box.' });
+  else if (!acts.length && !list.length) list.push({ ok: true, text: `The ${S.name} carries no stores or fish box to fill.` });
+  ask('Halvig Stores', `${open ? 'The bell over the door, and Morag behind the counter with the radio on.' : 'Nobody behind the counter at this hour, but the door’s on the latch and there’s an honesty box by the till.'} Shelves to the ceiling: tins, oatcakes, bread on the ferry days, paraffin, wellies, postcards of the light. Water from the tap outside; ice in the freezer at the back.`,
+    [...acts, { text: acts.length ? 'Not now' : 'Thanks', cls: 'quiet', run: () => {} }], { list });
+}
+
+// The Loch Bothy above Bothy Bay: in to the stove and the sleeping platform, or the book on the
+// windowsill, where everyone who stays writes a line (you too, the first time).
+function openLochBothy() {
+  ask('The Loch Bothy', 'An old shepherd’s hut above the beach, kept weathertight and left open for whoever comes: a stove and a stack of driftwood, a bench, a sleeping platform under the window, and a book on the sill.', [
+    { text: 'Read the book', cls: 'quiet', run: () => readBothyBook() },
+    { text: 'Go in', run: () => openCamp('cook', 'lochbothy') },
+  ]);
+}
+function readBothyBook() {
+  const first = !state.tips.lochBook;
+  state.tips.lochBook = true;
+  const lines = [
+    '“Sea eagle over the loch at first light. It came right down the water and took a fish off the top in front of the bothy, and went back up with it like a barn door flapping.” (M.K.)',
+    '“Terns on Tern Isle went for my head when I walked across the machair. Kept to the beach after that.”',
+    '“Flapper skate, 62 kilos, on the mud off the point at 90 metres. Tagged and back in. Two hours to bring up.” (Calum, Halvig)',
+    '“Rowed in from the yacht in a westerly. Dry at last. Haddock for breakfast off the beach. Left kindling.” (A. & J., Oban)',
+  ];
+  if (!first) lines.push('And your own line at the bottom, in your hand.');
+  showNote('The bothy book', `${lines.join('\n\n')}${first ? '\n\nYou add a line of your own at the bottom, and the date.' : ''}`, 'notebook');
+  if (first) save();
 }
 
 // Your own camp, if you're standing by it (its door, or anywhere round its middle).
@@ -2972,7 +3022,7 @@ function passTheNight() {
   tanks().battery = 1;
   tanks().kayak = 1;
   for (const k of Object.keys(ELEC)) if (ELEC[k]) chargeElec(tanks(), k, 24);
-  const door = sleeping.site === 'house' ? { x: 113.6, z: -78.6 } : sleeping.site === 'bothy' ? BOTHY_DOOR : sleeping.site === 'posada' ? { x: POSADA.x - 2, z: POSADA.z + 5 } : sleeping.site && typeof sleeping.site === 'object' ? toWorld(sleeping.site.x, sleeping.site.z, sleeping.site.yaw, 0.6, 1.6) : null;
+  const door = sleeping.site === 'house' ? { x: 113.6, z: -78.6 } : sleeping.site === 'bothy' ? BOTHY_DOOR : sleeping.site === 'lochbothy' ? NORTH_DOORS.bothy : sleeping.site === 'posada' ? { x: POSADA.x - 2, z: POSADA.z + 5 } : sleeping.site && typeof sleeping.site === 'object' ? toWorld(sleeping.site.x, sleeping.site.z, sleeping.site.yaw, 0.6, 1.6) : null;
   const spot = door ? standNear(door.x, door.z, 0.3) : onFoot && walkHeight(walker.pos.x, walker.pos.z) < 0.1 ? campSpot() : null;
   if (spot && onFoot) {
     walker.place(spot.x, spot.z, spot.heading);
@@ -2998,6 +3048,15 @@ function wakeLine(h, rain, site = null) {
     if (h < 16) return 'You wake to a bright afternoon, the fell warm and the beck chattering past the door.';
     if (h < 20) return 'You wake as the light goes gold on the top of Hoarfell. The trout will be rising in the pools.';
     return 'You wake in the dark: the last of the stove’s glow, and stars thick over the fell.';
+  }
+  // In the Loch Bothy, up the coast: the loch at the door, the hills round it.
+  if (site === 'lochbothy') {
+    if (rain) return 'You wake to rain sheeting down the loch and drumming on the slates, the burn loud beside the bothy. The stove first.';
+    if (h < 7) return 'You wake in the half-light to an oystercatcher piping on the beach and the loch flat calm below the door.';
+    if (h < 11) return 'Morning on Loch Skarn: mist lifting off the water, and the hills across it coming out of the cloud.';
+    if (h < 16) return 'You wake to a bright afternoon, the loch blue and still, and somewhere high over it an eagle turning.';
+    if (h < 20) return 'You wake as the light goes long and gold down the loch. A seal’s head in the bay, watching the bothy.';
+    return 'You wake in the dark: the stove ticking as it cools, and the loch black and still under the stars.';
   }
   // Over the bar at Puerto Brasa: the harbour, the trade wind, the island waking up.
   if (site === 'posada') {
@@ -6205,7 +6264,7 @@ function takeDrink() {
 // a kitchen (home, the bothy, Bar El Muelle, a boat's galley), the chandlery, or a clear stream
 // or river beside you.
 // (F1a: aboard, a galley or a stores crate, from her stores.)
-const kitchenHere = () => (onFoot ? !!(insideHome(walker.pos.x, walker.pos.z) || coastSpot('bothy', 1) || coastSpot('posada', 1) || chandleryNear()) : !driving && (!!boat.hull.cabin || storesAboard(state, boat.id).crates > 0));
+const kitchenHere = () => (onFoot ? !!(insideHome(walker.pos.x, walker.pos.z) || coastSpot('bothy', 1) || coastSpot('posada', 1) || coastSpot('lochbothy', 1) || coastSpot('halvigstores', 1) || chandleryNear()) : !driving && (!!boat.hull.cabin || storesAboard(state, boat.id).crates > 0));
 function streamHere() {
   if (!onFoot) return false;
   const P = walker.pos;
@@ -7777,6 +7836,9 @@ function interaction() {
     if (coastSpot('bothy')) return { text: 'The bothy: stove, bunk and tackle shelf', run: () => openCamp('cook', 'bothy') };
     // Puerto Brasa: your room over the bar, its kitchen and a shelf of tackle.
     if (coastSpot('posada')) return { text: 'Bar El Muelle: Paco’s bar, his kitchen, and your room', run: () => openHarbour('muelle') };
+    // Up the coast: Halvig Stores, and the bothy above Bothy Bay (docs/NORTH.md).
+    if (coastSpot('halvigstores')) return { text: 'Halvig Stores: stores and ice', run: () => openHalvigStores() };
+    if (coastSpot('lochbothy')) return { text: 'The Loch Bothy: stove, sleeping platform and the book', run: () => openLochBothy() };
     if (coastSpot('fingerpost')) return { text: 'Read the fingerpost', run: () => readFingerpost() };
     if (coastSpot('cairn')) return { text: 'Add a stone to the cairn', run: () => addToCairn() };
     // (G9b) Someone keeping a small harbour's camp, within a stride: a word with them before its
@@ -10135,6 +10197,9 @@ function checkPlaces(dt) {
     if (pl.id === 'bothy') teach('bothyTip', `The bothy: cook, sleep and swap tackle here (${scheme() === 'touch' ? 'tap the prompt' : input.keyLabel('interact')} at the door). Now you’ve walked here, you can come straight back from the map.`, 9);
     if (pl.id === 'tarn') teach('tarnTip', 'Hoar Tarn: small, wild trout rise at dusk in the cold water. Cast a fly or a little spinner along the edge where the shelf drops away.', 8);
     if (pl.id === 'summit') teach('summitTip', `The top of Hoarfell. ${scheme() === 'touch' ? 'Tap the prompt' : `Press ${input.keyLabel('interact')}`} at the cairn to add a stone and look out over the coast.`, 8);
+    // (Up the coast: docs/NORTH.md.)
+    if (pl.id === 'halvig') teach('halvigTip', `Halvig: diesel and petrol from the pump at the pier’s root, and stores and ice for her at Halvig Stores (${scheme() === 'touch' ? 'tap the prompt' : input.keyLabel('interact')} at its door, any hour).`, 9);
+    if (pl.id === 'lochbothy') teach('lochBothyTip', `The Loch Bothy: cook on its stove and sleep on its platform (${scheme() === 'touch' ? 'tap the prompt' : input.keyLabel('interact')} at the door), and read the book on the sill.`, 9);
     if (pl.id === 'wreck') teach('wreckTip', `The Kittiwake lies below you. Look under the water (${scheme() === 'touch' ? 'the view button' : input.keyLabel('view')}) to see her, or fish over her: a bottom rig for the conger, a shad for the pollack.`, 9);
     save();
   }
@@ -10425,6 +10490,14 @@ wildlife.onCall = (kind, x, z) => {
   else if (kind === 'otter') audio.otterWhistle?.(0.02 * h.vol, h.pan);
 };
 wildlife.onRipple = (x, z) => fx.ripple(x, z, 0.4, 1.0, 0.3);
+// (The birds up the coast: the eagle's catch and the terns' dives, the terns' calls, a word when
+// something's worth watching. See world/birds.js.)
+birds.onMoment = wildMoment;
+birds.onSplash = (x, z, size) => wildlife.onSplash(x, z, size);
+birds.onCall = (kind, x, z) => {
+  const h = heardFrom(x, z, 160);
+  if (h.vol > 0 && kind === 'arctictern') audio.tern?.(0.045 * h.vol, h.pan);
+};
 wildlife.onSplash = (x, z, size) => {
   fx.splash(x, 0.05, z, 6, 1.0 + size * 2, 0.4);
   fx.ripple(x, z, 0.6 + size * 2, 1.2, 0.4);

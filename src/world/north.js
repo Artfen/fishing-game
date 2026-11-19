@@ -110,6 +110,13 @@ export const NORTH_BOTHY = { x: -1500, z: -5836, yaw: 0, level: 2.6 };
 export const HERRING = { x: -1085, z: -5566, yaw: 0.25, level: 3 };
 export const SEAL_CAVE = { x: -3713, z: -6300, yaw: -Math.PI / 2 };
 export const SULA = { x: -3450, z: -5100, yaw: 0.9, len: 24 };
+// Where you stand at a door (a metre or so out from it): Halvig Stores' (its front faces the pier),
+// the bothy's (it faces the bay).
+const doorOf = (B, u, d) => {
+  const c = Math.cos(B.yaw), s = Math.sin(B.yaw), w = d / 2 + 1.2;
+  return { x: B.x + u * c + w * s, z: B.z - u * s + w * c, yaw: B.yaw };
+};
+export const NORTH_DOORS = { shop: doorOf(HALVIG_SHOP, -1.2, HALVIG_SHOP.d), bothy: doorOf(NORTH_BOTHY, -1, 4.2) };
 // Level ground cut for them: [x, z, radius, level].
 const PADS = [[NORTH_BOTHY.x, NORTH_BOTHY.z, 7, NORTH_BOTHY.level], [HERRING.x, HERRING.z, 16, HERRING.level]];
 

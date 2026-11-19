@@ -458,7 +458,9 @@ careers, contracts, story, boat ownership and co-op are here already; see the se
    Halvig and things to find: done. N4, life (cod, saithe, ling, haddock and the flapper skate, the
    home coast's cold-water fish, seals, a minke, the seabird colony, otters): done. N5, the voyage
    (the passage north and home, the nearest harbour where it was Willowhaven, the westerlies),
-   played through and measured: done.
+   played through and measured: done. And what N5 left: the white-tailed eagle over Loch Skarn
+   and Raven Isle, Arctic terns nesting on Tern Isle (and at your head if you walk among them),
+   Halvig Stores stocking and icing your boat, and a night in the Loch Bothy: done.
 
 ## Open-source projects that could help
 

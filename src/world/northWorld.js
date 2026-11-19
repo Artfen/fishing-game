@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { clamp, smoothstep, fbm, mergeParts, mat, jitterGeo } from '../util.js';
 import { northAt, heightAt } from './terrain.js';
 import { withCaustics } from './caustics.js';
-import { TERN, RAVEN, inSound, inBothyBay, lochAt, HALVIG_PIER, HALVIG_FUEL, HALVIG_SHOP, CROFTS, PHONE_BOX, RAVEN_LIGHT, BROCH, STONES, NORTH_BOTHY, HERRING, SEAL_CAVE, SULA } from './north.js';
+import { TERN, RAVEN, inSound, inBothyBay, lochAt, HALVIG_PIER, HALVIG_FUEL, HALVIG_SHOP, CROFTS, PHONE_BOX, RAVEN_LIGHT, BROCH, STONES, NORTH_BOTHY, HERRING, SEAL_CAVE, SULA, NORTH_DOORS } from './north.js';
 import { fuelPumpParts } from '../props.js';
 
 // The north's look (docs/NORTH.md): the colours of its ground and seabed, and (N2, N3) what
@@ -180,6 +180,9 @@ export function* northSteps(scene, rnd) {
     if (marram.length) group.add(instanced(geos.marram, marram, plantMat, rnd, { tint: 0.1, shadows: false }));
   }
   const P = buildPlaces(group, obstacles, rnd);
+  // (The doors you can go in at: Halvig Stores and the Loch Bothy. See main.js.)
+  spots.push({ kind: 'halvigstores', name: 'Halvig Stores', x: NORTH_DOORS.shop.x, z: NORTH_DOORS.shop.z, r: 2 });
+  spots.push({ kind: 'lochbothy', name: 'the Loch Bothy', x: NORTH_DOORS.bothy.x, z: NORTH_DOORS.bothy.z, r: 2.2 });
   scene.add(group);
   return {
     group, obstacles, spots, boxes,

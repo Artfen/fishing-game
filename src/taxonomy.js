@@ -145,7 +145,7 @@ export const FAMILIES = {
   Laridae: ['charadriiformes', 'Gulls, terns and skimmers'], Haematopodidae: ['charadriiformes', 'Oystercatchers'], Scolopacidae: ['charadriiformes', 'Sandpipers, curlews and snipes'],
   Procellariidae: ['procellariiformes', 'Shearwaters and petrels'], Strigidae: ['strigiformes', 'Typical owls'],
   Alcidae: ['charadriiformes', 'Auks'], Anatidae: ['anseriformes', 'Ducks, geese and swans'], Apodidae: ['apodiformes', 'Swifts'],
-  Pandionidae: ['accipitriformes', 'Ospreys'], Alcedinidae: ['coraciiformes', 'Kingfishers'], Falconidae: ['falconiformes', 'Falcons and caracaras'],
+  Pandionidae: ['accipitriformes', 'Ospreys'], Accipitridae: ['accipitriformes', 'Hawks, eagles and kites'], Alcedinidae: ['coraciiformes', 'Kingfishers'], Falconidae: ['falconiformes', 'Falcons and caracaras'],
   Corvidae: ['passeriformes', 'Crows, ravens and choughs'], Cinclidae: ['passeriformes', 'Dippers'], Motacillidae: ['passeriformes', 'Pipits and wagtails'], Fringillidae: ['passeriformes', 'Finches'],
   // Reptiles and amphibians
   Cheloniidae: ['testudines', 'Sea turtles'], Ranidae: ['anura', 'True frogs'],

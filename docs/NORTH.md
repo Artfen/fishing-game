@@ -301,9 +301,43 @@ cooler); played through in the browser in the trawler, measured (`docs/PERFORMAN
   whatever dice that loop left, so adding five kinds to it changed their outcome (the tuna boil
   hooked an albacore instead).
 
-**Not done:** the white-tailed eagle and the terns on Tern Isle (a new bird each); Halvig's shop
-selling stores and a bed in the bothy (the stores and the nights work as they do anywhere else:
-aboard); the clock's speed-up at the helm on passage (step 4).
+**Not done (then):** the white-tailed eagle and the terns on Tern Isle (a new bird each); Halvig's
+shop selling stores and a bed in the bothy (the stores and the nights work as they do anywhere
+else: aboard); the clock's speed-up at the helm on passage (step 4).
+
+*All four done since.* The speed-up is step 4's W2 (`docs/WORLD.md`). The rest, step 5's last:
+
+- **The white-tailed eagle** (`birds.js` `wteagle`, `birdData.js`): a new bird, Britain's biggest
+  bird of prey, its broad square wings two and a third metres across, a pale head, a yellow bill and
+  a white wedge of a tail. One soars over Loch Skarn by Bothy Bay and another high over Raven Isle,
+  seen from well over a kilometre off. Every few minutes one leaves its circle in a long, straight,
+  shallow glide down to deep water, swings its feet forward at the last, takes a fish off the
+  surface with a splash and labours back up with it in its feet. All year, by day.
+- **Arctic terns on Tern Isle** (`arctictern`): a new bird (home's terns are common terns), in
+  spring and summer. Twenty-six nest on the machair, on the dry turf between the beach and the
+  island's top, sitting tight until you walk among the nests: then the colony is up and round you,
+  screaming, at head height and a little over, one and another swooping at your head, until you're
+  well away (the game says so, once). Six more fish round its shores, hovering with wings a blur and
+  plunging straight in. Their calls are the terns'.
+- **Halvig Stores** (the door at the top of the pier, `north.js` `NORTH_DOORS`): stores for her
+  lockers and three days of ice for her fish box, for whichever of your boats came up the coast, at
+  the same prices as anywhere; open all hours (Morag behind the counter by day, an honesty box after
+  closing). You can fill your bottle and make rolls there, as at a kitchen.
+- **The Loch Bothy** (its door facing the bay): in to its stove (cook what's in your creel, an
+  oatcake from the tin) and its sleeping platform (sleep until dawn, or any of the usual hours; you
+  wake at its door, to the loch); and the book on the sill, where earlier visitors wrote of the
+  eagle, the terns and a flapper skate off the point, and where you add a line of your own (kept in
+  the save).
+- First visits to Halvig and the bothy say what's there. The two new birds are in the journal's
+  tree with the rest (Accipitridae joins the families), noted when seen up close.
+- **Nothing else moved:** the new birds come last, with dice of their own; the 311 birds before
+  them keep their places and their dice (`tests/northlast.test.mjs` holds their fingerprint).
+- Tests: `tests/northlast.test.mjs` (the eagle's catch from deep water and back up, the colony up
+  round you and settled again, the terns' dives into water, both doors in front of their buildings
+  and found among the north's things, the book kept in the save). Played in the browser: the
+  trawler alongside Halvig pier, ice bought at the shop, the bothy book read, a night on the
+  platform (woke at dawn at the door), the eagle over the loch, and the terns up round you on Tern
+  Isle (noted in the journal as you're mobbed). No errors.
 
 ## Done when
 

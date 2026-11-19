@@ -67,7 +67,7 @@ export class Camp {
     this.hooks = hooks;
     this.el = $('camp');
     this.tab = 'cook';
-    this.site = null; // null: the old camp; 'house': home; 'cabin': the cabin boat; 'bothy': the bothy on the fell; 'posada': your room at Bar El Muelle (Las Brasas); otherwise your camp's record
+    this.site = null; // null: the old camp; 'house': home; 'cabin': the cabin boat; 'bothy': the bothy on the fell; 'posada': your room at Bar El Muelle (Las Brasas); 'lochbothy': the bothy above Bothy Bay (up the coast); otherwise your camp's record
     this.grillFish = {};
     this.shownFish = null;
     this.lastHunger = this.hunger;
@@ -89,11 +89,12 @@ export class Camp {
   }
 
   get isOpen() { return !this.el.hidden; }
-  get own() { return !!this.site && this.site !== 'house' && this.site !== 'cabin' && this.site !== 'bothy' && this.site !== 'posada'; }
-  // Home, the cabin boat, the bothy and the room at Bar El Muelle work the same way: a kitchen (a
-  // galley, a stove) to cook what's in your creel, and a bed (a bunk). (The bothy and the bar have
-  // a shelf of tackle too.)
-  get house() { return this.site === 'house' || this.site === 'cabin' || this.site === 'bothy' || this.site === 'posada'; }
+  get own() { return !!this.site && !this.house; }
+  // Home, the cabin boat, the bothy, the room at Bar El Muelle and the Loch Bothy work the same
+  // way: a kitchen (a galley, a stove) to cook what's in your creel, and a bed (a bunk, a sleeping
+  // platform). (The fell's bothy and the bar have a shelf of tackle too.)
+  get house() { return this.site === 'house' || this.site === 'cabin' || this.site === 'bothy' || this.site === 'posada' || this.site === 'lochbothy'; }
+  get lochBothy() { return this.site === 'lochbothy'; }
   get cabin() { return this.site === 'cabin'; }
   get bothy() { return this.site === 'bothy'; }
   get posada() { return this.site === 'posada'; }
@@ -263,11 +264,11 @@ export class Camp {
     this.site = site;
     this.packing = null;
     this.el.hidden = false;
-    $('camp-title').textContent = this.cabin ? 'The cabin' : this.bothy ? 'The bothy' : this.posada ? 'Bar El Muelle' : this.house ? 'Home' : site ? site.name : 'Camp';
+    $('camp-title').textContent = this.cabin ? 'The cabin' : this.bothy ? 'The bothy' : this.lochBothy ? 'The Loch Bothy' : this.posada ? 'Bar El Muelle' : this.house ? 'Home' : site ? site.name : 'Camp';
     const tabs = this.el.querySelectorAll('[data-tab]');
     for (const b of tabs) {
-      if (b.dataset.tab === 'cook') b.textContent = this.cabin ? 'Galley' : this.bothy ? 'Stove & food' : this.house ? 'Kitchen' : site ? 'Stove & food' : 'Fire & food';
-      if (b.dataset.tab === 'sleep') b.textContent = this.cabin || this.bothy ? 'Bunk' : this.posada ? 'Your room' : this.house ? 'Bed' : 'Sleep';
+      if (b.dataset.tab === 'cook') b.textContent = this.cabin ? 'Galley' : this.bothy || this.lochBothy ? 'Stove & food' : this.house ? 'Kitchen' : site ? 'Stove & food' : 'Fire & food';
+      if (b.dataset.tab === 'sleep') b.textContent = this.cabin || this.bothy ? 'Bunk' : this.lochBothy ? 'Sleeping platform' : this.posada ? 'Your room' : this.house ? 'Bed' : 'Sleep';
       if (b.dataset.tab === 'own') b.hidden = !this.own;
       if (b.dataset.tab === 'tackle') b.hidden = this.house && !this.shelf;
     }
@@ -293,7 +294,7 @@ export class Camp {
       this.hooks.close();
       return;
     }
-    $('camp-sub').textContent = `${formatClock(this.state.hour)} · day ${this.state.day}${this.cabin ? ' · aboard' : this.bothy ? ' · up the Coldwater' : this.posada ? ' · Puerto Brasa' : this.house ? ' · home' : this.site ? ' · your camp' : ''}`;
+    $('camp-sub').textContent = `${formatClock(this.state.hour)} · day ${this.state.day}${this.cabin ? ' · aboard' : this.bothy ? ' · up the Coldwater' : this.lochBothy ? ' · Loch Skarn' : this.posada ? ' · Puerto Brasa' : this.house ? ' · home' : this.site ? ' · your camp' : ''}`;
     if (this.tab === 'cook') {
       if (this.house) this.renderKitchen();
       else if (this.site) this.renderStove();
@@ -604,7 +605,7 @@ export class Camp {
   renderKitchen() {
     const out = [...this.belly()];
     out.push(el('h3', '', `Your creel (${this.state.keep.length} fish, ${creelWords(this.state)})`));
-    if (!this.state.keep.length) out.push(el('p', 'cp-soft', this.bothy ? 'Empty. The Coldwater’s trout and grayling are just down the slope.' : this.posada ? 'Empty. Bring in a parrotfish and the kitchen will show you how they cook them here.' : 'Empty. Fish you keep come home in your creel.'));
+    if (!this.state.keep.length) out.push(el('p', 'cp-soft', this.bothy ? 'Empty. The Coldwater’s trout and grayling are just down the slope.' : this.lochBothy ? 'Empty. There are haddock and thornback rays on the loch’s mud below the bay, and cod in the cold months.' : this.posada ? 'Empty. Bring in a parrotfish and the kitchen will show you how they cook them here.' : 'Empty. Fish you keep come home in your creel.'));
     for (const g of creelGroups(this.state.keep)) {
       const sp = fishById[g.id], i = g.first;
       const row = el('div', 'cp-row');
@@ -622,7 +623,7 @@ export class Camp {
       out.push(row);
     }
     const oat = el('div', 'cp-row');
-    oat.append(el('p', 'cp-soft', this.bothy ? 'Someone has left a tin of oatcakes on the shelf, for whoever comes next.' : this.posada ? 'There’s always a bowl of little wrinkled potatoes and a pot of red mojo on the bar.' : this.cabin ? `Her lockers and water tank: ${this.hooks.storesWords?.() || 'stocked'}.` : 'The oatcake tin is on the shelf.'), button(this.posada ? 'Have some potatoes' : 'Have an oatcake', () => this.oatcake(), 'quiet'));
+    oat.append(el('p', 'cp-soft', this.bothy ? 'Someone has left a tin of oatcakes on the shelf, for whoever comes next.' : this.lochBothy ? 'A tin of oatcakes on the shelf by the stove, and a note: “Take what you need, leave what you can.”' : this.posada ? 'There’s always a bowl of little wrinkled potatoes and a pot of red mojo on the bar.' : this.cabin ? `Her lockers and water tank: ${this.hooks.storesWords?.() || 'stocked'}.` : 'The oatcake tin is on the shelf.'), button(this.posada ? 'Have some potatoes' : 'Have an oatcake', () => this.oatcake(), 'quiet'));
     out.push(oat);
     // (F1a) The bar's kitchen stocks your boat's lockers for the voyage home, and (F2b) ices her
     // fish box.
@@ -637,7 +638,7 @@ export class Camp {
 
   renderSleep() {
     const out = [];
-    out.push(el('p', 'cp-lead', this.cabin ? 'Turn in to the bunk and sleep until…' : this.bothy ? 'Unroll your bag on the sleeping platform and sleep until…' : this.posada ? 'Climb the stairs to your room over the harbour and sleep until…' : this.house ? 'Go to bed and sleep until…' : 'Crawl into the tent and sleep until…'));
+    out.push(el('p', 'cp-lead', this.cabin ? 'Turn in to the bunk and sleep until…' : this.bothy || this.lochBothy ? 'Unroll your bag on the sleeping platform and sleep until…' : this.posada ? 'Climb the stairs to your room over the harbour and sleep until…' : this.house ? 'Go to bed and sleep until…' : 'Crawl into the tent and sleep until…'));
     const grid = el('div', 'cp-wake');
     const now = this.state.hour;
     for (const w of this.hooks.wakeTimes?.() || WAKE_TIMES) {
@@ -650,7 +651,7 @@ export class Camp {
     out.push(grid);
     out.push(el('p', 'cp-soft', this.cabin
       ? 'While you sleep the world goes on: the light changes, the weather may turn and the fish move to where the new hour suits them. The boat rides at her anchor (or alongside) through the night, and the battery charges.'
-      : `While you sleep the world goes on: the light changes, the weather may turn${this.bothy ? ', the stove burns down' : this.house ? '' : ', the fire burns down'} and the fish move to where the new hour suits them. Your boats${this.house ? ', the car and your camp' : ''} stay where you left them.`));
+      : `While you sleep the world goes on: the light changes, the weather may turn${this.bothy || this.lochBothy ? ', the stove burns down' : this.house ? '' : ', the fire burns down'} and the fish move to where the new hour suits them. Your boats${this.house ? ', the car and your camp' : ''} stay where you left them.`));
     $('camp-sleep').replaceChildren(...out);
   }
 }
