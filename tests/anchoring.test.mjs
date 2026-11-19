@@ -221,3 +221,74 @@ test('hauled in, she comes up to her anchor and it breaks out without burying he
     assert.ok(deg(down) < deg(lying) + 3.5, `her bow not buried: ${say}`);
   }
 });
+
+test('what an anchor holds pulled out of the bottom: by the angle, never below what the bottom keeps of it overhead; hooked under a rock, as hard whichever way', () => {
+  const level = 1000, sand = A.anchorBottom({ kind: 'sand' }), mud = A.anchorBottom({ kind: 'mud' });
+  // Pulled at the skipper's scope, dug in, in sand: what it holds pulled level there.
+  assert.ok(Math.abs(A.breakoutHold(level, sand, 1, Math.asin(1 / A.SCOPE_REF)) - level) < 1e-6);
+  // Steeper, less; overhead, what the bottom keeps: mud sucks at it most.
+  const over = (bed) => A.breakoutHold(level, bed, 1, Math.PI / 2);
+  assert.ok(A.breakoutHold(level, sand, 1, 0.3) < level && over(sand) > 0 && over(sand) < A.breakoutHold(level, sand, 1, 0.3));
+  assert.ok(Math.abs(over(sand) - (level * 0.3) / A.UPLIFT_REF) < 1e-6);
+  assert.ok(over(mud) / mud.hold > over(sand) / sand.hold, 'mud keeps more of it, for what it holds');
+  // Dug in barely, less of all of it.
+  assert.ok(Math.abs(A.breakoutHold(level, sand, A.BITE, Math.PI / 2) - A.BITE * over(sand)) < 1e-6);
+  // Hooked under a rock: the same whichever way it's pulled.
+  const rock = { kind: 'rock', hold: A.ROCK_HOOKED, hooked: true };
+  assert.equal(A.breakoutHold(level, rock, 1, 0), A.breakoutHold(level, rock, 1, Math.PI / 2));
+  // Lifted out past 24.5° at its shank; pulled lower than that, it drags. Hooked, never.
+  assert.ok(A.liftedOut(sand, 0.5) && !A.liftedOut(sand, 0.3) && !A.liftedOut(rock, 1.5));
+});
+
+test('hauled in, it comes out of the bottom when the pull on it beats what it holds there: dug in, a firmer pull; hooked under a rock, more than a hauler heaves, so made fast and snatched out on the swell; and it comes in along its rope to her bow', () => {
+  const at = spotAt(14, 18);
+  const rockAt = (() => { for (let i = 0; i < 400; i++) { const x = at.x + (i % 20), z = at.z + Math.floor(i / 20); if (A.anchorBottom({ kind: 'rock' }, x, z).hooked) return { x, z }; } })();
+  assert.ok(at && rockAt, 'somewhere 14 to 18 m deep, and a rock it hooks on');
+  const haul = (bottom, spot, push) => {
+    const was = Boat.bottomAt;
+    Boat.bottomAt = () => ({ kind: bottom, under: bottom });
+    const b = new Boat(scene, { kind: 'rib' });
+    const h = -solidHeight(spot.x, spot.z), L = rodeFor(h), far = 0.92 * Math.sqrt(L * L - h * h);
+    b.place(spot.x, spot.z - far - b.hull.L * 0.45, 0);
+    b.update(1 / 30, clock, 0, 0, 0);
+    b.setAnchor(true, { at: spot });
+    Boat.bottomAt = was;
+    const events = [];
+    b.onAnchor = (w) => events.push([w, clock]);
+    const step = (s, p, f) => {
+      for (let i = 0; i < s * 30; i++) {
+        clock += 1 / 30;
+        b.vel.z -= p * (1 / 30);
+        b.update(1 / 30, clock, 0, 0, 0);
+        f?.();
+      }
+    };
+    // (push: a breeze blowing her back on it, digging it in.)
+    step(45, push);
+    step(10, 0);
+    const set = b.anchor.set;
+    b.setAnchor(false);
+    let held = null, how = null, under = 0, last = null;
+    step(50, 0, () => {
+      const An = b.anchor;
+      if (!An) return;
+      if (An.free && !how) { how = An.free; held = An.breakout; }
+      under = Math.min(under, An.y - solidHeight(An.x, An.z));
+      last = { out: An.out };
+    });
+    return { set, held, how, under, last, events, m: b._phys.m, up: events.find(([w]) => w === 'up')?.[1], fast: events.find(([w]) => w === 'fast')?.[1] };
+  };
+  const loose = haul('sand', at, 0), dug = haul('sand', at, 0.25), hooked = haul('rock', rockAt, 0);
+  for (const [name, r] of [['barely set', loose], ['dug in', dug], ['hooked', hooked]]) {
+    assert.ok(r.up != null, `${name}: up (${JSON.stringify(r.events.map(([w]) => w))})`);
+    assert.ok(r.under > -0.05, `${name}: never through the bottom (${r.under.toFixed(2)} m)`);
+    // (The last step before it's up: one step's hauling short of her bow, a fifth of a metre.)
+    assert.ok(r.last.out <= 0.5, `${name}: in to her bow (${r.last.out.toFixed(2)} m of rope out the step before it came up)`);
+  }
+  // In sand, out by the hauler's heave, without being made fast: dug in, it took a firmer pull.
+  assert.ok(loose.how === 'heave' && dug.how === 'heave' && !loose.fast && !dug.fast, `${loose.how} ${dug.how}`);
+  assert.ok(dug.set > loose.set + 0.15 && dug.held > loose.held * 1.5, `dug in ${dug.set.toFixed(2)}, held ${dug.held?.toFixed(0)} N; barely set ${loose.set.toFixed(2)}, held ${loose.held?.toFixed(0)} N`);
+  // Hooked: more than a hauler heaves (8% of her weight), so made fast and snatched out on the swell.
+  assert.ok(hooked.how === 'swell' && hooked.fast != null && hooked.up - hooked.fast > 8, `hooked: ${hooked.how}, made fast ${hooked.fast?.toFixed(1)}, up ${hooked.up?.toFixed(1)}`);
+  assert.ok(hooked.held > 0.08 * 9.81 * hooked.m, `hooked it held ${hooked.held?.toFixed(0)} N`);
+});

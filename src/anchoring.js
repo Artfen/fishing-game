@@ -42,12 +42,14 @@ export const UPLIFT_REF = uplift(Math.asin(1 / SCOPE_REF));
 
 // By the bottom, against sand: hold; set: metres dragged to dig in (to 63% of the way from its first
 // bite, see setBy).
+// out: what it still holds pulled up from overhead, dug in, against pulled level (breakoutHold):
+// its flukes buried, the bottom has to give before it comes out, and mud sucks at it most.
 export const BOTTOMS = {
-  sand: { hold: 1, set: 0.8 },
-  mud: { hold: 0.6, set: 2 },
-  gravel: { hold: 0.5, set: 0.6 },
-  weed: { hold: 0.3, set: 1.5 },
-  rock: { hold: 0.15, set: 0.3 },
+  sand: { hold: 1, set: 0.8, out: 0.3 },
+  mud: { hold: 0.6, set: 2, out: 0.5 },
+  gravel: { hold: 0.5, set: 0.6, out: 0.2 },
+  weed: { hold: 0.3, set: 1.5, out: 0.15 },
+  rock: { hold: 0.15, set: 0.3, out: 0.05 },
 };
 // Rock: hooked on something, it holds this hard (and won't come up easily).
 export const ROCK_HOOKED = 1.3;
@@ -82,6 +84,25 @@ export function anchorBottom(bottom, x = 0, z = 0) {
   }
   return { kind, hold: BOTTOMS[kind].hold, set: BOTTOMS[kind].set, hooked: false, through: false };
 }
+
+// What it holds against being pulled out of the bottom (N), the rope lifted theta (radians) at its
+// shank: as it holds pulled at that angle (uplift), but never less than what's left pulled up from
+// overhead (BOTTOMS.out of it), as dug in as it is (set). Hooked under a rock it holds as hard
+// whichever way it's pulled: it comes out only the way it went in. level: what it'd hold pulled
+// level at the skipper's scope, dug in fully, in sand (ANCHOR_HOLD of her weight, the heavier anchor
+// more: boat.js holdAnchor).
+export function breakoutHold(level, bed, set, theta) {
+  if (bed.hooked) return (level * bed.hold) / UPLIFT_REF;
+  const kind = bed.kind === 'weed' && bed.through ? bed.under : bed.kind;
+  return (level * bed.hold * set * Math.max(uplift(theta), BOTTOMS[kind]?.out ?? BOTTOMS.sand.out)) / UPLIFT_REF;
+}
+
+// Is the rope lifting it out (theta at its shank), rather than pulling it along the bottom: past
+// LIFTED (24.5°, where what it holds by the angle has fallen to under a third). Pulled harder than it
+// holds at a lower angle, it drags along the bottom; hooked under a rock, it comes out only when the
+// rope's straight up and down.
+export const LIFTED = UPLIFT_OUT * 0.7;
+export const liftedOut = (bed, theta) => !bed.hooked && theta >= LIFTED;
 
 // How well set it is (BITE … 1), dragged `d` metres in a bottom that sets in `set` metres.
 export const setBy = (d, set) => 1 - (1 - BITE) * Math.exp(-Math.max(0, d) / set);

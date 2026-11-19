@@ -182,3 +182,6 @@ models; the findings and the plan, W1–W7 for the water and B1–B6 for the boa
    it pushes aside.
 21. **Raising the anchor (B6's follow-up, done):** her bow dips a degree or two as the anchor comes
    up, where the rope drawn up short over it dragged it down 16° to 25° with more than her weight.
+22. **An anchor comes out by what it holds (B6's follow-up, done):** dug in, it takes a firmer pull;
+   hooked under a rock, more than you can heave, so the rope's made fast and the swell snatches it
+   out; and it comes in along its rope to her bow.

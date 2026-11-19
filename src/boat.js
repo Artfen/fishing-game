@@ -16,7 +16,7 @@ import { withSurface } from './world/surface.js';
 import { RODS } from './tackle.js';
 import { Rope } from './rope.js';
 import { rodeFor, berthAt } from './mooring.js';
-import { anchorBottom, setBy, uplift, UPLIFT_REF, rodeOf, rodePoints, ANCHOR_HOLD } from './anchoring.js';
+import { anchorBottom, setBy, uplift, UPLIFT_REF, rodeOf, rodePoints, ANCHOR_HOLD, breakoutHold, liftedOut } from './anchoring.js';
 import { CLEAR_K } from './apart.js';
 import { Dress } from './dress.js';
 import { CARGO, slide as slidePiece } from './cargo.js';
@@ -681,7 +681,7 @@ const haulHold = (m) => Math.max(250, HAUL * m * G);
 // (m/s)² of her speed. See the sail's overpowered.)
 const ROUND_UP = 0.35;
 const _rp = [];
-const _w3 = [0, 0, 0], _w4 = [0, 0, 0];
+const _w3 = [0, 0, 0], _w4 = [0, 0, 0], _anw = [0, 0, 0];
 const _qt = new THREE.Quaternion(), _eu = new THREE.Euler(0, 0, 0, 'YXZ'), _v3 = new THREE.Vector3(), _v4 = new THREE.Vector3();
 const _tx = new THREE.Vector3(), _ty = new THREE.Vector3(), _tz = new THREE.Vector3(), _m4 = new THREE.Matrix4();
 const _ta = new THREE.Vector3(), _tb = new THREE.Vector3(), _tc = new THREE.Vector3();
@@ -4402,8 +4402,21 @@ export class Boat {
     this.lever = 0;
     this.anchored = true;
     if (this.anchor && this.anchor.phase === 'haul') {
-      this.anchor.phase = 'set';
-      this.anchor.out = rodeFor(this.anchor.depth);
+      // (Let go again while it was being hauled: back to the bottom, where it is now if it had
+      // come out of it and was on its way up.)
+      const An = this.anchor;
+      if (An.free) {
+        An.floor = solidHeight(An.x, An.z);
+        An.depth = Math.max(0.3, -An.floor);
+        An.bed = anchorBottom(An.bottom, An.x, An.z);
+        An.dug = 0;
+        An.wasSet = false;
+        An.phase = 'drop';
+      } else An.phase = 'set';
+      An.free = null;
+      An.fast = 0;
+      An.out = rodeFor(An.depth);
+      this.anchorPt.set(An.x, An.floor, An.z);
       return;
     }
     const x = at ? at.x : this.pos.x + this.fwd.x * this.hull.L * 0.45, z = at ? at.z : this.pos.z + this.fwd.z * this.hull.L * 0.45;
@@ -5260,12 +5273,44 @@ export class Boat {
       // kilonewton at least). In a blow it waits for a lull.
       // (And while it's hauled, the rope pulls her bow down no harder than that: see rope.hold
       // below, and hydro.js rodeForce.)
-      const pull = A.rope?.out?.pull || 0;
-      if (pull < haulHold(b.m)) A.out = Math.max(0, A.out - 2.4 * dt);
-      // (Hauled in till it's straight up and down: it breaks out and comes up to the bow.)
-      if (A.out < bowY - A.floor + 0.8) {
-        A.y = Math.min(bowY, A.y + Math.max(2.4, A.depth / 3) * dt);
-        if (A.y >= bowY - 0.05) {
+      const o = A.rope?.out, pull = o?.pull || 0, heave = haulHold(b.m);
+      if (pull < heave) A.out = Math.max(0, A.out - 2.4 * dt);
+      // It comes out of the bottom when the pull on it beats what it holds, pulled at the angle the
+      // rope lifts it (anchoring.js breakoutHold): as she's drawn up over it the rope steepens, and
+      // past 35° at its shank it holds only what the bottom keeps of it. The pull on it is the rope's
+      // there, no more than the hauler heaves; straight up and down, the hauler's heave less the
+      // rope's weight. (Before, it came out wherever the rope was up and down, dug in or not.)
+      const upDown = A.out < bowY - A.floor + 0.8;
+      if (!A.free && A.y <= A.floor + 0.01) {
+        const R0 = A.R || rodeOf(this.anchorRode, b.m), bed = (A.bed ||= anchorBottom(A.bottom, A.x, A.z));
+        let on = o ? Math.min(heave, Math.hypot(o.H || 0, o.Va || 0)) : 0;
+        if (upDown) on = Math.max(on, heave - R0.w * Math.max(0, bowY - A.floor));
+        const holds = breakoutHold(ANCHOR_HOLD * (this.anchorHold || 1) * b.m * G, bed, bed.hooked ? 1 : A.set ?? 1, upDown ? Math.PI / 2 : o?.theta || 0);
+        A.breakout = holds;
+        // (Only once the rope's lifting it: at a lower angle a pull beyond its hold drags it, or
+        // draws her up to it.)
+        if (on > holds && (upDown || liftedOut(bed, o?.theta || 0))) A.free = 'heave';
+        else if (upDown) {
+          // (More than the hauler can heave: the rope made fast short, and she lifts on the swell
+          // to snatch it out, a few seconds, longer hooked under a rock. As skippers do.)
+          if (!A.fast) this.onAnchor?.('fast', this);
+          A.fast = (A.fast || 0) + dt;
+          if (A.fast > (bed.hooked ? 8 : 4)) A.free = 'swell';
+        }
+      }
+      // Out of the bottom: hauled in along its rope (nothing on it now but its own weight, quickly),
+      // along the bottom and up to her bow, wherever she is when it came out.
+      if (A.free) {
+        A.out = Math.max(0, A.out - Math.max(0, Math.max(2.4, A.depth / 3) - 2.4) * dt);
+        const fl = b.toWorld([this.fairlead.x, this.fairlead.y, this.fairlead.z], _anw);
+        const dx = A.x - fl[0], dy = A.y - fl[1], dz = A.z - fl[2], d = Math.hypot(dx, dy, dz);
+        if (d > A.out && d > 1e-3) {
+          const k = A.out / d;
+          A.x = fl[0] + dx * k;
+          A.z = fl[2] + dz * k;
+          A.y = Math.max(solidHeight(A.x, A.z) + 0.02, fl[1] + dy * k);
+        }
+        if (A.out <= 0.3) {
           this.anchor = null;
           this.anchored = false;
           this.onAnchor?.('up', this);

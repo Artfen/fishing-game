@@ -1820,3 +1820,16 @@ Ranked by player impact, then risk and effort. ✅ done, ⏳ in progress.
 | Validation | New test in `tests/anchoring.test.mjs`: the skiff, the RIB and the console hauled up in 14–18 m, and the RIB blown back on it: up within 35 s, the rope's downward pull no more than a hauler's, her bow down less than 3.5° more than lying on it (main fails it: the skiff's bow 16.0°, 3,271 N on it) |
 | Remaining risks | The anchor still breaks out where the rope's straight up and down (the geometry, as before), not by what it holds pulled upward; in a real breeze her bow goes down 3° more than the seas pitch her lying on it, as she's drawn up into them |
 
+### Boats: an anchor comes out of the bottom by what it holds (B6's follow-up)
+
+| Field | |
+| --- | --- |
+| System | `src/anchoring.js` (`breakoutHold`: what it holds pulled out, by the angle, never below what the bottom keeps overhead, `BOTTOMS.out`; hooked, whichever way; `liftedOut`); `src/boat.js` (`holdAnchor`: out when the pull on it, no more than a hauler heaves, beats that; made fast and snatched out on the swell when it's more; hauled in along its rope); `src/main.js` (what the game says when it won't come) |
+| Previous issue | Hauled in, the anchor came out wherever the rope was straight up and down, dug in or not, hooked under a rock or not, and rose straight up from where it lay |
+| Change | Out of the bottom when the pull on it beats what it holds at the angle the rope lifts it, as dug in as it is; more than a hauler heaves, made fast short and snatched out as she lifts on the swell; then hauled in along its rope to her bow |
+| Player benefit | A well dug-in or fouled anchor takes more to free, and the game says how you're freeing it |
+| Before | Every anchor out when straight up and down |
+| After | RIB in 14–18 m: barely set, out at 66 N by hand; dug in, 192 N by hand; hooked under a rock, 1,902 N, more than a hauler heaves: made fast, out on the swell after 8 s |
+| Validation | New tests in `tests/anchoring.test.mjs`: what an anchor holds pulled out (by the angle, never below the bottom's share overhead, mud's most; hooked, the same every way; lifted past 24.5°); live, hauled in barely set, dug in and hooked: out by the heave for the first two, the dug-in one at a firmer pull; made fast and out on the swell for the hooked one; each in along its rope to her bow, never through the bottom |
+| Remaining risks | The shares of what the bottom keeps are the game's numbers, in a plausible order, not measured; a barely set anchor now comes out before she's drawn right over it |
+

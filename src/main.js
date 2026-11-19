@@ -3111,6 +3111,9 @@ eachBoat((b) => {
     else if (what === 'bite') {
       // (On rock it's caught or skidding, as it said going down: nothing to dig into.)
       if (bed.kind !== 'rock') hud.flash(bed.hold < 0.5 ? 'It’s holding, just: a poor bottom for an anchor, so keep an eye on your marks' : 'It’s dug in: she’s holding, head to the wind and tide', t, 3.5);
+    } else if (what === 'fast') {
+      // (More than a hauler can heave out of the bottom: see Boat.holdAnchor.)
+      hud.flash(bed.hooked ? 'It won’t come: it’s fouled under the rock. You make the rope fast, short, and let her lift on the swell to snatch it free…' : 'It won’t come: it’s dug in hard. You make the rope fast, short, and let her lift on the swell to break it out…', t, 4.5);
     } else if (what === 'drag') {
       // (Before B6 this fell to the "Anchor up" below.)
       haptics.pulse('warn', 1.5);
