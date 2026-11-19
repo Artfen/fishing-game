@@ -57,6 +57,18 @@ until a second tap, or until anything wants you: land or the shallows ahead, ano
 a fish on, something met along the way, the weather turning, the boat stopping. The HUD says so.
 Not while playing together (the time is the host's).
 
+*W2 done.* A tap of T (`main.js` `toggleFast`) when it may (`fastWhy`): in a boat under way, on her
+autopilot or under sail, on a long run (the crossing, the coast north or back, or out at a far sea),
+with no land within 120 m nor land or shallows within 380 m ahead, no other boat within 150 m, no
+line out, no water in her, no gale, not playing together. Then each frame runs four whole steps of
+the world (the frame loop keeps the game's time ahead of the wall clock), so the voyage goes four
+times as fast and everything on it happens as it would. Checked twice a second: it drops back to
+normal time, and says why, for anything on that list, and for anything met along the way on the
+crossing; a second tap ends it. The frame-rate watcher leaves those heavier frames alone (four steps
+a frame aren't a slow computer). Played in the browser on the crossing in the trawler: four times
+the distance and four times the game's hours in the same real seconds; back to normal time when
+she stopped; refused off the Ness with the land ahead.
+
 **W3, far coordinates kept in range, and the whole chart.** A test that every sea, its tiles and
 its charts lie within the range where the shaders keep home's precision; and a chart of the whole
 world (home, the crossing, Las Brasas, the coast north and the isles) to see where everything is,

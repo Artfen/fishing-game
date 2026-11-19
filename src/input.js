@@ -24,7 +24,7 @@ export const ACTIONS = [
   { id: 'keep', label: 'Keep a fish (on the catch card)', keys: ['KeyK'], group: 'Fishing' },
   { id: 'advice', label: 'Why aren’t they biting? (what the field guide makes of your rig)', keys: ['KeyY'], group: 'Fishing' },
   { id: 'interact', label: 'Step ashore · board · camp · look closer', keys: ['KeyE'], group: 'Around' },
-  { id: 'rest', label: 'Let time drift (hold)', keys: ['KeyT'], group: 'Around' },
+  { id: 'rest', label: 'Let time drift (hold); on passage, speed it up (tap)', keys: ['KeyT'], group: 'Around' },
   { id: 'anchor', label: 'Mooring: drop or raise the anchor · tie up alongside · cast off · let go a tow (as the prompt says)', keys: ['KeyZ'], group: 'Boats' },
   { id: 'neutral', label: 'Motor to neutral (stop)', keys: ['KeyX'], group: 'Boats' },
   { id: 'trolling', label: 'The bow trolling motor: deploy it, or stow it (by hand at the bow, or the self-stowing motor from anywhere)', keys: ['Comma'], group: 'Boats' },

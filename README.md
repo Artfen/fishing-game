@@ -94,6 +94,7 @@ With a keyboard and mouse (every key below can be changed in **Settings → Cont
 | Y | Why aren't they biting? A word from the field guide on what the fish make of your rig (again for the next reason) |
 | N | Show or hide the conditions panel: wind, current and sea where you are |
 | T (hold) | Let time drift by quickly |
+| T (tap, on passage) | Speed the voyage up four times (the crossing, or the coast north), or back down |
 | H | Hide the interface |
 | P | Photo mode (take a photograph); on a catch card, a picture of your fish |
 | 5 | Binoculars: watch the birds and the sea life far off; hold one steady in the middle and it's named and noted (also from photo mode) |
@@ -220,6 +221,8 @@ Nine kilometres up the coast from Willow Bay, out past Heron Point and the Calf,
 - **The fish**: the north's own, the **Atlantic cod**, **saithe** (shoals in the race), **ling** (deep rock and wrecks), **haddock** and the **flapper skate** (huge, on the loch's mud ninety metres down: critically endangered, it goes back); and the home coast's cold-water fish (pollack, Ballan wrasse, conger, catshark, mackerel, thornback, plaice, turbot, gurnard). The sea runs about 8°C to 13°C through the year.
 - **Its life**: a minke whale round the isles, common dolphins along the west coast, puffins, razorbills, fulmars, shags, a peregrine and ravens, eiders in the sound.
 - **The weather**: the westerlies off the Atlantic, a little fresher than at home: the islands' west sides are the weather side, the sound and the loch the lee.
+
+**On passage, sped up.** On a long run (the crossing to Las Brasas or home, the coast north or back), under way on the autopilot or under sail, in open water clear of the land, a tap of **T** runs the world four times as fast, the boat with it: everything still happens (the sea, the wind, what's met along the way), only sooner. It drops back to normal time by itself for anything that needs you (land or shallows ahead, another boat near, something met along the way, a fish on, the weather turning, the boat stopping), or at another tap. Not while playing together: the time is the host's.
 
 The isles have their own chart, filling in as you explore, and the coast up to them has a printed one. Up there you're a long way from Willowhaven: the offshore warnings count the way back to Halvig, a tow takes you into Halvig pier, no rescue calls come, and home's camps and the car are only reached by the passage home.
 

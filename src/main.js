@@ -5702,6 +5702,54 @@ let stormWas = 0, stormWarnT = 0, lastPitch = 0, slamT = 0;
 // offshore.js turnForHome), each said once an outing; and anywhere afloat, a sea too rough for
 // the boat you're in (the storm's own word covers the little boats in a blow: see below).
 let offshoreT = 0, offshoreSaid = {}, roughSaidT = -1e9;
+// The passage speed-up (W2, docs/WORLD.md): on a long run under way, on the autopilot or under sail,
+// in open water clear of the land, a tap of the rest key (T) runs the world four times as fast until
+// another tap, or until something wants you. fastWhy(): why not, or null.
+const FAST_K = 4;
+let fastPassage = false, fastCheckT = 0;
+function fastWhy() {
+  if (!started || modal || sleeping || passage || dive || driving || onFoot) return 'not now';
+  if (clock.following || together.active) return 'playing together, the time is the host\'s';
+  if (fishing.lineOut || fishing.busy) return 'a line in the water';
+  if (!boat || boat.anchored || boat.tie || boat.speed < 1.5) return 'she\'s stopped';
+  const sailing = boat.hull.sail && boat.sailUp;
+  if (!(pilot.on && pilot.id === boat.id) && !sailing) return 'nobody steering: the autopilot first';
+  if (Math.max(weather.storm, conditions.sea.storm) > 0.4) return 'the weather';
+  if ((boat.flooding?.litres || 0) > 5) return 'water in her';
+  const P = boat.pos;
+  // (A long run: the crossing, up the coast or back, or out among a far sea's islands; not round home.)
+  if (!state.crossing && !inOcean(P.x, P.z) && region === 'home' && !northWaters(P.x, P.z)) return 'not on passage';
+  if (landSDF(P.x, P.z) < 120) return 'land close by';
+  const fx = Math.sin(boat.heading), fz = Math.cos(boat.heading);
+  for (const d of [60, 150, 260, 380]) {
+    const x = P.x + fx * d, z = P.z + fz * d;
+    if (landSDF(x, z) < 70 || solidHeight(x, z) > -6) return 'land or shallows ahead';
+  }
+  if (boats.some((o) => o !== boat && !o.stowed && Math.hypot(o.pos.x - P.x, o.pos.z - P.z) < 150) || (visitors.boats?.() || []).some((o) => Math.hypot((o.pos?.x ?? o.x) - P.x, (o.pos?.z ?? o.z) - P.z) < 200)) return 'another boat near';
+  return null;
+}
+function toggleFast() {
+  if (fastPassage) return stopFast('as you like it');
+  const why = fastWhy();
+  if (why) {
+    hud.flash(`Not to be hurried: ${why}.`, t, 2.5);
+    return;
+  }
+  fastPassage = true;
+  hud.flash(`Time on passage runs four times as fast (${input.keyLabel('rest')} again for normal time). It slows by itself for anything that needs you.`, t, 4);
+}
+function stopFast(why) {
+  if (!fastPassage) return;
+  fastPassage = false;
+  hud.flash(`Back to normal time: ${why}.`, t, 3);
+}
+// (Every half second of the game's time while it's sped up: still all right to be?)
+function watchFast(dt) {
+  if (!fastPassage || (fastCheckT -= dt) > 0) return;
+  fastCheckT = 0.5;
+  const why = fastWhy();
+  if (why) stopFast(why);
+}
 const HARBOURS = [{ x: HAVEN.x, z: HAVEN.z, name: 'Willowhaven' }, { x: HALVIG_PIER.land.x, z: HALVIG_PIER.land.z, name: 'Halvig' }, { x: PUERTO_AT.x, z: PUERTO_AT.z, name: 'Puerto Brasa' }];
 function watchOffshore(dt) {
   offshoreT -= dt;
@@ -8102,6 +8150,8 @@ function updateCrossing(dt) {
 
 // What's met along the way, brought to just off the bow where you'll see it.
 function meet(ev, B) {
+  // (Something met along the way: back to normal time to see it.)
+  stopFast('something met along the way');
   const side = Math.random() < 0.5 ? 1 : -1, sideWord = side > 0 ? 'starboard' : 'port';
   const at = (ahead, across) => ({ x: B.pos.x + B.fwd.x * ahead + B.right.x * across * side, z: B.pos.z + B.fwd.z * ahead + B.right.z * across * side });
   const heading = Math.atan2(B.fwd.x, B.fwd.z);
@@ -13579,6 +13629,11 @@ function closeJournal() {
 
 input.on('press', (code, acts) => {
   const is = (a) => acts.includes(a);
+  // (W2) On passage, under way and steered: the rest key speeds the voyage up, or back down.
+  if (is('rest') && started && !modal && (fastPassage || !fastWhy())) {
+    toggleFast();
+    return;
+  }
   if (!started) {
     // (The opening questions, the name and how you like to play: Esc or B answers them.)
     if (!$('confirm').hidden) {
@@ -14067,18 +14122,20 @@ function tick(now, manual = false) {
   conditions.time = t;
   navLights.begin();
   watchRegion();
+  watchFast(dt);
   deliverShipping();
   // (At Las Brasas before El Bajón was there to find: a word about it, once, a moment after you
   // start.)
   if (started && region === 'south' && !modal && !passage && !state.places.bajon && state.tips.brasa && t > 8) {
     teach('bajonNews', 'New at Las Brasas: El Bajón, a lava reef under a yellow buoy west of the harbour mouth. See it from the boat, or dive it.', 12);
   }
-  if (!manual) watchFrameRate(rawDt);
+  // (Not while sped up on passage: four steps a frame aren't a slow computer.)
+  if (!manual && !fastPassage) watchFrameRate(rawDt);
   pads.poll(dt);
   feelFrame(dt);
 
   // (Not in the water: time can't drift by on one breath, or a tank.)
-  const wantsRest = started && (!modal || modal === 'camp') && input.resting && !dive;
+  const wantsRest = started && (!modal || modal === 'camp') && input.resting && !dive && !fastPassage;
   // (Playing together, time is the host's to pass: see timeIsHosts.)
   if (wantsRest && clock.following && !restRefused) {
     restRefused = true;
@@ -14920,9 +14977,24 @@ function lookOfTheHour() {
 }
 
 // (The next frame asked for first, so one that throws is reported and the game goes on: loop.js.)
+// (W2, docs/WORLD.md) On passage, sped up: FAST_K steps of the world each frame, every one of them
+// whole (the physics, the sea, the wind, what's met); the game's time runs ahead of the clock on
+// the wall by `ahead` (ms).
+let ahead = 0;
 const frame = frameLoop(requestAnimationFrame, (now) => {
-  if (!window.slowTide?.paused) tick(now);
-  else last = now;
+  if (window.slowTide?.paused) {
+    last = now + ahead;
+    return;
+  }
+  const k = fastPassage ? FAST_K : 1;
+  if (k > 1) {
+    const step = Math.min(Math.max(0, now + ahead - last), 50);
+    for (let i = 1; i < k && fastPassage; i++) {
+      tick(last + step, true);
+      ahead += step;
+    }
+  }
+  tick(now + ahead);
 });
 
 $('loading')?.remove();
@@ -14967,6 +15039,8 @@ window.slowTide = {
   crossing: () => state.crossing,
   get region() { return region; },
   // Put yourself ashore at (x, z), e.g. slowTide.walkTo(-99, -2) for camp.
+  // (W2) The passage speed-up: slowTide.fast.toggle(), .on, .why() (null when it may).
+  fast: { toggle: () => toggleFast(), get on() { return fastPassage; }, why: () => fastWhy(), pilot: () => pilotToggle(), get ahead() { return ahead; } },
   walkTo: (x, z, heading = walker.heading) => {
     walker.place(x, z, heading);
     if (!onFoot) setFoot(true);
