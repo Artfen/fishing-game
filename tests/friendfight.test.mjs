@@ -12,7 +12,7 @@ globalThis.document ??= { createElement: () => ({ width: 0, height: 0, getContex
 
 const { cleanPose, FISH_MOVES } = await import('../src/together.js');
 const { VisitorView } = await import('../src/world/visitors.js');
-const { fishById } = await import('../src/fish.js');
+const { fishById, girthOf } = await import('../src/fish.js');
 
 test('what a friend sends of the fish on their line: what it is, how big, landed; junk thrown out; a long run still shown', () => {
   const base = { m: 'boat', k: 'console', x: 100, z: 400, h: 0, f: true, o: true, r: 'biggame', ex: 160, ez: 420, tn: 0.6 };
@@ -93,9 +93,11 @@ test('watching a friend’s fight: the take, the fish itself in the air as it le
   assert.ok(marlin.leapDrops > bass.leapDrops && bass.leapDrops > mack.leapDrops, `${marlin.leapDrops} ${bass.leapDrops} ${mack.leapDrops}`);
   // A marlin walks on its tail and greyhounds: more small splashes, and several crashes back in.
   assert.ok(marlin.fx.log.splashes.filter((s) => s.spread < 0.8).length > 3);
-  // Drawn as itself, and the right size.
+  // Drawn as itself, and the right size: its true length (3 m: the model is a metre long), as
+  // deep and thick as a marlin of that length is (docs/FISH.md).
   assert.equal(marlin.d.fishMesh.userData.sp, 'bluemarlin');
-  assert.ok(Math.abs(marlin.d.fishMesh.scale.x - 3 * fishById.bluemarlin.visual) < 1e-6);
+  const S = marlin.d.fishMesh.scale, g = girthOf(fishById.bluemarlin, 300);
+  assert.ok(Math.abs(S.z - 3) < 1e-6 && Math.abs(S.x - 3 * g) < 1e-6 && Math.abs(S.y - 3 * g) < 1e-6, `${S.x} ${S.y} ${S.z}`);
 });
 
 test('come by mid-fight and there’s no take to see; their splashes you hear only near enough', () => {

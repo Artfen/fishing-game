@@ -28,7 +28,6 @@ export const FISH = [
     name: 'Glassminnow',
     water: 'salt',
     size: [5, 10],
-    visual: 3.6,
     strength: 0.3,
     reel: 0.34,
     pull: 0.15,
@@ -58,7 +57,6 @@ export const FISH = [
     name: 'Sunperch',
     water: 'salt',
     size: [12, 26],
-    visual: 2.0,
     strength: 0.65,
     reel: 0.2,
     pull: 0.9,
@@ -88,7 +86,6 @@ export const FISH = [
     name: 'Drizzlefin',
     water: 'salt',
     size: [30, 58],
-    visual: 1.5,
     strength: 1.0,
     reel: 0.15,
     pull: 3.2,
@@ -118,7 +115,6 @@ export const FISH = [
     name: 'Duskfin',
     water: 'salt',
     size: [24, 44],
-    visual: 1.5,
     strength: 0.85,
     reel: 0.13,
     pull: 2.4,
@@ -148,7 +144,6 @@ export const FISH = [
     name: 'Mossback',
     water: 'salt',
     size: [55, 95],
-    visual: 1.25,
     strength: 1.45,
     reel: 0.115,
     pull: 7.5,
@@ -179,7 +174,6 @@ export const FISH = [
     name: 'Perch',
     water: 'fresh',
     size: [12, 40],
-    visual: 1.8,
     strength: 0.7,
     reel: 0.2,
     pull: 1.3,
@@ -209,7 +203,6 @@ export const FISH = [
     name: 'Pike',
     water: 'fresh',
     size: [45, 105],
-    visual: 1.3,
     strength: 1.35,
     reel: 0.11,
     pull: 6.5,
@@ -239,7 +232,6 @@ export const FISH = [
     name: 'Mirror Carp',
     water: 'fresh',
     size: [40, 88],
-    visual: 1.3,
     strength: 1.6,
     reel: 0.1,
     pull: 8.5,
@@ -268,7 +260,6 @@ export const FISH = [
     name: 'Rudd',
     water: 'fresh',
     size: [10, 28],
-    visual: 2.2,
     strength: 0.4,
     reel: 0.28,
     pull: 0.5,
@@ -299,7 +290,6 @@ export const FISH = [
     name: 'Brown Trout',
     water: 'fresh',
     size: [20, 55],
-    visual: 1.6,
     strength: 0.95,
     reel: 0.15,
     pull: 2.6,
@@ -329,7 +319,6 @@ export const FISH = [
     name: 'Grayling',
     water: 'fresh',
     size: [20, 40],
-    visual: 1.7,
     strength: 0.6,
     reel: 0.2,
     pull: 1.1,
@@ -360,7 +349,6 @@ export const FISH = [
     water: 'fresh',
     wt: 0.017,
     size: [25, 60],
-    visual: 1.35,
     strength: 1.2,
     reel: 0.12,
     pull: 3.4,
@@ -389,7 +377,6 @@ export const FISH = [
     water: 'fresh',
     wt: 0.012,
     size: [10, 32],
-    visual: 2.1,
     strength: 0.45,
     reel: 0.26,
     pull: 0.55,
@@ -418,7 +405,6 @@ export const FISH = [
     water: 'fresh',
     wt: 0.014,
     size: [25, 58],
-    visual: 1.45,
     strength: 1.1,
     reel: 0.13,
     pull: 3.4,
@@ -449,7 +435,6 @@ export const FISH = [
     water: 'salt',
     wt: 0.0115,
     size: [30, 75],
-    visual: 1.35,
     strength: 1.25,
     reel: 0.12,
     pull: 4.6,
@@ -479,7 +464,6 @@ export const FISH = [
     water: 'salt',
     wt: 0.0115,
     size: [30, 62],
-    visual: 1.35,
     strength: 1.35,
     reel: 0.12,
     pull: 3.9,
@@ -508,7 +492,6 @@ export const FISH = [
     water: 'salt',
     wt: 0.016,
     size: [25, 55],
-    visual: 1.4,
     strength: 1.15,
     reel: 0.13,
     pull: 3.2,
@@ -538,7 +521,6 @@ export const FISH = [
     water: 'salt',
     wt: 0.0062,
     size: [24, 42],
-    visual: 1.6,
     strength: 0.75,
     reel: 0.2,
     pull: 1.1,
@@ -571,7 +553,6 @@ export const FISH = [
     water: 'salt',
     wt: 0.012,
     size: [20, 45],
-    visual: 1.5,
     strength: 0.75,
     reel: 0.18,
     pull: 1.4,
@@ -601,7 +582,6 @@ export const FISH = [
     water: 'salt',
     wt: 0.011,
     size: [25, 55],
-    visual: 1.45,
     strength: 0.85,
     reel: 0.16,
     pull: 1.9,
@@ -631,7 +611,6 @@ export const FISH = [
     water: 'salt',
     wt: 0.006,
     size: [8, 15],
-    visual: 3.2,
     strength: 0.3,
     reel: 0.34,
     pull: 0.15,
@@ -662,7 +641,6 @@ export const FISH = [
     water: 'salt',
     wt: 0.02,
     size: [95, 175],
-    visual: 1.0,
     strength: 2.3,
     reel: 0.07,
     pull: 52,
@@ -693,7 +671,6 @@ export const FISH = [
     water: 'salt',
     wt: 0.085, wtPow: 2.5,
     size: [12, 38],
-    visual: 2.2,
     strength: 0.8,
     reel: 0.2,
     pull: 1.3,
@@ -724,7 +701,6 @@ export const FISH = [
     water: 'salt',
     wt: 0.0098,
     size: [45, 140],
-    visual: 1.2,
     strength: 1.7,
     reel: 0.085,
     pull: 13,
@@ -754,7 +730,6 @@ export const FISH = [
     water: 'salt',
     wt: 0.0145,
     size: [20, 60],
-    visual: 1.35,
     strength: 1.3,
     reel: 0.12,
     pull: 4.2,
@@ -784,7 +759,6 @@ export const FISH = [
     water: 'salt',
     wt: 0.0085,
     size: [20, 50],
-    visual: 1.5,
     strength: 0.8,
     reel: 0.17,
     pull: 1.6,
@@ -815,7 +789,6 @@ export const FISH = [
     water: 'salt',
     wt: 0.25, wtPow: 2.6,
     size: [10, 35],
-    visual: 2.0,
     strength: 0.9,
     reel: 0.18,
     pull: 1.6,
@@ -886,8 +859,59 @@ for (const f of FISH) {
 }
 export const fishById = Object.fromEntries(FISH.map((f) => [f.id, f]));
 
-// Bigger fish are rarer.
-export const rollSize = (f) => Math.round(lerp(f.size[0], f.size[1], Math.pow(Math.random(), 1.7)));
+// (F5, docs/FISH.md) The giants: in many kinds a few fish grow well past the sizes most reach
+// (the range above, the one the game's tackle and fights are made for), up to about the biggest
+// ever measured, rounded down (FishBase's maximum lengths, cm; never past the register's own,
+// register.js: tests/fishsize.test.mjs holds them to it). [share of the fish, biggest cm]. A giant
+// pulls harder for its bulk and lasts longer (fight.js), and is drawn as big as it is.
+export const GIANTS = {
+  tuna: [0.03, 300], yellowfin: [0.03, 210], albacore: [0.03, 130], littletunny: [0.02, 105], bonito: [0.02, 85],
+  bluemarlin: [0.03, 430], sailfish: [0.03, 310], spearfish: [0.03, 240], wahoo: [0.03, 220], dorado: [0.03, 185],
+  blueshark: [0.03, 360], mako: [0.03, 380], hammerhead: [0.02, 400], angelshark: [0.02, 220], skate: [0.03, 260],
+  conger: [0.03, 250], ling: [0.03, 190], cod: [0.03, 150], hake: [0.03, 120], saithe: [0.03, 120], pollack: [0.03, 115],
+  meagre: [0.03, 200], amberjack: [0.03, 185], grouper: [0.03, 150], moray: [0.02, 150], barracuda: [0.03, 150],
+  bluefish: [0.03, 115], seabass: [0.03, 95], dentex: [0.02, 100], thornback: [0.02, 110], turbot: [0.02, 90],
+  garfish: [0.02, 95], catshark: [0.02, 85], mackerel: [0.02, 55], pike: [0.03, 130], carp: [0.03, 110], eel: [0.02, 120],
+};
+for (const [id, g] of Object.entries(GIANTS)) if (fishById[id]) fishById[id].giant = g;
+
+/* ---------------- sizes (docs/FISH.md) ---------------- */
+
+// How a species' sizes run: most fish about a common size, big ones uncommon, the biggest rare.
+// A size (whole cm) from one draw u (0 … 1) of the dice, through a Kumaraswamy distribution on
+// the species' range: grow [a, b] shapes it, and by default the middle fish is a little over a
+// third of the way up the range, one in fourteen is in its top quarter and one in a hundred in
+// its top tenth (the fish of a lifetime). One draw, whatever the shape, so no fish moves.
+export const GROW = [1.3, 2.24];
+const kuma = (u, a, b) => Math.pow(1 - Math.pow(1 - u, 1 / b), 1 / a);
+// (F5) A species with giants (see GIANTS): the last few draws are fish past its usual range, most
+// of them just past it and the biggest rare, as big as the species is ever measured. The rest
+// run as before, over the usual range.
+export function sizeAt(f, u) {
+  const [a, b] = f.grow || GROW, [lo, hi] = f.size, G = f.giant;
+  u = Math.min(Math.max(u, 0), 0.999999);
+  if (G && u > 1 - G[0]) return Math.round(hi + (G[1] - hi) * kuma((u - (1 - G[0])) / G[0], a, b));
+  return Math.round(lo + (hi - lo) * kuma(G ? u / (1 - G[0]) : u, a, b));
+}
+// The biggest a fish of this kind can be: its giants', else the top of its usual range.
+export const biggest = (f) => f.giant?.[1] ?? f.size[1];
+// How long a species' model is (units, nose to tail-tip): the anatomical ones are made one unit
+// long; the older ones of the lakes and rivers measure 1.267 (tests/fishsize.test.mjs measures
+// them). A fish of size cm is drawn size/100 m long, its true length, by this scale.
+export const PROC_LENGTH = 1.267;
+export const drawnLength = (f) => (hasAnatomy(f.id) ? 1 : PROC_LENGTH);
+export const scaleOf = (f, size) => size / 100 / drawnLength(f);
+// Its girth (across and deep, against its length) for its build: as deep and thick as its weight
+// says. Its condition is in its weight (weightOf × condition), so in its girth by the square root;
+// and where a species fills out as it grows (wtPow over 3), the big ones are deeper for their
+// length, measured from the middle of its range.
+export function girthOf(f, size, condition = 1) {
+  const mid = (f.size[0] + f.size[1]) / 2;
+  return Math.sqrt(condition) * Math.pow(size / mid, ((f.wtPow ?? 3) - 3) / 2);
+}
+// Its tail's pace against a fish of 45 cm: a big fish swims with slow sweeps of its tail, a small
+// one flickers (a tail beat's frequency goes about as speed over length).
+export const tempoOf = (size) => Math.min(1.5, Math.max(0.35, Math.pow(45 / size, 0.45)));
 
 // About how much a fish of this length weighs (kg), from its shape: wt × length^3 grams.
 export const weightOf = (f, size) => Math.max(0.01, ((f.wt ?? 0.011) * Math.pow(size, f.wtPow ?? 3)) / 1000);

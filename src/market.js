@@ -133,7 +133,7 @@ export function sizePrice(sp, size) {
 export function fishValue(f, { day, now, place = 'haven' } = {}) {
   const sp = fishById[f.id];
   if (!sp || f.cooked || !buyers[place](sp)) return { price: 0, kg: 0, each: 0, fresh: 1, demand: null, season: 1, prime: false, wanted: false, imported: false };
-  const kg = weightOf(sp, f.size);
+  const kg = f.kg ?? weightOf(sp, f.size); // (its own weight: see shop.js keptKg)
   const D = demandFor(day, place);
   const demand = D.wanted.includes(sp.id) ? 'wanted' : D.plenty.includes(sp.id) ? 'plenty' : null;
   const season = place === 'haven' ? seasonPrice(sp, now) : 1;

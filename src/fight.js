@@ -219,7 +219,11 @@ const approach = (v, target, up, down, dt) => (v < target ? Math.min(target, v +
 export function newFight(sp, size, rod, diff, cover = false, rnd = Math.random, who = {}) {
   const sizeK = clamp((size - sp.size[0]) / Math.max(1, sp.size[1] - sp.size[0]), 0, 1);
   const vigour = who.vigour ?? 1;
-  const force = sp.pull * (0.35 + 0.65 * sizeK) * diff.force * vigour; // kg, when fresh
+  // (F5, docs/FISH.md) A giant, past its kind's usual sizes (over: how far, as a ratio of
+  // lengths), pulls harder for its bulk (a fish's pull goes about as its muscle's cross-section:
+  // length to the power 1.5 to 2; 1.5 here) and lasts longer (its strength, as its length).
+  const over = Math.max(1, size / sp.size[1]);
+  const force = sp.pull * (0.35 + 0.65 * sizeK) * diff.force * vigour * Math.pow(over, 1.5); // kg, when fresh
   const level = who.level || { throwHook: 0, pull: 0 };
   // The hook-set: a hook in the scissors holds; one just nicked in the lip has a light hold (a soft
   // mouth, a hake's, more often than not). Line that stretches soaks up the strike at long range,
@@ -259,7 +263,7 @@ export function newFight(sp, size, rod, diff, cover = false, rnd = Math.random, 
     style: FIGHT_STYLES[sp.fight] || FIGHT_STYLES.steady,
     force,
     ratio: force / rod.line.kg,            // pull against the line's breaking strain
-    strength: sp.strength * (0.85 + sizeK * 0.35),
+    strength: sp.strength * (0.85 + sizeK * 0.35) * over,
     reel: sp.reel * rod.power,
     stamina: 1,
     progress: 0,

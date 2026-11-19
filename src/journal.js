@@ -496,7 +496,7 @@ export class Journal {
       return art;
     }
     if (rec) {
-      text.append(el('p', 'j-meta', `${rec.count} caught · best ${rec.best} cm (${weightText(weightOf(f, rec.best))}) · ${f.where}`));
+      text.append(el('p', 'j-meta', `${rec.count} caught · best ${rec.best} cm${rec.heaviest ? ` · heaviest ${weightText(rec.heaviest)}` : ` (${weightText(weightOf(f, rec.best))})`} · ${f.where}`));
       text.append(el('p', 'j-meta', `First caught ${ZONE_WORDS[rec.firstZone] || ''} at ${formatClock(rec.firstHour)}${rec.firstRain ? ', in the rain' : ''}`));
       // What has worked: written down as you learn it.
       const on = this.state.caughtOn?.[f.id];
@@ -591,7 +591,7 @@ export class Journal {
     $('log-summary').textContent = summary.join(' ');
 
     // The heaviest catch in the log (its weight worked out from its length).
-    const kg = (e) => weightOf(fishById[e.sp], e.size);
+    const kg = (e) => e.weight ?? weightOf(fishById[e.sp], e.size);
     const best = log.reduce((b, e) => (!b || kg(e) > kg(b) ? e : b), null);
     const bestEl = $('log-best');
     bestEl.replaceChildren();
@@ -617,7 +617,7 @@ export class Journal {
     const rows = caught.map((f) => {
       const rec = st.fish[f.id], lg = logged[f.id];
       const row = el('div', 'j-sp');
-      row.append(el('strong', '', f.name), el('span', 'j-n', `${rec.count} caught · best ${rec.best} cm, ${weightText(weightOf(f, rec.best))}`));
+      row.append(el('strong', '', f.name), el('span', 'j-n', `${rec.count} caught · best ${rec.best} cm${rec.heaviest ? ` · heaviest ${weightText(rec.heaviest)}` : `, ${weightText(weightOf(f, rec.best))}`}`));
       if (lg?.best) {
         const b = lg.best;
         const older = rec && rec.best > b.size ? ` (your ${rec.best} cm best was before the log began)` : '';
@@ -650,7 +650,7 @@ export class Journal {
       const f = fishById[e.sp];
       const li = el('li');
       const top = el('div', 'l-top');
-      const name = el('strong', '', `${f?.name || e.sp} · ${e.size} cm${f ? ` · ${weightText(weightOf(f, e.size))}` : ''}`);
+      const name = el('strong', '', `${f?.name || e.sp} · ${e.size} cm${f ? ` · ${weightText(e.weight ?? weightOf(f, e.size))}` : ''}`);
       name.append(el('span', `l-tag ${e.outcome}`, OUTCOME_WORDS[e.outcome]));
       top.append(name, el('span', 'l-when', Journal.whenText(e)));
       li.append(top, el('div', 'l-info', `${Journal.whereText(e)} · ${Journal.howText(e)}`), el('div', 'l-info l-cond', Journal.conditionsText(e)));

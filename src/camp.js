@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { fishById, buildFishGeometry, fishMaterial } from './fish.js';
+import { fishById, buildFishGeometry, fishMaterial, scaleOf } from './fish.js';
 import { formatClock } from './world/sky.js';
 import { clamp, smoothstep } from './util.js';
 import { creelWords, creelGroups, groupWords } from './shop.js';
@@ -253,7 +253,7 @@ export class Camp {
     m.visible = true;
     m.position.copy(this.world.grillPos);
     m.position.y += 0.04;
-    m.scale.setScalar(Math.min((show.size / 100) * sp.visual, 0.75));
+    m.scale.setScalar(Math.min(scaleOf(sp, show.size), 0.75));
     const done = c.cooking ? clamp((this.abs() - c.cooking.start) / c.cooking.dur, 0, 1) : 1;
     browned(m, done);
   }
