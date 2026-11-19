@@ -381,8 +381,11 @@ The next brief, worked through in order, each step merged to main once it's test
    you're under way. Browser-checked both ways. Full stays the default for now; Clean could become
    the default for new players once it's had some play.
 4. The story's next place on the marker now says *Story*, not *Job*.
-5. *Still to do from stage 7*: recorded sound (each file's licence checked and kept: needs people,
-   not just code).
+5. **Recorded sound: done** (`docs/SOUND.md`): real recordings under the made sound for texture
+   (the shore calm and rough, the harbours' halyards and gulls, the rain, a herring gull's call),
+   public domain or CC0 only, each file's source and licence kept beside it and held by a test;
+   under 1 MB, stored with the game. More would want a person's ear (the engine, the reel, the
+   inn's talk are still made in code, and good recordings of them are rarely free).
 
 ## Stage 8: the desktop build (November 2026)
 

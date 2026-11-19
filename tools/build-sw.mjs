@@ -26,6 +26,7 @@ const INCLUDE = [
   'vendor/three/three.module.min.js',
   'assets/fonts',
   'assets/icons',
+  'assets/sounds',
 ];
 const SKIP = /\.(txt|md)$/;
 

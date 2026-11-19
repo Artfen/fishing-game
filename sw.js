@@ -11,7 +11,7 @@
 // - It never touches saved games: those live in the browser's local storage, not here.
 
 // <precache> Written by tools/build-sw.mjs: do not edit by hand.
-const VERSION = '7698e7d79879';
+const VERSION = '4f0bf64919ea';
 const FILES = [
   './index.html',
   './style.css',
@@ -152,6 +152,7 @@ const FILES = [
   './src/sonar.js',
   './src/sonarRead.js',
   './src/sonarUnit.js',
+  './src/soundFiles.js',
   './src/southFish.js',
   './src/spray.js',
   './src/stores.js',
@@ -247,6 +248,14 @@ const FILES = [
   './assets/icons/icon-192.png',
   './assets/icons/icon-512.png',
   './assets/icons/icon-maskable-512.png',
+  './assets/sounds/gull-1.mp3',
+  './assets/sounds/gull-2.mp3',
+  './assets/sounds/gull-3.mp3',
+  './assets/sounds/gull-4.mp3',
+  './assets/sounds/harbour.mp3',
+  './assets/sounds/rain.mp3',
+  './assets/sounds/shore-calm.mp3',
+  './assets/sounds/shore-rough.mp3',
 ];
 // </precache>
 
