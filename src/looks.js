@@ -32,9 +32,9 @@ export const DEFAULT_LOOK = {
 };
 // The words for the choices that aren't colours.
 export const LOOK_WORDS = {
-  hat: { sun: $t('Sun hat'), cap: 'Cap', beanie: 'Beanie', bucket: $t('Bucket hat'), flatcap: $t('Flat cap'), hair: $t('No hat'), bun: $t('No hat, hair up') },
-  beard: { none: 'Clean-shaven', short: $t('Short beard'), full: $t('Full beard') },
-  glasses: { none: $t('No glasses'), glasses: 'Glasses', shades: 'Sunglasses' },
+  hat: { sun: $t('Sun hat'), cap: $t('Cap'), beanie: $t('Beanie'), bucket: $t('Bucket hat'), flatcap: $t('Flat cap'), hair: $t('No hat'), bun: $t('No hat, hair up') },
+  beard: { none: $t('Clean-shaven'), short: $t('Short beard'), full: $t('Full beard') },
+  glasses: { none: $t('No glasses'), glasses: $t('Glasses'), shades: $t('Sunglasses') },
 };
 
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);

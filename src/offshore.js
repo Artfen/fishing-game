@@ -65,7 +65,7 @@ export function seaFor(kind, sea) {
 // home), words } or null.
 // harbour: the nearest harbour's name, the way back (Willowhaven, unless you're up the coast or at
 // Las Brasas).
-export function turnForHome({ kind, distHome, litres = null, toGale = null, toDark = null, harbour = 'Willowhaven' }) {
+export function turnForHome({ kind, distHome, litres = null, toGale = null, toDark = null, harbour = $t('Willowhaven') }) {
   const home = runOf(kind, distHome), V = vesselOf(kind), name = V.name;
   const hrs = (h) => (h < 1 ? `${Math.max(5, Math.round((h * 60) / 5) * 5)} minutes` : `${Math.round(h * 2) / 2} hours`);
   if (litres != null && isPetrol(kind) && litres < home.litres * 1.5 + 0.5)
@@ -84,7 +84,7 @@ export function offshorePlan({ placeName, dist, kind, litres = null, toGale = nu
   const out = [], run = runOf(kind, dist), V = vesselOf(kind);
   const hrs = (h) => (h < 1 ? `${Math.max(5, Math.round((h * 60) / 5) * 5)} minutes` : `${Math.round(h * 2) / 2} hours`);
   const km = dist >= 1000 ? `${(dist / 1000).toFixed(1)} km` : `${Math.round(dist / 10) * 10} m`;
-  const fuel = isPetrol(kind) ? $t`, ${Math.ceil(run.litres * 2)} L of fuel there and back${litres != null ? ` (${Math.floor(litres)} L aboard)` : ''}` : '';
+  const fuel = isPetrol(kind) ? $t`, ${Math.ceil(run.litres * 2)} L of fuel there and back${litres != null ? $t` (${Math.floor(litres)} L aboard)` : ''}` : '';
   out.push({ ok: litres == null || !isPetrol(kind) || litres >= run.litres * 2 * 1.3, text: $t`${placeName} is ${km} away: about ${hrs(run.hours)} each way in the ${V.name}${fuel}.` });
   if (!openSea(kind)) out.push({ ok: false, text: $t`The ${V.name} is an inshore boat: a sea over ${hullOf(kind).comfort} m and she’s in trouble out there. The RIB, the centre console, the cabin boat and the yacht are made for it.` });
   if (toGale != null) out.push({ ok: toGale > run.hours * 2 + 2, text: $t`A gale is due in ${hrs(toGale)}: ${toGale > run.hours * 2 + 2 ? $t`time to get out, fish ${hrs(toGale - run.hours * 2 - 1)} and be home an hour before it` : $t('not long enough to get out there, fish and be back before it')}.` });

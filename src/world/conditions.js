@@ -685,16 +685,16 @@ export const currentScale = () => ({ natural: 1, gentle: 0.5, still: 0 })[condit
 
 /* ---------------- in words ---------------- */
 
-const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
-const COMPASS_WORDS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
+const COMPASS = [$t('N'), $t('NE'), $t('E'), $t('SE'), $t('S'), $t('SW'), $t('W'), $t('NW')];
+const COMPASS_WORDS = [$t('north'), $t('north-east'), $t('east'), $t('south-east'), $t('south'), $t('south-west'), $t('west'), $t('north-west')];
 export const compass = (rad, words = false) => (words ? COMPASS_WORDS : COMPASS)[Math.round((((rad % TAU) + TAU) % TAU) / (TAU / 8)) % 8];
 // The way a world vector points, as a compass bearing in radians.
 export const bearingOf = (x, z) => (Math.atan2(x, -z) + TAU) % TAU;
 
-const BEAUFORT = [[0.5, 'calm'], [1.6, $t('light air')], [3.4, $t('light breeze')], [5.5, $t('gentle breeze')], [8, $t('moderate breeze')], [10.8, $t('fresh breeze')], [13.9, $t('strong breeze')], [17.2, $t('near gale')], [99, 'gale']];
+const BEAUFORT = [[0.5, $t('calm')], [1.6, $t('light air')], [3.4, $t('light breeze')], [5.5, $t('gentle breeze')], [8, $t('moderate breeze')], [10.8, $t('fresh breeze')], [13.9, $t('strong breeze')], [17.2, $t('near gale')], [99, $t('gale')]];
 export const windWords = (ms) => BEAUFORT.find(([v]) => ms < v)[1];
 // Sea state from the significant wave height (m), after the Douglas scale.
-const SEA = [[0.05, 'glassy'], [0.15, 'rippled'], [0.5, 'smooth'], [1.25, 'slight'], [2.5, 'moderate'], [4, 'rough'], [99, $t('very rough')]];
+const SEA = [[0.05, $t('glassy')], [0.15, $t('rippled')], [0.5, $t('smooth')], [1.25, $t('slight')], [2.5, $t('moderate')], [4, $t('rough')], [99, $t('very rough')]];
 export const seaWords = (h) => SEA.find(([v]) => h < v)[1];
 // The wave height (m, crest to trough) you'd see at a point.
 export function waveHeightHere(x, z) {

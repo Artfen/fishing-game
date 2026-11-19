@@ -145,7 +145,7 @@ export function stepColour(c, { rain = 0, storm = 0 }, hours) {
   return Math.max(target, c * Math.exp(-hours / 8));
 }
 export const colourKey = (c) => (c < 0.15 ? 'clear' : c < 0.45 ? 'tinged' : 'coloured');
-export const colourWords = (c) => ({ clear: 'clear', tinged: $t('a little colour in it'), coloured: $t('coloured, after the weather') })[colourKey(c)];
+export const colourWords = (c) => ({ clear: $t('clear'), tinged: $t('a little colour in it'), coloured: $t('coloured, after the weather') })[colourKey(c)];
 const BY_FEEL = new Set(['seabass', 'conger', 'flounder', 'plaice', 'sole', 'sandsole', 'turbot', 'gurnard', 'meagre', 'senegalsole', 'eel', 'cod', 'ling', 'skate', 'haddock']);
 const BY_SIGHT = new Set(['mackerel', 'garfish', 'wrasse', 'pollack', 'blackbream', 'whitebream', 'bluefish', 'bonito', 'horsemackerel', 'sardine', 'squid', 'cuttlefish', 'bogue', 'salema', 'saithe']);
 export function colourFactor(sp, c) {

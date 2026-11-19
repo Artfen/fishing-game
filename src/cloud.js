@@ -223,7 +223,7 @@ export class Cloud {
       return false;
     }
     this.state = 'sending';
-    this.changed('Sending…');
+    this.changed($t('Sending…'));
     const back = location.origin + location.pathname;
     try {
       await this.api('POST', `/auth/v1/otp?redirect_to=${encodeURIComponent(back)}`, { body: { email, create_user: true }, auth: false });

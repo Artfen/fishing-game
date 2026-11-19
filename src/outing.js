@@ -181,7 +181,7 @@ export function statusOf(s, type, id) {
     if (at === 'car') return { state: 'loaded', words: $t('In the car') };
     if (at === 'home') return { state: 'stored', words: $t('In the garage') };
     const c = campOfKit(s, id);
-    return { state: 'pitched', words: c ? `At ${c.name}` : $t('At your camp') };
+    return { state: 'pitched', words: c ? $t`At ${c.name}` : $t('At your camp') };
   }
   const list = type === 'rod' ? 'rods' : 'items';
   if (s.gear.pack[list].includes(id)) return { state: 'carried', words: $t('In your backpack') };
@@ -322,7 +322,7 @@ export function cleanLoadout(lo) {
   const rods = [...new Set((Array.isArray(lo.pack.rods) ? lo.pack.rods : []).filter((r) => RODS[r]))].slice(0, PACK.rods);
   if (!rods.length) return null;
   const out = {
-    name: typeof lo.name === 'string' ? lo.name.replace(/[\u0000-\u001f<>]/g, '').slice(0, 30) || 'A loadout' : 'A loadout',
+    name: typeof lo.name === 'string' ? lo.name.replace(/[\u0000-\u001f<>]/g, '').slice(0, 30) || $t('A loadout') : $t('A loadout'),
     pack: { rods, items: [...new Set((Array.isArray(lo.pack.items) ? lo.pack.items : []).filter((i) => TACKLE[i]))].slice(0, PACK.items), rod: rods.includes(lo.pack.rod) ? lo.pack.rod : rods[0], rig: {}, line: {}, term: {} },
     car: { rods: [], items: [] },
     kit: {},

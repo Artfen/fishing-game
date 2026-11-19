@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { clamp, lerp, smoothstep, seeded, mergeParts, mat } from '../util.js';
-import { $t } from '../i18n.js';
+import { $t, langNow } from '../i18n.js';
 
 // The haze lies low: thick over the sea and the low ground, thinner higher up, so the snow on
 // Hoarfell shows from the bay while the far edges of the land stay lost in it. (The fog's
@@ -151,19 +151,21 @@ const KEYS = [
 }));
 
 export function phaseName(h) {
-  if (h < 5) return 'Night';
-  if (h < 7) return 'Dawn';
-  if (h < 11.5) return 'Morning';
-  if (h < 14) return 'Midday';
-  if (h < 17.4) return 'Afternoon';
+  if (h < 5) return $t('Night');
+  if (h < 7) return $t('Dawn');
+  if (h < 11.5) return $t('Morning');
+  if (h < 14) return $t('Midday');
+  if (h < 17.4) return $t('Afternoon');
   if (h < 19.5) return $t('Golden hour');
-  if (h < 21) return 'Dusk';
-  return 'Night';
+  if (h < 21) return $t('Dusk');
+  return $t('Night');
 }
 
 export function formatClock(h) {
   const mins = Math.floor((h % 1) * 60 / 10) * 10;
   const hr = Math.floor(h) % 24;
+  // (Spanish and French tell the time by the 24-hour clock.)
+  if (langNow() !== 'en') return `${hr}:${String(mins).padStart(2, '0')}`;
   const h12 = hr % 12 === 0 ? 12 : hr % 12;
   return `${h12}:${String(mins).padStart(2, '0')} ${hr < 12 ? 'am' : 'pm'}`;
 }

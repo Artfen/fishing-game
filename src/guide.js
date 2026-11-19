@@ -174,7 +174,7 @@ export class FieldGuide {
       const group = legacy ? 'legacy' : fresh ? 'fresh' : f.creature ? 'cephalopods' : L.observe ? 'observe'
         : L.zones[0] === 'estuary' ? 'estuary' : L.flat || L.benthic ? 'sand' : L.school ? 'shoal'
           : L.homes.some((h) => ['reef', 'rock', 'weed', 'quay', 'cove', 'cave', 'wall'].includes(h)) ? 'rocks' : 'sand';
-      out.push({ id: f.id, sp: f, reg, legacy, fresh, south, group, status: legacy ? 'retired' : L.observe ? 'observation' : 'catchable' });
+      out.push({ id: f.id, sp: f, reg, legacy, fresh, south, group, status: legacy ? $t('retired') : L.observe ? $t('observation') : $t('catchable') });
     }
     if (this.ui.planned) {
       for (const r of REGISTER) {
@@ -232,7 +232,7 @@ export class FieldGuide {
       c.setAttribute('aria-pressed', f === v);
       chips.append(c);
     }
-    const pl = btn(this.ui.planned ? $t('Hide planned species') : $t('Preview planned species'), () => { this.ui.planned = !this.ui.planned; this.renderIndex(box); }, $t`g-chip planned${this.ui.planned ? ' on' : ''}`);
+    const pl = btn(this.ui.planned ? $t('Hide planned species') : $t('Preview planned species'), () => { this.ui.planned = !this.ui.planned; this.renderIndex(box); }, $t`g-chip planned${this.ui.planned ? $t(' on') : ''}`);
     pl.setAttribute('aria-pressed', this.ui.planned);
     chips.append(pl);
     tools.append(chips);
@@ -271,10 +271,10 @@ export class FieldGuide {
     const rec = st.fish[e.id], seen = st.observed?.[e.id];
     const status = el('span', `g-status ${e.status}`);
     const plan = e.reg?.planAs?.as;
-    status.textContent = e.status === 'retired' ? (rec ? $t`Retired · caught ${rec.count}` : 'Retired')
-      : e.status === 'observation' ? (seen ? `◉ Seen ${seen.count}` : $t('◎ To watch'))
-        : e.sp ? (rec ? `✓ Caught ${rec.count}` : seen ? '◉ Seen' : $t('○ Catchable now'))
-          : e.status === 'verify' ? $t('? Needs checking') : `◌ Planned${plan === 'observation' ? $t(' · to watch only') : plan === 'release' ? $t(' · catch and release') : ''}`;
+    status.textContent = e.status === 'retired' ? (rec ? $t`Retired · caught ${rec.count}` : $t('Retired'))
+      : e.status === 'observation' ? (seen ? $t`◉ Seen ${seen.count}` : $t('◎ To watch'))
+        : e.sp ? (rec ? $t`✓ Caught ${rec.count}` : seen ? $t('◉ Seen') : $t('○ Catchable now'))
+          : e.status === 'verify' ? $t('? Needs checking') : $t`◌ Planned${plan === 'observation' ? $t(' · to watch only') : plan === 'release' ? $t(' · catch and release') : ''}`;
     txt.append(status);
     b.append(pic, txt);
     b.addEventListener('click', () => this.select(e.id));
@@ -407,7 +407,7 @@ export class FieldGuide {
     const r = e.reg?.size, sp = e.sp;
     const ruler = el('div', 'g-ruler');
     const maxGame = sp.size[1];
-    ruler.append(el('span', '', $t`In the game ${sp.size[0]}–${maxGame} cm${sp.creature ? ' (mantle)' : ''}, about ${kg(weightOf(sp, sp.size[0]))}–${kg(weightOf(sp, maxGame))}.`));
+    ruler.append(el('span', '', $t`In the game ${sp.size[0]}–${maxGame} cm${sp.creature ? $t(' (mantle)') : ''}, about ${kg(weightOf(sp, sp.size[0]))}–${kg(weightOf(sp, maxGame))}.`));
     if (r?.common || r?.max) ruler.append(el('span', '', $t`Real fish: ${r.common ? $t`commonly ${r.common} cm` : ''}${r.common && r.max ? ', ' : ''}${r.max ? $t`up to ${r.max} cm (${r.maxNote || $t('maximum recorded')})` : ''}.`));
     wrap.append(ruler);
     let drag = null;
@@ -536,7 +536,7 @@ export class FieldGuide {
       }
       why.append(ul);
       out.push(why);
-      if (r.depth?.usual || r.depth?.range) out.push(el('p', 'g-note', $t`Real depths: ${r.depth.usual ? `usually ${r.depth.usual[0]}–${r.depth.usual[1]} m` : ''}${r.depth.usual && r.depth.range ? '; ' : ''}${r.depth.range ? `recorded ${r.depth.range[0]}–${r.depth.range[1]} m` : ''}.`));
+      if (r.depth?.usual || r.depth?.range) out.push(el('p', 'g-note', $t`Real depths: ${r.depth.usual ? $t`usually ${r.depth.usual[0]}–${r.depth.usual[1]} m` : ''}${r.depth.usual && r.depth.range ? '; ' : ''}${r.depth.range ? $t`recorded ${r.depth.range[0]}–${r.depth.range[1]} m` : ''}.`));
       if (r.seasonal) out.push(el('p', 'g-note', $t`In reality: ${r.seasonal}`));
     }
     return out;
@@ -564,7 +564,7 @@ export class FieldGuide {
     const rec = el('div', 'g-rec');
     rec.append(el('h4', '', $t('Recommended setup')));
     const chain = el('ol', 'g-chain');
-    const parts = [['Rod', rod.name, { type: 'rod', id: rod.id }], ['Reel', rod.reel, null], ['Line', line.name, null], [rod.kind === 'lure' || rod.kind === 'fly' || rod.kind === 'jig' ? 'Leader' : 'Rig', term.name, null], [TYPE_NAMES[it.type].replace(/s$/, ''), it.name, { type: 'item', id: it.id }]];
+    const parts = [[$t('Rod'), rod.name, { type: 'rod', id: rod.id }], [$t('Reel'), rod.reel, null], [$t('Line'), line.name, null], [rod.kind === 'lure' || rod.kind === 'fly' || rod.kind === 'jig' ? $t('Leader') : $t('Rig'), term.name, null], [TYPE_NAMES[it.type].replace(/s$/, ''), it.name, { type: 'item', id: it.id }]];
     for (const [k, v, ref] of parts) {
       const li = el('li');
       if (ref) li.append(this.tackleImg(ref));
@@ -631,7 +631,7 @@ export class FieldGuide {
     }
     if (it.type === 'lure') {
       const slow = (L.likes?.slow ?? 0.5) >= (L.likes?.fast ?? 0.5);
-      return $t`Cast past ${L.homes.map((h) => HOME_WORDS[h] || h)[0]} and reel ${slow ? $t('slowly, with pauses and twitches') : 'briskly'}${L.likes?.twitch > 1 ? $t(': a twitch often makes it strike') : ''}.`;
+      return $t`Cast past ${L.homes.map((h) => HOME_WORDS[h] || h)[0]} and reel ${slow ? $t('slowly, with pauses and twitches') : $t('briskly')}${L.likes?.twitch > 1 ? $t(': a twitch often makes it strike') : ''}.`;
     }
     return '';
   }
@@ -675,7 +675,7 @@ export class FieldGuide {
     if (trips.length) {
       out.push(el('h4', '', $t('Your trips for it')));
       const ul = el('ul', 'g-feat');
-      for (const t of trips) ul.append(el('li', '', $t`Day ${t.day}, ${t.name}: ${t.hours} h, ${t.target ? `${t.target} caught${t.best ? $t` (best ${t.best} cm)` : ''}` : $t('none caught')}${t.total > t.target ? $t`, ${t.total - t.target} other fish` : ''}, on the ${RODS[t.setup.rod]?.short.toLowerCase()} with ${TACKLE[t.setup.item]?.on}`));
+      for (const t of trips) ul.append(el('li', '', $t`Day ${t.day}, ${t.name}: ${t.hours} h, ${t.target ? $t`${t.target} caught${t.best ? $t` (best ${t.best} cm)` : ''}` : $t('none caught')}${t.total > t.target ? $t`, ${t.total - t.target} other fish` : ''}, on the ${RODS[t.setup.rod]?.short.toLowerCase()} with ${TACKLE[t.setup.item]?.on}`));
       out.push(ul);
     }
     return out;
@@ -701,7 +701,7 @@ export class FieldGuide {
     kids.push(btn($t`← Back to the ${sp.name.toLowerCase()}`, () => { this.ui.trip = false; this.renderPage(box); }, 'g-btn g-tripback'));
     const title = el('div', 'g-title');
     title.append(el('h2', '', $t('Plan a fishing trip')));
-    title.append(el('p', 'g-sci', $t`For the ${sp.name.toLowerCase()} · most active ${H.allDay ? $t('all day') : `at ${H.active}`}${H.rainy ? $t(', bolder in rain and cloud') : ''}`));
+    title.append(el('p', 'g-sci', $t`For the ${sp.name.toLowerCase()} · most active ${H.allDay ? $t('all day') : $t`at ${H.active}`}${H.rainy ? $t(', bolder in rain and cloud') : ''}`));
     kids.push(title);
     const step = (n, text) => el('h3', 'g-step', `${n}. ${text}`);
 
@@ -712,7 +712,7 @@ export class FieldGuide {
       const card = el('div', 'g-rec g-tripnow');
       card.append(el('h4', '', trip.sp === sp.id ? $t('Your trip, so far') : $t`You’re on a trip for ${fishById[trip.sp]?.name.toLowerCase()}`));
       const d = Math.round(Math.hypot(trip.x - this.hooks.where().x, trip.z - this.hooks.where().z));
-      card.append(el('p', 'g-text', $t`${summaryText(trip.sp, sum)} Destination: ${trip.name}${d > trip.r ? `, ${d} m away` : $t(' (you’re there)')}.`));
+      card.append(el('p', 'g-text', $t`${summaryText(trip.sp, sum)} Destination: ${trip.name}${d > trip.r ? $t`, ${d} m away` : $t(' (you’re there)')}.`));
       const acts = el('div', 'g-acts');
       acts.append(btn($t('End the trip'), () => { const msg = this.hooks.endTrip(); this.renderPage(box); this.flash(msg); }, 'g-btn'));
       acts.append(btn($t('Show on the map'), () => this.hooks.showOnMap(trip.sp)));
@@ -774,9 +774,9 @@ export class FieldGuide {
     // 4: what you carry and what's in the tackle box.
     const hasRod = g.pack.rods.includes(rod.id), hasItem = g.pack.items.includes(it.id);
     const parts = [
-      ['Rod', rod.name, { type: 'rod', id: rod.id }, hasRod ? '✓ carried' : $t('in the tackle box')],
-      ['Line', line.name, null, $t('comes with the rod')],
-      [rod.kind === 'lure' || rod.kind === 'fly' || rod.kind === 'jig' ? 'Leader' : 'Rig', term.name, null, $t('comes with the rod')],
+      [$t('Rod'), rod.name, { type: 'rod', id: rod.id }, hasRod ? '✓ carried' : $t('in the tackle box')],
+      [$t('Line'), line.name, null, $t('comes with the rod')],
+      [rod.kind === 'lure' || rod.kind === 'fly' || rod.kind === 'jig' ? $t('Leader') : $t('Rig'), term.name, null, $t('comes with the rod')],
       [TYPE_NAMES[it.type].replace(/s$/, ''), it.name, { type: 'item', id: it.id }, hasItem ? '✓ carried' : $t('in the tackle box')],
     ];
     for (const [k, v, ref, have] of parts) {

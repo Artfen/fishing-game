@@ -139,65 +139,65 @@ export const ORDERS = {
 // Families: their order, and what they are in a few words.
 export const FAMILIES = {
   // Mammals
-  Delphinidae: ['artiodactyla', $t('Oceanic dolphins')], Balaenopteridae: ['artiodactyla', 'Rorquals'], Physeteridae: ['artiodactyla', $t('Sperm whales')],
+  Delphinidae: ['artiodactyla', $t('Oceanic dolphins')], Balaenopteridae: ['artiodactyla', $t('Rorquals')], Physeteridae: ['artiodactyla', $t('Sperm whales')],
   Phocidae: ['carnivora', $t('True seals')], Mustelidae: ['carnivora', $t('Weasels, badgers and otters')],
   // Birds
   Sulidae: ['suliformes', $t('Gannets and boobies')], Phalacrocoracidae: ['suliformes', $t('Cormorants and shags')], Ardeidae: ['pelecaniformes', $t('Herons, egrets and bitterns')],
-  Laridae: ['charadriiformes', $t('Gulls, terns and skimmers')], Haematopodidae: ['charadriiformes', 'Oystercatchers'], Scolopacidae: ['charadriiformes', $t('Sandpipers, curlews and snipes')],
+  Laridae: ['charadriiformes', $t('Gulls, terns and skimmers')], Haematopodidae: ['charadriiformes', $t('Oystercatchers')], Scolopacidae: ['charadriiformes', $t('Sandpipers, curlews and snipes')],
   Procellariidae: ['procellariiformes', $t('Shearwaters and petrels')], Strigidae: ['strigiformes', $t('Typical owls')],
-  Alcidae: ['charadriiformes', 'Auks'], Anatidae: ['anseriformes', $t('Ducks, geese and swans')], Apodidae: ['apodiformes', 'Swifts'],
-  Pandionidae: ['accipitriformes', 'Ospreys'], Accipitridae: ['accipitriformes', $t('Hawks, eagles and kites')], Alcedinidae: ['coraciiformes', 'Kingfishers'], Falconidae: ['falconiformes', $t('Falcons and caracaras')],
-  Corvidae: ['passeriformes', $t('Crows, ravens and choughs')], Cinclidae: ['passeriformes', 'Dippers'], Motacillidae: ['passeriformes', $t('Pipits and wagtails')], Fringillidae: ['passeriformes', 'Finches'],
+  Alcidae: ['charadriiformes', $t('Auks')], Anatidae: ['anseriformes', $t('Ducks, geese and swans')], Apodidae: ['apodiformes', $t('Swifts')],
+  Pandionidae: ['accipitriformes', $t('Ospreys')], Accipitridae: ['accipitriformes', $t('Hawks, eagles and kites')], Alcedinidae: ['coraciiformes', $t('Kingfishers')], Falconidae: ['falconiformes', $t('Falcons and caracaras')],
+  Corvidae: ['passeriformes', $t('Crows, ravens and choughs')], Cinclidae: ['passeriformes', $t('Dippers')], Motacillidae: ['passeriformes', $t('Pipits and wagtails')], Fringillidae: ['passeriformes', $t('Finches')],
   // Reptiles and amphibians
   Cheloniidae: ['testudines', $t('Sea turtles')], Ranidae: ['anura', $t('True frogs')],
   // Ray-finned fishes
-  Moronidae: ['percomorpha', $t('Temperate basses')], Sparidae: ['percomorpha', $t('Sea breams')], Labridae: ['percomorpha', 'Wrasses'], Scaridae: ['percomorpha', 'Parrotfishes'],
-  Sciaenidae: ['percomorpha', $t('Drums and croakers')], Haemulidae: ['percomorpha', 'Grunts'], Serranidae: ['percomorpha', $t('Sea basses and combers')], Epinephelidae: ['percomorpha', 'Groupers'],
-  Pomacentridae: ['percomorpha', 'Damselfishes'], Carangidae: ['percomorpha', $t('Jacks and pompanos')], Pomatomidae: ['percomorpha', 'Bluefish'], Trachinidae: ['percomorpha', 'Weevers'],
-  Triglidae: ['percomorpha', 'Gurnards'], Centrarchidae: ['percomorpha', $t('Sunfishes and black basses')], Sphyraenidae: ['percomorpha', 'Barracudas'], Coryphaenidae: ['percomorpha', 'Dolphinfishes'],
-  Percidae: ['perciformes', 'Perches'], Scombridae: ['scombriformes', $t('Mackerels and tunas')], Istiophoridae: ['istiophoriformes', $t('Marlins and sailfishes')],
-  Mugilidae: ['mugiliformes', $t('Grey mullets')], Gobiidae: ['gobiiformes', 'Gobies'], Blenniidae: ['blenniiformes', $t('Combtooth blennies')], Atherinidae: ['atheriniformes', 'Silversides'], Belonidae: ['beloniformes', 'Needlefishes'], Exocoetidae: ['beloniformes', $t('Flying fishes')],
-  Aulostomidae: ['syngnathiformes', 'Trumpetfishes'], Balistidae: ['tetraodontiformes', 'Triggerfishes'], Zeidae: ['zeiformes', 'Dories'],
-  Gadidae: ['gadiformes', 'Cods'], Merlucciidae: ['gadiformes', 'Hakes'], Lotidae: ['gadiformes', $t('Lings and burbots')],
-  Pleuronectidae: ['pleuronectiformes', $t('Righteye flounders')], Soleidae: ['pleuronectiformes', $t('True soles')], Scophthalmidae: ['pleuronectiformes', 'Turbots'],
-  Clupeidae: ['clupeiformes', $t('Herrings and sprats')], Alosidae: ['clupeiformes', $t('Shads and sardines')], Engraulidae: ['clupeiformes', 'Anchovies'],
-  Anguillidae: ['anguilliformes', $t('Freshwater eels')], Congridae: ['anguilliformes', $t('Conger and garden eels')], Muraenidae: ['anguilliformes', 'Morays'],
-  Esocidae: ['esociformes', 'Pikes'], Salmonidae: ['salmoniformes', $t('Salmon, trout and grayling')],
-  Cyprinidae: ['cypriniformes', 'Carps'], Leuciscidae: ['cypriniformes', $t('Minnows, roach and rudd')], Tincidae: ['cypriniformes', 'Tench'],
+  Moronidae: ['percomorpha', $t('Temperate basses')], Sparidae: ['percomorpha', $t('Sea breams')], Labridae: ['percomorpha', $t('Wrasses')], Scaridae: ['percomorpha', $t('Parrotfishes')],
+  Sciaenidae: ['percomorpha', $t('Drums and croakers')], Haemulidae: ['percomorpha', $t('Grunts')], Serranidae: ['percomorpha', $t('Sea basses and combers')], Epinephelidae: ['percomorpha', $t('Groupers')],
+  Pomacentridae: ['percomorpha', $t('Damselfishes')], Carangidae: ['percomorpha', $t('Jacks and pompanos')], Pomatomidae: ['percomorpha', $t('Bluefish')], Trachinidae: ['percomorpha', $t('Weevers')],
+  Triglidae: ['percomorpha', $t('Gurnards')], Centrarchidae: ['percomorpha', $t('Sunfishes and black basses')], Sphyraenidae: ['percomorpha', $t('Barracudas')], Coryphaenidae: ['percomorpha', $t('Dolphinfishes')],
+  Percidae: ['perciformes', $t('Perches')], Scombridae: ['scombriformes', $t('Mackerels and tunas')], Istiophoridae: ['istiophoriformes', $t('Marlins and sailfishes')],
+  Mugilidae: ['mugiliformes', $t('Grey mullets')], Gobiidae: ['gobiiformes', $t('Gobies')], Blenniidae: ['blenniiformes', $t('Combtooth blennies')], Atherinidae: ['atheriniformes', $t('Silversides')], Belonidae: ['beloniformes', $t('Needlefishes')], Exocoetidae: ['beloniformes', $t('Flying fishes')],
+  Aulostomidae: ['syngnathiformes', $t('Trumpetfishes')], Balistidae: ['tetraodontiformes', $t('Triggerfishes')], Zeidae: ['zeiformes', $t('Dories')],
+  Gadidae: ['gadiformes', $t('Cods')], Merlucciidae: ['gadiformes', $t('Hakes')], Lotidae: ['gadiformes', $t('Lings and burbots')],
+  Pleuronectidae: ['pleuronectiformes', $t('Righteye flounders')], Soleidae: ['pleuronectiformes', $t('True soles')], Scophthalmidae: ['pleuronectiformes', $t('Turbots')],
+  Clupeidae: ['clupeiformes', $t('Herrings and sprats')], Alosidae: ['clupeiformes', $t('Shads and sardines')], Engraulidae: ['clupeiformes', $t('Anchovies')],
+  Anguillidae: ['anguilliformes', $t('Freshwater eels')], Congridae: ['anguilliformes', $t('Conger and garden eels')], Muraenidae: ['anguilliformes', $t('Morays')],
+  Esocidae: ['esociformes', $t('Pikes')], Salmonidae: ['salmoniformes', $t('Salmon, trout and grayling')],
+  Cyprinidae: ['cypriniformes', $t('Carps')], Leuciscidae: ['cypriniformes', $t('Minnows, roach and rudd')], Tincidae: ['cypriniformes', $t('Tench')],
   // Sharks and rays
-  Carcharhinidae: ['carcharhiniformes', $t('Requiem sharks')], Sphyrnidae: ['carcharhiniformes', 'Hammerheads'], Scyliorhinidae: ['carcharhiniformes', 'Catsharks'],
-  Lamnidae: ['lamniformes', $t('Mackerel sharks')], Squatinidae: ['squatiniformes', $t('Angel sharks')], Rajidae: ['rajiformes', 'Skates'],
+  Carcharhinidae: ['carcharhiniformes', $t('Requiem sharks')], Sphyrnidae: ['carcharhiniformes', $t('Hammerheads')], Scyliorhinidae: ['carcharhiniformes', $t('Catsharks')],
+  Lamnidae: ['lamniformes', $t('Mackerel sharks')], Squatinidae: ['squatiniformes', $t('Angel sharks')], Rajidae: ['rajiformes', $t('Skates')],
   // Molluscs
-  Octopodidae: ['octopoda', 'Octopuses'], Sepiidae: ['sepiida', 'Cuttlefishes'], Loliginidae: ['myopsida', $t('Inshore squids')],
-  Pectinidae: ['pectinida', 'Scallops'], Unionidae: ['unionida', $t('River mussels')],
+  Octopodidae: ['octopoda', $t('Octopuses')], Sepiidae: ['sepiida', $t('Cuttlefishes')], Loliginidae: ['myopsida', $t('Inshore squids')],
+  Pectinidae: ['pectinida', $t('Scallops')], Unionidae: ['unionida', $t('River mussels')],
   // Arthropods
-  Paguridae: ['decapoda', $t('Hermit crabs')], Nephropidae: ['decapoda', $t('Clawed lobsters')], Carcinidae: ['decapoda', $t('Shore crabs')], Palaemonidae: ['decapoda', 'Prawns'], Cancridae: ['decapoda', $t('Rock crabs')], Polybiidae: ['decapoda', $t('Swimming crabs')],
+  Paguridae: ['decapoda', $t('Hermit crabs')], Nephropidae: ['decapoda', $t('Clawed lobsters')], Carcinidae: ['decapoda', $t('Shore crabs')], Palaemonidae: ['decapoda', $t('Prawns')], Cancridae: ['decapoda', $t('Rock crabs')], Polybiidae: ['decapoda', $t('Swimming crabs')],
   Archaeobalanidae: ['balanomorpha', $t('Acorn barnacles')], Mytilidae: ['mytilida', $t('Sea mussels')],
-  Patellidae: ['patellogastropoda', 'Limpets'], Littorinidae: ['littorinimorpha', 'Periwinkles'], Asterinidae: ['valvatida', $t('Cushion stars')],
+  Patellidae: ['patellogastropoda', $t('Limpets')], Littorinidae: ['littorinimorpha', $t('Periwinkles')], Asterinidae: ['valvatida', $t('Cushion stars')],
   // Annelids (no order: the bristle worms' orders are unsettled)
-  Arenicolidae: [null, 'Lugworms'],
+  Arenicolidae: [null, $t('Lugworms')],
   // Echinoderms
-  Asteriidae: ['forcipulatida', $t('Sea stars')], Echinasteridae: ['spinulosida', $t('Spiny sea stars')], Ophiuridae: ['ophiurida', 'Brittlestars'],
+  Asteriidae: ['forcipulatida', $t('Sea stars')], Echinasteridae: ['spinulosida', $t('Spiny sea stars')], Ophiuridae: ['ophiurida', $t('Brittlestars')],
   Echinidae: ['camarodonta', $t('Sea urchins')], Diadematidae: ['diadematoida', $t('Long-spined urchins')], Holothuriidae: ['holothuriida', $t('Sea cucumbers')],
   // Cnidarians
   Actiniidae: ['actiniaria', $t('Beadlet and dahlia anemones')], Metridiidae: ['actiniaria', $t('Plumose anemones')], Corallimorphidae: ['corallimorpharia', $t('Jewel anemones')],
   Cerianthidae: ['spirularia', $t('Tube anemones')], Alcyoniidae: ['malacalcyonacea', $t('Leathery soft corals')], Gorgoniidae: ['malacalcyonacea', $t('Sea fans')],
   Pennatulidae: ['scleralcyonacea', $t('Sea pens')], Ulmaridae: ['semaeostomeae', $t('Moon jellies')], Pelagiidae: ['semaeostomeae', $t('Sea nettles and stingers')],
   // Not animals
-  Laminariaceae: ['laminariales', 'Kelps'], Noctilucaceae: ['noctilucales', $t('Sea sparkle')],
+  Laminariaceae: ['laminariales', $t('Kelps')], Noctilucaceae: ['noctilucales', $t('Sea sparkle')],
 };
 const FISH_ORDERS = new Set(['percomorpha', 'perciformes', 'scombriformes', 'istiophoriformes', 'mugiliformes', 'gobiiformes', 'blenniiformes', 'atheriniformes', 'beloniformes', 'syngnathiformes', 'tetraodontiformes', 'zeiformes', 'gadiformes', 'pleuronectiformes', 'clupeiformes', 'anguilliformes', 'esociformes', 'salmoniformes', 'cypriniformes']);
 const SHARK_ORDERS = new Set(['carcharhiniformes', 'lamniformes', 'squatiniformes', 'rajiformes']);
 
 // The fish families the register doesn't give (the fresh water fish, Las Brasas' own, and a few).
 const FISH_FAMILY = {
-  perch: 'Percidae', pike: 'Esocidae', carp: 'Cyprinidae', rudd: 'Leuciscidae', trout: 'Salmonidae', grayling: 'Salmonidae', tench: 'Tincidae', roach: 'Leuciscidae', lmbass: 'Centrarchidae',
-  parrotfish: 'Scaridae', ornatewrasse: 'Labridae', triggerfish: 'Balistidae', moray: 'Muraenidae', barracuda: 'Sphyraenidae', amberjack: 'Carangidae',
-  angelshark: 'Squatinidae', trumpetfish: 'Aulostomidae', bluemarlin: 'Istiophoridae', sailfish: 'Istiophoridae', spearfish: 'Istiophoridae', wahoo: 'Scombridae',
-  dorado: 'Coryphaenidae', yellowfin: 'Scombridae', hammerhead: 'Sphyrnidae', chromis: 'Pomacentridae', comber: 'Serranidae',
-  minnow: 'Leuciscidae',
+  perch: $t('Percidae'), pike: $t('Esocidae'), carp: $t('Cyprinidae'), rudd: $t('Leuciscidae'), trout: $t('Salmonidae'), grayling: $t('Salmonidae'), tench: $t('Tincidae'), roach: $t('Leuciscidae'), lmbass: $t('Centrarchidae'),
+  parrotfish: $t('Scaridae'), ornatewrasse: $t('Labridae'), triggerfish: $t('Balistidae'), moray: $t('Muraenidae'), barracuda: $t('Sphyraenidae'), amberjack: $t('Carangidae'),
+  angelshark: $t('Squatinidae'), trumpetfish: $t('Aulostomidae'), bluemarlin: $t('Istiophoridae'), sailfish: $t('Istiophoridae'), spearfish: $t('Istiophoridae'), wahoo: $t('Scombridae'),
+  dorado: $t('Coryphaenidae'), yellowfin: $t('Scombridae'), hammerhead: $t('Sphyrnidae'), chromis: $t('Pomacentridae'), comber: $t('Serranidae'),
+  minnow: $t('Leuciscidae'),
   // The north's (northFish.js).
-  cod: 'Gadidae', saithe: 'Gadidae', haddock: 'Gadidae', ling: 'Lotidae', skate: 'Rajidae',
+  cod: $t('Gadidae'), saithe: $t('Gadidae'), haddock: $t('Gadidae'), ling: $t('Lotidae'), skate: $t('Rajidae'),
 };
 // Their statuses (IUCN, worldwide), where the register doesn't give one and the listing is clear.
 const FISH_IUCN = {
@@ -208,7 +208,7 @@ const FISH_IUCN = {
 };
 
 export const IUCN = {
-  LC: $t('Least Concern'), NT: $t('Near Threatened'), VU: 'Vulnerable', EN: 'Endangered', CR: $t('Critically Endangered'), DD: $t('Data Deficient'), NE: $t('Not Evaluated'),
+  LC: $t('Least Concern'), NT: $t('Near Threatened'), VU: $t('Vulnerable'), EN: $t('Endangered'), CR: $t('Critically Endangered'), DD: $t('Data Deficient'), NE: $t('Not Evaluated'),
 };
 const IUCN_WORDS = { 'Least Concern': 'LC', 'Near Threatened': 'NT', Vulnerable: 'VU', 'Critically Endangered': 'CR', Endangered: 'EN', 'Data Deficient': 'DD', 'Not Evaluated': 'NE', 'Not Assessed': 'NE' };
 // The status in a register entry's conservation notes ("IUCN global: Near Threatened (NT), …",
@@ -348,7 +348,7 @@ export function recordOf(state, e) {
     return N ? { how: 'met', n: N.n, day: N.day, where: N.where } : null;
   }
   const S = state.seaLife?.[e.id];
-  return S ? { how: S.heard ? 'heard' : 'seen', n: S.n, day: S.day, where: S.where } : null;
+  return S ? { how: S.heard ? $t('heard') : $t('seen'), n: S.n, day: S.day, where: S.where } : null;
 }
 
 // The tree with what you've recorded in it: [{ id, ...KINGDOMS[id], n, of, phyla: [{ id, ...,

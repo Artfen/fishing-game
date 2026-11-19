@@ -315,8 +315,8 @@ export const ROD_IDS = Object.keys(RODS);
 export const ITEM_IDS = Object.keys(TACKLE).filter((i) => !TACKLE[i].live);
 export const TERM_IDS = Object.keys(TERMS);
 export const PACK = { rods: 2, items: 8, saved: 6 }; // (the creel holds fish by weight: see shop.js)
-export const TYPE_NAMES = { bait: 'Baits', lure: 'Lures', fly: 'Flies', jig: $t('Squid jigs') };
-export const KIND_NAMES = { float: $t('Float fishing'), lure: $t('Lure fishing'), ledger: $t('Carp fishing'), bottom: $t('Bottom fishing'), fly: $t('Fly fishing'), jig: $t('Squid jigging'), spear: 'Spearfishing' };
+export const TYPE_NAMES = { bait: $t('Baits'), lure: $t('Lures'), fly: $t('Flies'), jig: $t('Squid jigs') };
+export const KIND_NAMES = { float: $t('Float fishing'), lure: $t('Lure fishing'), ledger: $t('Carp fishing'), bottom: $t('Bottom fishing'), fly: $t('Fly fishing'), jig: $t('Squid jigging'), spear: $t('Spearfishing') };
 
 // Ready-made setups to pack in one go at camp or from a boat's tackle locker: rods, how each
 // is rigged, what to start with, and what else to carry.

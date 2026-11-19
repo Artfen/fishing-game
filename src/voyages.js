@@ -149,7 +149,7 @@ export function papersLine(R) {
 }
 
 // For the journal, in words: { title, when, lines } (names: kinds -> names, boats and sea life).
-const NUMBER_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+const NUMBER_WORDS = [$t('no'), $t('one'), $t('two'), $t('three'), $t('four'), $t('five'), $t('six'), $t('seven'), $t('eight'), $t('nine'), $t('ten')];
 const count = (n, one, many = `${one}s`) => `${n <= 10 ? NUMBER_WORDS[n] : n} ${n === 1 ? one : many}`;
 const clock = (h) => {
   const H = Math.floor(h) % 24, M = Math.floor((h % 1) * 60);
@@ -159,14 +159,14 @@ const list = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', '
 export function voyageWords(R, { boat = (k) => k, life = (k) => k } = {}) {
   const when = R.end.day === R.day ? $t`Day ${R.day}, ${clock(R.hour)} to ${clock(R.end.hour)}` : $t`Day ${R.day}, ${clock(R.hour)} to day ${R.end.day}, ${clock(R.end.hour)}`;
   const lines = [];
-  lines.push($t`From ${R.from} to ${R.end.to}, in ${list(R.boats.map((k) => `the ${boat(k)}`))}${R.crew?.length ? ` with ${list(R.crew)}` : ''}: ${R.nm} nm${R.far > 400 ? $t`, ${(R.far / 1000).toFixed(1)} km out at the furthest${R.farAt ? ` (${R.farAt})` : ''}` : ''}.`);
+  lines.push($t`From ${R.from} to ${R.end.to}, in ${list(R.boats.map((k) => `the ${boat(k)}`))}${R.crew?.length ? $t` with ${list(R.crew)}` : ''}: ${R.nm} nm${R.far > 400 ? $t`, ${(R.far / 1000).toFixed(1)} km out at the furthest${R.farAt ? ` (${R.farAt})` : ''}` : ''}.`);
   if (R.nights) lines.push(`${count(R.nights, 'night').replace(/^./, (c) => c.toUpperCase())} out.`);
   // (J4: the crew's among them, said as theirs.)
   const crewOnes = R.crewFish ? (R.crewFish === R.fish ? (R.crew?.length === 1 ? ` (all ${R.crew[0]}’s)` : $t(' (all the crew’s)')) : ` (${count(R.crewFish, $t('of them'), $t('of them'))} ${R.crew?.length === 1 ? `${R.crew[0]}’s` : $t('the crew’s')})`) : '';
-  if (R.fish) lines.push(`${count(R.fish, 'fish', 'fish').replace(/^./, (c) => c.toUpperCase())}${crewOnes}${R.kept && R.kept < R.fish ? ` (${R.kept} kept)` : ''}${R.best ? $t`, the best ${/^[aeiou]/i.test(R.best.name) ? 'an' : 'a'} ${R.best.name} of ${R.best.kg < 1 ? `${Math.round(R.best.kg * 1000)} g` : `${R.best.kg.toFixed(1)} kg`}${R.best.by ? `, ${R.best.by}’s` : ''}` : ''}.`);
+  if (R.fish) lines.push(`${count(R.fish, 'fish', 'fish').replace(/^./, (c) => c.toUpperCase())}${crewOnes}${R.kept && R.kept < R.fish ? ` (${R.kept} kept)` : ''}${R.best ? $t`, the best ${/^[aeiou]/i.test(R.best.name) ? 'an' : 'a'} ${R.best.name} of ${R.best.kg < 1 ? `${Math.round(R.best.kg * 1000)} g` : $t`${R.best.kg.toFixed(1)} kg`}${R.best.by ? `, ${R.best.by}’s` : ''}` : ''}.`);
   // (J5) The dives from her, and the photographs.
   if (R.dives?.length) {
-    const said = R.dives.map((d) => $t`${d.by ? `${d.by} ` : ''}${d.kit === 'free' ? 'freedived' : 'dived'}${d.at ? ` at ${d.at}` : ''}, to ${d.m.toFixed(1)} m`).join('; ');
+    const said = R.dives.map((d) => $t`${d.by ? `${d.by} ` : ''}${d.kit === 'free' ? $t('freedived') : $t('dived')}${d.at ? $t` at ${d.at}` : ''}, to ${d.m.toFixed(1)} m`).join('; ');
     lines.push(`${said[0].toUpperCase()}${said.slice(1)}.`);
   }
   const shots = (R.photos || 0) + (R.crewPhotos || 0);

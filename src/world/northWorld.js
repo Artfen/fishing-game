@@ -267,7 +267,7 @@ export function buildPlaces(group, obstacles, rnd) {
   for (const C of CROFTS) cottage(white, roofs, glass, C, ground, rnd, { wall: pickOf(['#ece8de', '#e4dfd2', '#efece4'], rnd) });
   for (const B of [HALVIG_SHOP, ...CROFTS]) {
     const c = Math.cos(B.yaw), sn = Math.sin(B.yaw);
-    for (const u of [-B.w / 4, B.w / 4]) obstacles.push({ x: B.x + u * c, z: B.z - u * sn, r: Math.max(B.w / 4, B.d / 2) + 0.2, kind: 'building', name: B === HALVIG_SHOP ? $t('Halvig Stores') : 'a croft' });
+    for (const u of [-B.w / 4, B.w / 4]) obstacles.push({ x: B.x + u * c, z: B.z - u * sn, r: Math.max(B.w / 4, B.d / 2) + 0.2, kind: 'building', name: B === HALVIG_SHOP ? $t('Halvig Stores') : $t('a croft') });
   }
   {
     const B = PHONE_BOX, y = ground(B.x, B.z);

@@ -23,7 +23,7 @@ export const GIFTS = [
 // What a code gives, in words: "every boat at the Marine Works, and £100".
 export function giftWords(gift) {
   const money = gift.money ? `£${gift.money.toLocaleString('en-GB')}` : '';
-  if (gift.boats) return $t`every boat at the Marine Works${money ? `, and ${money}` : ''}`;
+  if (gift.boats) return $t`every boat at the Marine Works${money ? $t`, and ${money}` : ''}`;
   return money ? $t`${money} in your purse` : $t('nothing at all');
 }
 

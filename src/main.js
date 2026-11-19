@@ -125,7 +125,7 @@ import { earOf, quayNear, nearestOf } from './earshot.js';
 import { redeemGift, giftWords } from './giftcodes.js';
 import { HOLD as REVEAL_HOLD, COUNT as REVEAL_COUNT, needle, verdictOf } from './reveal.js';
 import { requestById, businessWith, accept as acceptFavour, decline as declineFavour, complete as completeFavour, caught as favourCaught, saw as favourSaw, photographed as favourPhotographed, buoyAt, pickUpBuoy, fishFor, remember, cleanFavours } from './requests.js';
-import { lower } from './innTalk.js';
+import { lower, an } from './innTalk.js';
 import { tideAt, tideWords, turns } from './world/tide.js';
 import { groundSpot as findGroundSpot, waterUnder, AGROUND, OFF as AGROUND_OFF } from './aground.js';
 import { Rockpools, poolNear, poolOpen, visibleLife, turnStone, settle, netIn, letGo, POOL_LIFE, POOL_SITES } from './world/rockpools.js';
@@ -755,7 +755,7 @@ function favourFor(who) {
     ] };
   }
   if (b.act === 'deliver') return { title: name, text: $t`You have ${R.item} from ${NAMES[R.who]} for ${name}.`, acts: [{ text: $t('Hand it over'), run: () => finishFavour(R) }] };
-  return { title: name, text: $t`${R.short}: done.`, acts: [{ text: R.kind === 'find' ? $t('Hand over the buoy') : `Tell ${name}`, run: () => finishFavour(R) }] };
+  return { title: name, text: $t`${R.short}: done.`, acts: [{ text: R.kind === 'find' ? $t('Hand over the buoy') : $t`Tell ${name}`, run: () => finishFavour(R) }] };
 }
 function takeFavour(R) {
   const e = acceptFavour(state.favours, R.id, state.day);
@@ -945,7 +945,7 @@ const pads = new Gamepads(input, {
   connected: (id, standard, family) => {
     padNamesNow();
     if (!standard && !pads.layout) hud.toast($t('Controller connected, but its layout is unknown: some buttons may be mixed up. Settings, Controls & comfort: Set up the buttons, and the game learns which is which.'), 8);
-    else if (started) hud.toast($t`${{ playstation: $t('PlayStation controller'), ps4: $t('PlayStation controller'), nintendo: $t('Nintendo controller') }[family] || 'Controller'} connected: the hints name its buttons now.`, 4);
+    else if (started) hud.toast($t`${{ playstation: $t('PlayStation controller'), ps4: $t('PlayStation controller'), nintendo: $t('Nintendo controller') }[family] || $t('Controller')} connected: the hints name its buttons now.`, 4);
   },
   layoutFor: (id) => settings.controls.padLayouts?.[id],
   disconnected: () => {
@@ -1462,7 +1462,7 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
     // The big-game rod, the first time: how trolling goes.
     if (fishing.rod?.chair) {
       const T = scheme() === 'touch', big = !onFoot && !!levers(boat.kind)?.some((n) => n.id === 'T');
-      teach('trolling', $t`Trolling: with the lure out astern, motor on and it swims behind the boat. ${big ? $t`Push the throttle up to T (trolling, about seven knots) for marlin, wahoo, dorado and tuna, or keep to dead slow or slow for sailfish, spearfish and sharks with a ballyhoo.` : $t('Slow ahead is the most this boat allows with a line out; the yacht and the centre console troll faster.')} Out in the blue water the big fish come up the wake to look. When one hits, it hooks itself: ${T ? $t('hold the reel button') : 'hold'} to play it${boat.hull.standing?.chair ? $t(', from the fighting chair') : ''}, and ease off when it runs.`, 12);
+      teach('trolling', $t`Trolling: with the lure out astern, motor on and it swims behind the boat. ${big ? $t`Push the throttle up to T (trolling, about seven knots) for marlin, wahoo, dorado and tuna, or keep to dead slow or slow for sailfish, spearfish and sharks with a ballyhoo.` : $t('Slow ahead is the most this boat allows with a line out; the yacht and the centre console troll faster.')} Out in the blue water the big fish come up the wake to look. When one hits, it hooks itself: ${T ? $t('hold the reel button') : $t('hold')} to play it${boat.hull.standing?.chair ? $t(', from the fighting chair') : ''}, and ease off when it runs.`, 12);
     }
   },
   castResult: (text, good) => {
@@ -1511,7 +1511,7 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
     document.body.classList.remove('reveal');
     $('catch-card').hidden = true;
     modal = null;
-    hud.flash($t`Into the ${livewellHere() ? 'livewell' : $t('bait bucket')}: ${sp.name.toLowerCase()}, ${size} cm (${bucketWords()}).`, t, 3.5);
+    hud.flash($t`Into the ${livewellHere() ? $t('livewell') : $t('bait bucket')}: ${sp.name.toLowerCase()}, ${size} cm (${bucketWords()}).`, t, 3.5);
     teach('livebait', $t`Live bait: ${K('tackle')} puts it on the hook, on a float or bottom rig. The live fish comes round with your baits. Bass, pollack, pike and perch can’t leave a live one. Change the bucket’s water now and then at the water’s edge, or the bait dies; a boat’s livewell keeps them lively.`, 10);
     gearChip();
     save();
@@ -1519,7 +1519,7 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
   // Every break has a reason you can see and do something about (see fight.js).
   // A fish thrown or pulled free has the line whole: it says so.
   onSnap: (why, sp, rod, F = null) => {
-    hud.flash(why === 'teeth' ? $t('Snip! The line is cut.') : why === 'snag' ? $t('Snagged! The line parted in the weed.') : why === 'rock' ? $t('Cut on the rocks!') : why === 'thrown' ? $t('It threw the hook!') : why === 'pulled' || why === 'lifted' ? $t('The hook pulled free.') : why === 'kicked' ? $t`It kicked free${{ beach: $t(' in the shallows'), lift: $t(' as it came up'), hand: '', leader: $t(' on the leader') }[F?.landBy] ?? $t(' at the net')}!` : why === 'knocked' ? $t('The net knocked the hook out!') : why === 'slipped' ? $t('It slipped your hand!') : why === 'weeded' ? $t`It shed the hook in the ${F?.stuck === 'rock' ? 'rocks' : 'weed'}!` : why === 'spat' ? $t('It let go!') : $t('Snap! The line broke.'), t, 3);
+    hud.flash(why === 'teeth' ? $t('Snip! The line is cut.') : why === 'snag' ? $t('Snagged! The line parted in the weed.') : why === 'rock' ? $t('Cut on the rocks!') : why === 'thrown' ? $t('It threw the hook!') : why === 'pulled' || why === 'lifted' ? $t('The hook pulled free.') : why === 'kicked' ? $t`It kicked free${{ beach: $t(' in the shallows'), lift: $t(' as it came up'), hand: '', leader: $t(' on the leader') }[F?.landBy] ?? $t(' at the net')}!` : why === 'knocked' ? $t('The net knocked the hook out!') : why === 'slipped' ? $t('It slipped your hand!') : why === 'weeded' ? $t`It shed the hook in the ${F?.stuck === 'rock' ? $t('rocks') : $t('weed')}!` : why === 'spat' ? $t('It let go!') : $t('Snap! The line broke.'), t, 3);
     hud.toast(breakReason(why, sp, rod, { by: F?.thrownBy, loosened: !!F?.loosened, landBy: F?.landBy, stuck: !!F?.stuck, kind: F?.stuck, loosen: pads.active ? padName('LT') : scheme() === 'touch' ? $t('the stick down') : 'S' }), 9);
   },
   // The line as it is (worn by hard fights, see shop.js); and the wear a fight just ended leaves.
@@ -1527,7 +1527,7 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
   fought: (F, rod) => {
     const w = addWear(state, rod.id, wearFrom(F));
     // (E2: chafed on rock or nicked by teeth: said, as it's the end of the line that's weak now.)
-    if ((F.chafe || 0) >= 0.15) teach('chafed', $t`Your line’s chafed: it’ll break more easily now. The end of it on your ${rod.short.toLowerCase()} rubbed on the ${F.coverKind === 'rock' ? 'rock' : F.teeth ? $t('fish’s teeth') : 'weed'}; fresh line at the chandlery puts it right.`, 9);
+    if ((F.chafe || 0) >= 0.15) teach('chafed', $t`Your line’s chafed: it’ll break more easily now. The end of it on your ${rod.short.toLowerCase()} rubbed on the ${F.coverKind === 'rock' ? $t('rock') : F.teeth ? $t('fish’s teeth') : $t('weed')}; fresh line at the chandlery puts it right.`, 9);
     else if (w.was < 0.6 && w.now >= 0.6) teach('frayed', $t`That fight has left the line on your ${rod.short.toLowerCase()} frayed: it’s a little weaker now. Old Bert at the chandlery will put fresh line on for a few pounds.`, 9);
   },
   baitBoost: () => (freshBaitToday(state) ? BAIT.boost : 1),
@@ -1787,7 +1787,7 @@ function showCatch(sp, size, agent, rigUsed) {
   const baitBtn = $('cc-bait'), baitOk = baitRoom(sp.id, size);
   baitBtn.hidden = !isLiveBait(sp.id, size);
   baitBtn.disabled = !baitOk.ok;
-  baitBtn.lastChild.textContent = baitOk.ok ? $t`Into the ${livewellHere() ? 'livewell' : $t('bait bucket')}` : $t`The ${livewellHere() ? 'livewell' : $t('bait bucket')} is full`;
+  baitBtn.lastChild.textContent = baitOk.ok ? $t`Into the ${livewellHere() ? $t('livewell') : $t('bait bucket')}` : $t`The ${livewellHere() ? $t('livewell') : $t('bait bucket')} is full`;
   $('catch-card').hidden = false;
   document.body.classList.add('reveal');
   modal = 'catch';
@@ -2007,7 +2007,7 @@ function renderKit(el) {
     if (row.children.length) out.push(row);
   }
   // The camera rides in the same pocket (the only way into photo mode on a touch screen).
-  out.push(p($t`Your camera: a picture of wherever you are, and under the water, of the fish themselves.${scheme() === 'touch' ? '' : ` (${input.keyLabel('photo')} anywhere.)`}`, 'gx-kit-text'));
+  out.push(p($t`Your camera: a picture of wherever you are, and under the water, of the fish themselves.${scheme() === 'touch' ? '' : $t` (${input.keyLabel('photo')} anywhere.)`}`, 'gx-kit-text'));
   out.push(btn($t('Take a photograph'), () => {
     closePack();
     openPhoto();
@@ -2356,12 +2356,12 @@ function buyBoxIce(kind, where = 'chandlery') {
 function stockBoat(kind) {
   const S = BOATS[kind], q = stockUp(state, kind, state.economy, true);
   if (q.days <= 0.01) return true;
-  if (q.price > 0 && !payOut(state, q.price, $t`Stores for the ${S?.name || 'boat'}`).ok) {
+  if (q.price > 0 && !payOut(state, q.price, $t`Stores for the ${S?.name || $t('boat')}`).ok) {
     hud.toast($t`Stores for the voyage are ${money(q.price)}, and your purse has ${money(state.money)}. Sell a fish or two at the market first.`, 5);
     return false;
   }
   stockUp(state, kind, state.economy);
-  hud.toast($t`Water, tins, oatcakes and bread stowed aboard the ${S?.name || 'boat'}: ${storesWordsOf(kind)}.`, 5);
+  hud.toast($t`Water, tins, oatcakes and bread stowed aboard the ${S?.name || $t('boat')}: ${storesWordsOf(kind)}.`, 5);
   packUI.render();
   save();
   return true;
@@ -2392,7 +2392,7 @@ function openHalvigStores() {
   if (!here) list.push({ ok: true, text: $t('None of your boats is up the coast to stock: bring her in alongside the pier, and the shop will fill her lockers and her fish box.') });
   else if (!acts.length && !list.length) list.push({ ok: true, text: $t`The ${S.name} carries no stores or fish box to fill.` });
   ask($t('Halvig Stores'), $t`${open ? $t('The bell over the door, and Morag behind the counter with the radio on.') : $t('Nobody behind the counter at this hour, but the door’s on the latch and there’s an honesty box by the till.')} Shelves to the ceiling: tins, oatcakes, bread on the ferry days, paraffin, wellies, postcards of the light. Water from the tap outside; ice in the freezer at the back.`,
-    [...acts, { text: acts.length ? $t('Not now') : 'Thanks', cls: 'quiet', run: () => {} }], { list });
+    [...acts, { text: acts.length ? $t('Not now') : $t('Thanks'), cls: 'quiet', run: () => {} }], { list });
 }
 
 // The Loch Bothy above Bothy Bay: in to the stove and the sleeping platform, or the book on the
@@ -2505,7 +2505,7 @@ function pitchHere(spot, mode, c) {
     const d = Math.hypot(spot.x - c.x, spot.z - c.z);
     const hours = Math.min(2.5, 0.25 + (d / 400) * 2);
     const mins = Math.round(hours * 60);
-    ask($t`Move ${c.name} here?`, $t`It stands ${Math.round(d)} m away. You go back for it and carry everything over (about ${mins < 90 ? `${mins} minutes` : `${Math.round(hours * 10) / 10} hours`}). The tent, the stove and the cool box come just as they are, with ${c.store.fish.length} fish on ice.`, [
+    ask($t`Move ${c.name} here?`, $t`It stands ${Math.round(d)} m away. You go back for it and carry everything over (about ${mins < 90 ? $t`${mins} minutes` : $t`${Math.round(hours * 10) / 10} hours`}). The tent, the stove and the cool box come just as they are, with ${c.store.fish.length} fish on ice.`, [
       { text: $t('Leave it where it is'), cls: 'quiet', run: () => hud.flash($t`${c.name} stays where it is.`, t, 2) },
       {
         text: $t('Move it here'), run: () => {
@@ -2706,7 +2706,7 @@ const harbourSheet = new HarbourSheet(state, {
   yardFit: (kind, id) => {
     const r = fitBoat(state, kind, id);
     yardDo(r, () => {
-      hud.toast(r.swapped ? $t`Fitted, in place of the ${FITS[r.swapped].name.toLowerCase()}.` : 'Fitted.', 3);
+      hud.toast(r.swapped ? $t`Fitted, in place of the ${FITS[r.swapped].name.toLowerCase()}.` : $t('Fitted.'), 3);
       vesselLog(kind, `Fitted: ${FITS[id].name.toLowerCase()}.`);
     });
   },
@@ -2757,7 +2757,7 @@ const harbourSheet = new HarbourSheet(state, {
     audio.chime?.();
     const [part, key] = id.split(':');
     const PART = { steer: $t('Her steering'), mount: $t('The engine’s bracket'), wiring: $t('The battery terminal'), water: $t('Her bilge (pumped out)') };
-    vesselLog(kind, id === 'all' ? $t('Her knocks put right at the Marine Works.') : part === 'tube' ? $t`The ${CHAMBERS[+key]} tube patched at the Marine Works.` : part === 'hull' ? $t`${SECTION_NAMES[key].replace(/^her /, 'Her ')} put right at the Marine Works.` : $t`${PART[part] || 'She'} put right at the Marine Works.`);
+    vesselLog(kind, id === 'all' ? $t('Her knocks put right at the Marine Works.') : part === 'tube' ? $t`The ${CHAMBERS[+key]} tube patched at the Marine Works.` : part === 'hull' ? $t`${SECTION_NAMES[key].replace(/^her /, 'Her ')} put right at the Marine Works.` : $t`${PART[part] || $t('She')} put right at the Marine Works.`);
     hud.toast(id === 'all' ? $t('The yard puts her right: she’s herself again.') : $t('Done: the yard puts it right.'), 3);
     save();
   },
@@ -2948,7 +2948,7 @@ function tripChecklist() {
   out.push(...voyageLines(state.vessel, { air: true }));
   out.push(freshBaitToday(state) ? { ok: true, text: $t('Fresh bait for today.') } : { ok: true, text: $t('No fresh bait today (a help with worms and crab, never a need).') });
   const storm = Math.max(weather.storm, conditions.sea.storm);
-  out.push({ ok: storm < 0.4, text: storm >= 0.4 ? $t('A storm is blowing: stay in the bay and the sheltered water today.') : weatherLines(weather.rain > 0.6 ? $t('Heavy rain') : weather.rain > 0.15 ? $t('Light rain') : weather.cloud > 0.7 ? 'Overcast' : weather.cloud > 0.3 ? $t('Some cloud') : 'Clear')[0] });
+  out.push({ ok: storm < 0.4, text: storm >= 0.4 ? $t('A storm is blowing: stay in the bay and the sheltered water today.') : weatherLines(weather.rain > 0.6 ? $t('Heavy rain') : weather.rain > 0.15 ? $t('Light rain') : weather.cloud > 0.7 ? $t('Overcast') : weather.cloud > 0.3 ? $t('Some cloud') : $t('Clear'))[0] });
   out.push({ ok: true, text: $t`Tide: ${tideWords(clock.abs)}.` });
   {
     const abs = clock.abs, h = hoursToGale(abs), g = h != null ? galeNear(abs) : null;
@@ -2966,7 +2966,7 @@ function buyIce() {
     hud.toast($t`Ice is ${money(ICE.price)}, and your purse has ${money(state.money)}. Sell a fish or two at the market first.`, 5);
     return;
   }
-  payOut(state, ICE.price, 'Ice');
+  payOut(state, ICE.price, $t('Ice'));
   state.shop.iceUntil = now + ICE.hours;
   hud.toast($t('Bert shovels crushed ice into a bag and packs it into your creel. Your fish keep fresh for a day.'), 5);
   save();
@@ -3475,7 +3475,7 @@ function updateTow(dt) {
   if (out.slip > 0 && t > (tow.surgeT || 0)) {
     tow.surgeT = t + 6;
     audio.creak?.(0.03, 0);
-    hud.flash($t`${tow.tender.name} surges the towline round the cleat as it snatches: ${tow.extra < 1 ? 'a little' : `${Math.round(tow.extra)} m`} let run.`, t, 3);
+    hud.flash($t`${tow.tender.name} surges the towline round the cleat as it snatches: ${tow.extra < 1 ? $t('a little') : `${Math.round(tow.extra)} m`} let run.`, t, 3);
   }
   tow.T = out.T || 0;
   tow.peak = Math.max((tow.peak || 0) * Math.exp(-dt / 3), out.load || 0);
@@ -3657,7 +3657,7 @@ function chooseDive(entry) {
     ? { text: $t`Scuba, with the camera (${Math.round(tank)} bar)`, cls: 'quiet', run: () => startDive('scuba', entry) }
     : { text: $t('Scuba: the tank needs filling'), cls: 'quiet', run: () => hud.flash($t('The tank’s nearly empty: the chandlery in Willowhaven fills it.'), t, 3.5) });
   buttons.push({ text: fresh ? $t('Freedive, to look') : $t('Freedive, with the speargun'), run: () => startDive('free', entry) });
-  ask($t('Go diving'), `${drift ? $t`${entry.from === 'crew' ? entry.whose : `The ${boat.name}`} isn’t anchored: she’ll drift off while you’re down. ` : ''}${fresh
+  ask($t('Go diving'), `${drift ? $t`${entry.from === 'crew' ? entry.whose : $t`The ${boat.name}`} isn’t anchored: she’ll drift off while you’re down. ` : ''}${fresh
     ? $t('Fresh water: a breath-hold dive or a tank, to look (spearfishing isn’t allowed in fresh water).')
     : $t('Hold your breath and take the speargun, or dive on a tank with the camera, to look and take photographs (spearfishing on scuba is banned).')}`, buttons);
 }
@@ -3758,7 +3758,7 @@ function endDive(to = null, quiet = false) {
   if (!quiet) {
     const mins = Math.max(1, Math.round(d.t / 60));
     const fish = d.catches.length ? ` · ${d.catches.join(', ')}` : '';
-    hud.toast($t`${d.kit === 'free' ? 'Freedive' : $t('Scuba dive')}: ${mins} min, down to ${d.maxDepth.toFixed(1)} m. ${d.site ? `At ${d.site.name.replace(/^The /, 'the ')}` : $t('In the water')}${d.kit === 'free' && d.longest > 5 ? $t`, longest breath-hold ${Math.round(d.longest)} s` : ''}${d.kit === 'scuba' ? $t`, ${Math.round(S.tank)} bar left` : ''}${fish}.`, 6);
+    hud.toast($t`${d.kit === 'free' ? $t('Freedive') : $t('Scuba dive')}: ${mins} min, down to ${d.maxDepth.toFixed(1)} m. ${d.site ? $t`At ${d.site.name.replace(/^The /, 'the ')}` : $t('In the water')}${d.kit === 'free' && d.longest > 5 ? $t`, longest breath-hold ${Math.round(d.longest)} s` : ''}${d.kit === 'scuba' ? $t`, ${Math.round(S.tank)} bar left` : ''}${fish}.`, 6);
   }
   save();
 }
@@ -4134,7 +4134,7 @@ function landSpeared(a) {
   setOutcome(lastCatchId, 'kept');
   state.dive.speared++;
   dive.catches.push(`${sp.name.toLowerCase()} ${size} cm`);
-  hud.flash($t`${isNew ? 'A first! ' : ''}${sp.name}, ${size} cm: on the stringer`, t, 3);
+  hud.flash($t`${isNew ? $t('A first! ') : ''}${sp.name}, ${size} cm: on the stringer`, t, 3);
   if (isNew) {
     audio.fanfare();
     hud.pulseJournal();
@@ -4293,7 +4293,7 @@ function tiltOutboards() {
   if (r.why === 'fast') return hud.flash($t('Slow down first: under way the leg only trims, it won’t tilt right up.'), t, 2.4);
   if (r.to === 'up' && boat.lever) changeLever(0);
   const two = ENGINES[E.kind].engines > 1;
-  hud.flash(r.to === 'up' ? $t`Tilting the ${two ? 'outboards' : 'outboard'} up, the ${two ? 'propellers' : 'propeller'} out of the water` : $t`Tilting the ${two ? 'outboards' : 'outboard'} down to run`, t, 2);
+  hud.flash(r.to === 'up' ? $t`Tilting the ${two ? $t('outboards') : $t('outboard')} up, the ${two ? $t('propellers') : $t('propeller')} out of the water` : $t`Tilting the ${two ? $t('outboards') : $t('outboard')} down to run`, t, 2);
   audio.tick?.(0.3);
 }
 
@@ -4433,7 +4433,7 @@ function intakeAlarm(E, kind) {
   }
   ask(inboard ? $t('The raw-water alarm') : $t('The overheat alarm'), $t`${what}: ${by} over the cooling intake, by the feel of it. Stop and clear it (${inboard ? $t('open up the strainer and clear it out') : $t('tilt the leg up and reach down for it')}), or ease her right back and limp home slow: at dead slow she runs cooler.`, [
     { text: $t('Ease her back'), cls: 'quiet', run: () => hud.toast($t('Back to dead slow: watch the temperature come down. She cools there, or near it; opened up, she’ll run hot again.'), 6) },
-    { text: $t('Stop and clear it'), run: () => hud.toast($t`Throttle to neutral. Once she’s lost way, ${scheme() === 'touch' ? 'tap' : 'press'} ${scheme() === 'touch' ? $t('the prompt') : input.keyLabel('interact')} to look her over, and clear the intake.`, 6) },
+    { text: $t('Stop and clear it'), run: () => hud.toast($t`Throttle to neutral. Once she’s lost way, ${scheme() === 'touch' ? $t('tap') : $t('press')} ${scheme() === 'touch' ? $t('the prompt') : input.keyLabel('interact')} to look her over, and clear the intake.`, 6) },
   ]);
 }
 function clearTheIntake() {
@@ -4453,7 +4453,7 @@ function engineEvent(e, E, kind) {
   if (e && typeof e === 'object') {
     // The assisted start, one step at a time.
     if (e.step === 'neutral') changeLever(0);
-    const words = { battery: $t('Battery switch on'), cord: $t('Kill cord clipped on'), neutral: $t('Into neutral'), key: $t('Key on'), glow: $t('Warming the glow plugs'), start: P.starter === 'pull' ? $t('Pulling the cord') : P.electric ? $t('Switching on') : 'Starting' };
+    const words = { battery: $t('Battery switch on'), cord: $t('Kill cord clipped on'), neutral: $t('Into neutral'), key: $t('Key on'), glow: $t('Warming the glow plugs'), start: P.starter === 'pull' ? $t('Pulling the cord') : P.electric ? $t('Switching on') : $t('Starting') };
     if (e.ok === false && e.why) helmSay(e.why);
     else if (words[e.step]) helmSay(`${words[e.step]}…`, 1.2, false);
     return;
@@ -4715,7 +4715,7 @@ function dashKey(which) {
 function dashWords(c) {
   const E = engineHere();
   if (!E) return '';
-  const on = (b) => (b ? 'on' : 'off'), mode = startMode();
+  const on = (b) => (b ? $t('on') : $t('off')), mode = startMode();
   switch (c.base) {
     case 'battery': return on(E.battery);
     case 'cord': return E.cord ? $t('clipped on') : $t('off: she won’t start');
@@ -4723,10 +4723,10 @@ function dashWords(c) {
       if (mode === 'go') return $t('she runs whenever you’re at the helm');
       const e = c.which == null ? null : E.engines[c.which];
       const run = e ? e.run : engineRunning(E), crank = e ? e.crank > 0 : engineCranking(E);
-      if (mode === 'simple') return run ? $t('running: press to stop') : crank || E.auto ? 'starting…' : $t('press to start');
-      return run ? $t('running: turn off to stop') : crank ? 'starting…' : E.key ? $t('on: turn again to start') : 'off';
+      if (mode === 'simple') return run ? $t('running: press to stop') : crank || E.auto ? $t('starting…') : $t('press to start');
+      return run ? $t('running: turn off to stop') : crank ? $t('starting…') : E.key ? $t('on: turn again to start') : $t('off');
     }
-    case 'glow': return E.glowing > 0 ? 'warming' : E.glow >= 1 ? 'ready' : 'cold';
+    case 'glow': return E.glowing > 0 ? $t('warming') : E.glow >= 1 ? $t('ready') : $t('cold');
     case 'lights': return on(boat.navLights);
     case 'horn': return $t('press to sound');
     case 'screen': return finder.visible ? $t('fish finder: tap for the chart') : $t('chart: tap for the fish finder');
@@ -4959,7 +4959,7 @@ function jobWorld() {
   const H = { x: HARBOUR_OFFICE.x, z: HARBOUR_OFFICE.z };
   const where = (x, z) => $t`${Math.round(Math.hypot(x - H.x, z - H.z) / 100) / 10} km ${compass(bearingOf(x - H.x, z - H.z))} of the harbour`;
   const busy = whatsAbout(eco).map((a) => ({ id: a.sp.id, name: a.sp.name, where: a.where, at: null, min: a.sp.size[0], max: a.sp.size[1], sea: a.sp.water !== 'fresh' }));
-  const whales = sealife.whales.filter((w) => w.sea === 'home').map((w) => ({ kind: w.kind, name: LIFE_NAME[w.kind] || 'Whale', where: where(w.x, w.z), at: { x: w.x, z: w.z, name: LIFE_NAME[w.kind] || 'Whale' } }));
+  const whales = sealife.whales.filter((w) => w.sea === 'home').map((w) => ({ kind: w.kind, name: LIFE_NAME[w.kind] || $t('Whale'), where: where(w.x, w.z), at: { x: w.x, z: w.z, name: LIFE_NAME[w.kind] || $t('Whale') } }));
   const near = (x, z, r) => Math.hypot(x - H.x, z - H.z) < r;
   const usable = (k) => usableBoat(state.yard, k, state.day, ownAbs());
   const mo = Math.floor((((clock.abs / 24) % 360) + 360) % 360 / 30);
@@ -5160,7 +5160,7 @@ function updateJobs(dt) {
   jobBumps = 0;
   for (const a of r.boarded) {
     const o = a.obj;
-    hud.toast(o.kind === 'charter' ? `${a.title}: ${o.pax} aboard${o.divers ? $t(' with their kit') : ''}. ${Con.standing(a)}`
+    hud.toast(o.kind === 'charter' ? $t`${a.title}: ${o.pax} aboard${o.divers ? $t(' with their kit') : ''}. ${Con.standing(a)}`
       : o.kind === 'tow' && o.aground ? $t`${a.title}: she’s on your line. Take up the strain gently, then give her more if she won’t come, and ease her off into deep water: don’t snatch at it, and mind your own keel.`
       : o.kind === 'tow' ? (o.leak ? $t`${a.title}: she’s on your line. You pass across your bucket, and they stuff a rag in the sprung plank and bail: she’s still filling, but slowly. Gently now: into Willowhaven.` : $t`${a.title}: she’s on your line. Gently now: into Willowhaven.`)
       : o.kind === 'pickup' ? (o.what === 'person' ? $t`${a.title}: aboard, cold and grateful. Home to Willowhaven.` : o.base === 'puerto' ? $t`${a.title}: hauled aboard. Into Puerto Brasa with it.` : $t`${a.title}: hauled aboard. Home to Willowhaven with it.`)
@@ -5336,7 +5336,7 @@ function pilotTick(dt, steerIn) {
     const ahead = lookAhead(at, depthAt, boat.hull.shallow ?? boat.hull.draft);
     const near = [...boats.filter((b) => b !== boat), ...Object.values(folkView.boats || {}), ...visitors.boats([])]
       .filter((o) => o?.pos && o.group?.visible !== false)
-      .map((o) => ({ x: o.pos.x, z: o.pos.z, vx: o.vel?.x || 0, vz: o.vel?.z || 0, name: $t`the ${o.hull?.name || 'boat'}` }));
+      .map((o) => ({ x: o.pos.x, z: o.pos.z, vx: o.vel?.x || 0, vz: o.vel?.z || 0, name: $t`the ${o.hull?.name || $t('boat')}` }));
     const C = !ahead && pilotClosing({ x: boat.pos.x, z: boat.pos.z, vx: boat.vel.x, vz: boat.vel.z }, boat.fwd.x, boat.fwd.z, near);
     // (What it's sounding for: new when its kind changes, the words with it.)
     const kind = ahead ? ahead.what : C ? 'boat' : null;
@@ -5568,7 +5568,7 @@ function updateEngine(dt) {
     }
     if (on) {
       haptics.hold('thruster', 0, 0.08);
-      teach('thruster', $t`The bow thruster: ${scheme() === 'pad' ? `${padName('LB')} and ${padName('RB')}` : `${K('trimDown')} and ${K('trimUp')}`} push her bow to port or starboard. For coming alongside and turning in a tight spot; it does little once she's moving.`, 9);
+      teach('thruster', $t`The bow thruster: ${scheme() === 'pad' ? $t`${padName('LB')} and ${padName('RB')}` : $t`${K('trimDown')} and ${K('trimUp')}`} push her bow to port or starboard. For coming alongside and turning in a tight spot; it does little once she's moving.`, 9);
     }
   }
   if ((P.trim || TH) && !!(dir || tilting) !== trimming) audio.trimWhine?.(!!(dir || tilting));
@@ -5613,7 +5613,7 @@ function helmGauges() {
   if (tubes) {
     let w = -1;
     tubes.forEach((c, i) => { if (c.air < 0.55 && (w < 0 || c.air < tubes[w].air)) w = i; });
-    if (w >= 0) bits.push($t`<span class="lv-warn">${CHAMBERS[w]} tube ${tubes[w].air < 0.2 ? 'flat' : 'soft'}</span>`);
+    if (w >= 0) bits.push($t`<span class="lv-warn">${CHAMBERS[w]} tube ${tubes[w].air < 0.2 ? $t('flat') : $t('soft')}</span>`);
   }
   // (Water in her: see flooding.js.)
   const wb = waterBit();
@@ -5621,11 +5621,11 @@ function helmGauges() {
   // (Her working parts, as hurt: see damage.js.)
   const DD = boat.damage;
   if (DD?.wiring?.loose) bits.push($t('<span class="lv-warn">terminal loose</span>'));
-  if (DD && Math.abs(DD.steer.bend) > 0.01) bits.push($t`<span class="lv-warn">pulls to ${DD.steer.bend > 0 ? 'starboard' : 'port'}</span>`);
+  if (DD && Math.abs(DD.steer.bend) > 0.01) bits.push($t`<span class="lv-warn">pulls to ${DD.steer.bend > 0 ? $t('starboard') : $t('port')}</span>`);
   // (Whatever judders through her and your hands says so: the bracket from as loose as you feel it,
   // and a propeller bent on the bottom. See updateEngine, where you feel them.)
-  if (DD && DD.mount > 0.1) bits.push($t`<span class="lv-warn">engine ${DD.mount > 0.3 ? 'loose' : $t('a little loose')} on its bracket</span>`);
-  if (E.dmg > 0.1) bits.push($t`<span class="lv-warn">propeller ${E.dmg > 0.5 ? $t('badly bent') : 'bent'}</span>`);
+  if (DD && DD.mount > 0.1) bits.push($t`<span class="lv-warn">engine ${DD.mount > 0.3 ? $t('loose') : $t('a little loose')} on its bracket</span>`);
+  if (E.dmg > 0.1) bits.push($t`<span class="lv-warn">propeller ${E.dmg > 0.5 ? $t('badly bent') : $t('bent')}</span>`);
   return bits.join(' · ');
 }
 // Each frame, the fittings of the boat you're in at work (see shipyard.js): the sonar's imaging
@@ -5682,7 +5682,7 @@ function radioLine() {
   const picks = [];
   if (birds.length) picks.push(`“${birds[0]}”`);
   if (about.length) picks.push(`“${about[0].sp.name} showing ${about[0].where || 'about'}.”`);
-  const sky = weather.rain > 0.6 ? $t('Heavy rain') : weather.rain > 0.15 ? $t('Light rain') : weather.cloud > 0.7 ? 'Overcast' : weather.cloud > 0.3 ? $t('Some cloud') : 'Clear';
+  const sky = weather.rain > 0.6 ? $t('Heavy rain') : weather.rain > 0.15 ? $t('Light rain') : weather.cloud > 0.7 ? $t('Overcast') : weather.cloud > 0.3 ? $t('Some cloud') : $t('Clear');
   if (!south) picks.push($t`Harbour office: ${weatherLines(sky, clock.abs)[0]}`);
   // (Work going: the board at Willowhaven has a job worth the trip; see contracts.js.)
   if (!south) {
@@ -5965,7 +5965,7 @@ function updateSailPanel() {
     words: !boat.sailUp ? $t('sail down') : boat.fallen > 0 ? $t('in the water') : boat.anchored ? $t('at anchor') : boat.tie ? $t('tied up') : `${advice.words}${boat.planing > 0.6 ? ' · planing' : ''}`,
     knots: Math.max(0, boat.forwardSpeed) * 1.944,
     awa: up ? A.awa * A.side : twa, twa, side: up ? A.side : 1, boom: up ? A.boom : 0,
-    keys: T ? '' : boat.hull.rig ? (P ? `${kbd('L-stick')} ↕ sheet` : $t`${K('forward')} in · ${K('back')} out`) : P ? $t`${kbd('L-stick')} ↕ sheet · ${K('motor')} sail` : $t`${K('forward')} in · ${K('back')} out · ${K('motor')} sail ${boat.sailUp ? 'down' : 'up'} · ${K('outboard')} outboard`,
+    keys: T ? '' : boat.hull.rig ? (P ? `${kbd('L-stick')} ↕ sheet` : $t`${K('forward')} in · ${K('back')} out`) : P ? $t`${kbd('L-stick')} ↕ sheet · ${K('motor')} sail` : $t`${K('forward')} in · ${K('back')} out · ${K('motor')} sail ${boat.sailUp ? $t('down') : $t('up')} · ${K('outboard')} outboard`,
   });
 }
 
@@ -6027,8 +6027,8 @@ function updateLever() {
   const S2 = boat.split;
   leverUI.update({
     show: true, kind, smooth: smooth && !S2, index: kind ? (S2 ? nearest(kind, S2[leverSel === 'stbd' ? 1 : 0]) : smooth ? displayIndex(kind, leverPos(kind)) : nearest(kind, boat.lever)) : 0, power: boat.power, cap: kind ? capIndex(kind, sit) : 0, twins,
-    words: !kind ? 'paddling' : boat.anchored ? $t('at anchor') : dead ? (kind === 'kayak' ? $t('battery flat') : $t('motor dead')) : S2 ? $t`port ${leverWords(kind, S2[0])} · starboard ${leverWords(kind, S2[1])}` : cap(smooth ? leverPositionWords(leverPos(kind)) : leverWords(kind, boat.lever)),
-    title: kind === 'kayak' ? $t('Kayak motor') : kayak ? 'Kayak' : outboard ? 'Outboard' : 'Throttle',
+    words: !kind ? $t('paddling') : boat.anchored ? $t('at anchor') : dead ? (kind === 'kayak' ? $t('battery flat') : $t('motor dead')) : S2 ? $t`port ${leverWords(kind, S2[0])} · starboard ${leverWords(kind, S2[1])}` : cap(smooth ? leverPositionWords(leverPos(kind)) : leverWords(kind, boat.lever)),
+    title: kind === 'kayak' ? $t('Kayak motor') : kayak ? $t('Kayak') : outboard ? $t('Outboard') : $t('Throttle'),
     motor: kayak ? (boat.emotorDown ? 'down' : 'up') : outboard ? 'outboard' : null, keys,
     tilt: tiltable ? (tiltedUp(EL) ? 'up' : 'down') : null, twin: tiltable && ENGINES[EL.kind].engines > 1,
     gauges: helmGauges(),
@@ -6380,14 +6380,14 @@ function takeRolls() {
     return;
   }
   const got = packRolls(state.comfort);
-  hud.flash(got ? $t`${got} ${got > 1 ? 'rolls' : 'roll'} wrapped and into your backpack (${ROLLS} in all).` : $t('Your backpack has all the rolls it can carry.'), t, 3);
+  hud.flash(got ? $t`${got} ${got > 1 ? $t('rolls') : $t('roll')} wrapped and into your backpack (${ROLLS} in all).` : $t('Your backpack has all the rolls it can carry.'), t, 3);
   packUI.render();
   camp.render();
   save();
 }
 function eatARoll() {
   if (!eatRoll(state.comfort, state.food)) return;
-  hud.flash($t`A roll from your backpack: ${conditions.region === 'south' ? $t('bread, cheese and a slice of chorizo') : $t('cheese and pickle')}. ${state.comfort.rolls ? `${state.comfort.rolls} left.` : $t('That was the last one.')}`, t, 3);
+  hud.flash($t`A roll from your backpack: ${conditions.region === 'south' ? $t('bread, cheese and a slice of chorizo') : $t('cheese and pickle')}. ${state.comfort.rolls ? $t`${state.comfort.rolls} left.` : $t('That was the last one.')}`, t, 3);
   packUI.render();
   save();
 }
@@ -6414,7 +6414,7 @@ function renderWear(el) {
   const env2 = comfortEnv(), feel = Math.round(feelsLike(c, env2)), suits = dressFor(c, env2);
   const words = off ? [] : needsOf(c, state.food).map((n) => n.word.toLowerCase());
   out.push(mk('p', 'gx-kit-text', off ? $t('Character needs are off (Settings → Controls & comfort): the weather never bothers you.')
-    : $t`${words.length ? `You’re ${words.join(', ')}.` : $t('You’re comfortable.')} It feels about ${feel}° to you just now.`));
+    : $t`${words.length ? $t`You’re ${words.join(', ')}.` : $t('You’re comfortable.')} It feels about ${feel}° to you just now.`));
   const row = mk('div', 'gx-kit-acts');
   for (const id of CLOTHES_IDS) {
     const on = !!c.wear[id];
@@ -6546,7 +6546,7 @@ function travel(dest) {
   if (modal) return;
   modal = 'travel';
   if (driving) exitCar(true);
-  const name = far ? PLACES.find((p) => p.id === dest)?.name : dest === 'own' ? state.camps[0].name : dest === 'haven' ? 'Willowhaven' : dest === 'home' ? 'Home' : dest === 'car' ? $t('Your car') : '';
+  const name = far ? PLACES.find((p) => p.id === dest)?.name : dest === 'own' ? state.camps[0].name : dest === 'haven' ? $t('Willowhaven') : dest === 'home' ? 'Home' : dest === 'car' ? $t('Your car') : '';
   hud.sleep(true, far || dest === 'haven' ? $t`You make your way to ${name}…` : dest === 'own' ? $t`You head back to ${name}…` : dest === 'camp' ? $t('You head back to the old camp…') : dest === 'home' ? $t('You make your way home…') : dest === 'car' ? $t('You walk back to the car…') : $t('You make your way back to the boat…'));
   traveling = { dest, name, t: 0, done: false };
 }
@@ -6605,7 +6605,7 @@ function updateTravel(dt) {
   if (traveling.t > 1.9) {
     hud.sleep(false);
     modal = null;
-    hud.toast(traveling.dest === 'home' ? `Home. ${carAwayWords()}` : traveling.dest === 'car' ? $t('Back at the car.') : traveling.name ? $t`${traveling.name}. Your boat is where you left it.` : traveling.dest === 'camp' ? $t('Back at the old camp. The boat is where you left it.') : $t('Back in the boat.'), 4);
+    hud.toast(traveling.dest === 'home' ? $t`Home. ${carAwayWords()}` : traveling.dest === 'car' ? $t('Back at the car.') : traveling.name ? $t`${traveling.name}. Your boat is where you left it.` : traveling.dest === 'camp' ? $t('Back at the old camp. The boat is where you left it.') : $t('Back in the boat.'), 4);
     traveling = null;
   }
 }
@@ -6786,7 +6786,7 @@ function updatePassage(dt) {
       hud.toast(first
         ? $t`Las Brasas. Puerto Brasa lies ahead behind its breakwater: ${how} and tie up at the quay or the pontoon (${input.keyLabel('anchor')}). Bar El Muelle on the waterfront has a room, a stove and a shelf of tackle, and the fuel pump is on the quay. The water here is clear and warm: just west of the harbour mouth a yellow buoy marks El Bajón, a reef of lava pinnacles with sea fans and sponges, parrotfish, wrasse and morays (dive it, or look down from a boat over it); groupers live down the drop-off.`
         : $t`Las Brasas, and Puerto Brasa ahead. ${motor ? $t`The fuel pump is on the quay: ${tankWords(tanks(), P.kind)} left.` : ''}`, first ? 14 : 6);
-    } else hud.toast(motor ? $t`Home: Willow Bay, and the ${BOATS[P.kind]?.name || 'yacht'} at her berth. ${tankWords(tanks(), P.kind)} left: the fuel point is on the pontoon.` : $t('Home: Willow Bay, and the sailing boat alongside Willowhaven quay.'), 6);
+    } else hud.toast(motor ? $t`Home: Willow Bay, and the ${BOATS[P.kind]?.name || $t('yacht')} at her berth. ${tankWords(tanks(), P.kind)} left: the fuel point is on the pontoon.` : $t('Home: Willow Bay, and the sailing boat alongside Willowhaven quay.'), 6);
     // (F1a) Her stores ran out on the way.
     if (P.short) hud.toast($t`The stores ran out ${P.short} short of the far side: you come in hungry and thirsty. Eat and drink ashore, and stock her up before the next passage (${P.to === 'south' ? $t('the kitchen at Bar El Muelle') : $t('the chandlery')}).`, 8);
     save();
@@ -6945,7 +6945,7 @@ function enterCar() {
 function exitCar(force = false) {
   if (!driving) return;
   if (Math.abs(car.speed) > 0.6 && !force) {
-    hud.flash($t`Stop first (${{ touch: $t('the button brakes'), pad: `${kbd(padName('LT'))} brakes` }[scheme()] || `${K('cast')} brakes`}).`, t, 2);
+    hud.flash($t`Stop first (${{ touch: $t('the button brakes'), pad: `${kbd(padName('LT'))} brakes` }[scheme()] || $t`${K('cast')} brakes`}).`, t, 2);
     return;
   }
   car.speed = 0;
@@ -7071,7 +7071,7 @@ function openPump(id) {
   const what = (w) => (w === 'can' ? $t('the jerry can') : fuelName(w));
   const opts = needs.map((w) => {
     const q = free ? { litres: room(w), price: 0, short: false } : fuelQuote(room(w), state.economy, state.money, at);
-    const text = free ? `Fill ${what(w)}` : !q.short ? `Fill ${what(w)}: ${litres(q.litres)}, ${money(q.price)}` : q.litres >= 0.5 ? $t`${money(q.price)} worth in ${what(w)} (${litres(q.litres)})` : null;
+    const text = free ? $t`Fill ${what(w)}` : !q.short ? $t`Fill ${what(w)}: ${litres(q.litres)}, ${money(q.price)}` : q.litres >= 0.5 ? $t`${money(q.price)} worth in ${what(w)} (${litres(q.litres)})` : null;
     return text && { text, cls: needs.length > 1 ? 'quiet' : '', run: () => fillUp([w], free, at) };
   }).filter(Boolean);
   const all = needs.reduce((sum, w) => sum + room(w), 0);
@@ -7103,7 +7103,7 @@ function fillUp(list, free = false, at = 'haven') {
   // (A few minutes at the pump, a quarter of an hour for a big fill.)
   passTime(clamp(total / 120, 0.05, 0.25));
   audio.knock?.(0.3);
-  hud.toast($t`${litres(total)} of fuel${paid ? ` for ${money(paid)}` : ''}: ${list.map((w) => (w === 'can' ? $t('the jerry can') : fuelName(w))).join(', ').replace(/, ([^,]*)$/, ' and $1')}.`, 4);
+  hud.toast($t`${litres(total)} of fuel${paid ? $t` for ${money(paid)}` : ''}: ${list.map((w) => (w === 'can' ? $t('the jerry can') : fuelName(w))).join(', ').replace(/, ([^,]*)$/, ' and $1')}.`, 4);
   save();
 }
 
@@ -7304,7 +7304,7 @@ function boatChoices() {
   // (An electric outboard's battery flat: no can will help, a tow will.)
   if (ELEC[boat.id]) {
     const how = helpHere(), into = onMere(boat) ? $t('the boathouse') : boat.pos.z > SOUTH_Z ? $t('Puerto Brasa') : inNorth(boat.pos.x, boat.pos.z) ? $t('Halvig pier') : $t('Willowhaven quay');
-    acts.push({ text: how === 'flare' ? $t`Fire a flare for a tow (${state.safety.flares} left: a couple of hours)` : how === 'wait' ? $t`Wait for a passing boat to tow you to ${into} (hours)` : $t`${how === 'vhf' ? 'Radio' : 'Ring'} for a tow to ${into} (about an hour)`, run: () => towBoat(how) });
+    acts.push({ text: how === 'flare' ? $t`Fire a flare for a tow (${state.safety.flares} left: a couple of hours)` : how === 'wait' ? $t`Wait for a passing boat to tow you to ${into} (hours)` : $t`${how === 'vhf' ? $t('Radio') : $t('Ring')} for a tow to ${into} (about an hour)`, run: () => towBoat(how) });
     ask($t`The ${boat.name}: battery flat`, $t('The motor’s battery is flat. An oar moves her along, slowly; tied up at a jetty or a quay it charges again (half an hour’s worth an hour), and overnight.'), acts);
     return;
   }
@@ -7313,7 +7313,7 @@ function boatChoices() {
   if (canWith && f.can.litres >= 0.5) acts.push({ text: $t`Pour in the jerry can (${litres(f.can.litres)})`, cls: 'quiet', run: () => { pourCan(boat.id); if (f.can.at !== 'pack') syncCargo(boat.id); } });
   // (F1b) A tow as help can be called from here.
   const how = helpHere(), into = onMere(boat) ? $t('the boathouse') : boat.pos.z > SOUTH_Z ? $t('Puerto Brasa') : inNorth(boat.pos.x, boat.pos.z) ? $t('Halvig pier') : $t('Willowhaven quay');
-  acts.push({ text: how === 'flare' ? $t`Fire a flare for a tow (${state.safety.flares} left: a couple of hours)` : how === 'wait' ? $t`Wait for a passing boat to tow you to ${into} (hours)` : $t`${how === 'vhf' ? 'Radio' : 'Ring'} for a tow to ${into} (about an hour)`, run: () => towBoat(how) });
+  acts.push({ text: how === 'flare' ? $t`Fire a flare for a tow (${state.safety.flares} left: a couple of hours)` : how === 'wait' ? $t`Wait for a passing boat to tow you to ${into} (hours)` : $t`${how === 'vhf' ? $t('Radio') : $t('Ring')} for a tow to ${into} (about an hour)`, run: () => towBoat(how) });
   ask($t`The ${boat.name}: out of fuel`, $t`The tank is dry. An oar moves her along, slowly${kind === 'bass' && f.battery > 0 ? $t(', and the electric motor still runs on its battery') : ''}.${canWith ? '' : $t(' (The jerry can isn’t with you.)')}${how === 'phone' || how === 'vhf' ? '' : ` ${HELP_WORDS[how]}`}`, acts);
 }
 
@@ -7380,7 +7380,7 @@ function carBumped(b) {
   haptics.pulse({ strong: 0.9, weak: 0.5, ms: 200, shape: 'thump' }, clamp(b.speed / 6, 0.3, 1));
   if (t < bumpWordT) return;
   bumpWordT = t + 3;
-  hud.flash(b.kind === 'water' ? $t('The car won’t go any nearer the water.') : b.kind === 'steep' ? $t('Too steep for the car.') : $t`The car stops: ${b.name || 'something'} in the way.`, t, 2.2);
+  hud.flash(b.kind === 'water' ? $t('The car won’t go any nearer the water.') : b.kind === 'steep' ? $t('Too steep for the car.') : $t`The car stops: ${b.name || $t('something')} in the way.`, t, 2.2);
 }
 
 // Drive somewhere with the time passing (a short fade): to a destination, or home. aim: where the
@@ -7482,11 +7482,11 @@ const bench = new Workbench(state, {
   },
   weather: (id) => {
     const D = DESTS[id], w = windAt(D.at.x, D.at.z), sea = waveHeightHere(D.at.x, D.at.z);
-    const sky = weather.rain > 0.6 ? $t('Heavy rain') : weather.rain > 0.15 ? $t('Light rain') : weather.cloud > 0.7 ? 'Overcast' : weather.cloud > 0.3 ? $t('Some cloud') : 'Clear';
+    const sky = weather.rain > 0.6 ? $t('Heavy rain') : weather.rain > 0.15 ? $t('Light rain') : weather.cloud > 0.7 ? $t('Overcast') : weather.cloud > 0.3 ? $t('Some cloud') : $t('Clear');
     return [
       `${formatClock(clock.hour)}, ${phaseName(clock.hour).toLowerCase()}. ${sky}.`,
       w.speed < 0.6 ? $t('Wind: flat calm.') : $t`Wind: ${windWords(w.speed).toLowerCase()} from the ${compass(conditions.wind.from, true)}, about ${Math.round(w.speed * 3.6)} km/h there.`,
-      D.water === 'fresh' ? $t('A lake: the water is calm whatever the sea does.') : $t`Sea: ${seaWords(sea).toLowerCase()} (about ${sea < 0.1 ? 'nothing' : `${sea.toFixed(1)} m`}).`,
+      D.water === 'fresh' ? $t('A lake: the water is calm whatever the sea does.') : $t`Sea: ${seaWords(sea).toLowerCase()} (about ${sea < 0.1 ? $t('nothing') : `${sea.toFixed(1)} m`}).`,
     ];
   },
   openGuide: (id) => {
@@ -7617,7 +7617,7 @@ function updateGuide(dt) {
   if (guideEnd && started && !modal && !traveling && !sleeping && $('confirm').hidden) {
     guideEnd = false;
     const n = state.log.filter((e) => e.at >= g.since).length;
-    showNote($t('Your first trip'), $t`${n ? $t`${n === 1 ? $t('One fish') : `${n} fish`} in your journal from it.` : 'Done.'} Go anywhere the car or the boats can take you: the workbench plans an outing, the map shows where.`, 'trip');
+    showNote($t('Your first trip'), $t`${n ? $t`${n === 1 ? $t('One fish') : $t`${n} fish`} in your journal from it.` : $t('Done.')} Go anywhere the car or the boats can take you: the workbench plans an outing, the map shows where.`, 'trip');
     audio.chime();
   }
   if (!g.on || !started || traveling || sleeping) return;
@@ -7742,7 +7742,7 @@ function bestCatches() {
   }
   return Object.values(best).map((e) => ({ id: e.id, e, kg: e.weight ?? weightOf(fishById[e.sp], e.size) }))
     .sort((a, b) => b.kg - a.kg)
-    .map(({ id, e, kg }) => ({ id, title: $t`${fishById[e.sp].name}, ${e.size} cm`, sub: $t`${kg >= 1 ? `${kg.toFixed(1)} kg` : `${Math.round(kg * 1000)} g`} · day ${e.day}${e.place ? `, ${e.place}` : ''}`, e, kg }));
+    .map(({ id, e, kg }) => ({ id, title: $t`${fishById[e.sp].name}, ${e.size} cm`, sub: $t`${kg >= 1 ? $t`${kg.toFixed(1)} kg` : `${Math.round(kg * 1000)} g`} · day ${e.day}${e.place ? `, ${e.place}` : ''}`, e, kg }));
 }
 
 /* ---- what the garage, the car and the wall show ---- */
@@ -7772,7 +7772,7 @@ async function refreshHomeWall() {
   const best = bestCatches();
   // The chalkboard by the front door: what you've caught, all told.
   const total = Object.values(state.fish).reduce((a, f) => a + f.count, 0), kinds = Object.keys(state.fish).length;
-  world.home.showTally(total ? [(kinds === 1 ? $t`${total} fish, ${kinds} kind` : $t`${total} fish, ${kinds} kinds`), best[0] ? `Best: ${best[0].title}` : '', `Day ${state.day}`] : null);
+  world.home.showTally(total ? [(kinds === 1 ? $t`${total} fish, ${kinds} kind` : $t`${total} fish, ${kinds} kinds`), best[0] ? $t`Best: ${best[0].title}` : '', $t`Day ${state.day}`] : null);
   const rec = H.auto ? best[0] : best.find((b) => b.id === H.catchId);
   refreshBadges();
   const key = JSON.stringify([ids, keepsake, rec?.id]);
@@ -7931,7 +7931,7 @@ function interaction() {
     const keeper = town.near(walker.pos.x, walker.pos.z, 1.9);
     if (keeper && FOLK[keeper.id].remote) return { text: $t`Talk to ${FOLK[keeper.id].short}`, run: () => talkTo(keeper) };
     const box = regionBox();
-    if (box) return { text: $t`${PLACES.find((p) => p.id === box.place)?.name || 'Camp'}: the tackle box`, run: () => openPack('tackle box') };
+    if (box) return { text: $t`${PLACES.find((p) => p.id === box.place)?.name || $t('Camp')}: the tackle box`, run: () => openPack('tackle box') };
     // (F3a) Something the gale threw up on the tide line.
     const fl = flotsamNear();
     if (fl) return { text: $t`Pick up ${FINDS[fl.kind].name}`, run: () => pickUpFind(fl) };
@@ -8180,7 +8180,7 @@ function crossingChecks(to, S) {
   const why = passageWhy(S);
   if (why) stop = stop || why;
   const secs = crossSeconds(S.kind), hrs = crossHours(S.kind);
-  list.push({ ok: true, text: $t`${S.kind === 'sail' ? $t('The sailing boat') : S.kind === 'cruiser' ? $t('The yacht') : `The ${S.name}`}: about ${Math.round(secs / 60)} minutes at the helm across ${CROSS_KM} km of open sea (${hoursWords(hrs)} go by, through a night), then ${to === 'south' ? $t('round Punta del Faro into Puerto Brasa') : $t('in past Gannet Light to Willow Bay')}.` });
+  list.push({ ok: true, text: $t`${S.kind === 'sail' ? $t('The sailing boat') : S.kind === 'cruiser' ? $t('The yacht') : $t`The ${S.name}`}: about ${Math.round(secs / 60)} minutes at the helm across ${CROSS_KM} km of open sea (${hoursWords(hrs)} go by, through a night), then ${to === 'south' ? $t('round Punta del Faro into Puerto Brasa') : $t('in past Gannet Light to Willow Bay')}.` });
   if (S.hull.motor) {
     const have = fuelLevel(tanks(), S.id), need = passageFuel(S.id);
     list.push(have >= need
@@ -8324,7 +8324,7 @@ function updateCrossing(dt) {
 function meet(ev, B) {
   // (Something met along the way: back to normal time to see it.)
   stopFast($t('something met along the way'));
-  const side = Math.random() < 0.5 ? 1 : -1, sideWord = side > 0 ? 'starboard' : 'port';
+  const side = Math.random() < 0.5 ? 1 : -1, sideWord = side > 0 ? $t('starboard') : $t('port');
   const at = (ahead, across) => ({ x: B.pos.x + B.fwd.x * ahead + B.right.x * across * side, z: B.pos.z + B.fwd.z * ahead + B.right.z * across * side });
   const heading = Math.atan2(B.fwd.x, B.fwd.z);
   switch (ev.kind) {
@@ -8366,7 +8366,7 @@ function meet(ev, B) {
     case 'ship': {
       crossingLife.sendShip(B, side, (Math.random() - 0.5) * 0.5);
       hud.toast(env.night > 0.4
-        ? $t`A ship’s lights off the ${sideWord} bow, crossing ahead: keep well clear. A white light over a white light, and a ${side > 0 ? 'red' : 'green'} one: she won’t turn for you.`
+        ? $t`A ship’s lights off the ${sideWord} bow, crossing ahead: keep well clear. A white light over a white light, and a ${side > 0 ? $t('red') : $t('green')} one: she won’t turn for you.`
         : $t`A ship off the ${sideWord} bow, crossing ahead: keep well clear. A little container ship, deep-laden, on her way between the Channel and the islands: she won’t turn for you.`, 9);
       break;
     }
@@ -8395,7 +8395,7 @@ function boilAhead(B, sideWord) {
   if (!best) return;
   Object.assign(best, { x: bait.x + 30, z: bait.z, rest: 0, frenzy: 0, prey: bait, huntT: 4 });
   eco.activity[best.sp.id] = Math.max(eco.activity[best.sp.id] ?? 0, 0.8);
-  hud.toast($t`Birds working off the ${sideWord} bow: ${best.home.south ? 'shearwaters' : 'gannets'} diving. ${lower(best.sp.name).replace(/^./, (c) => c.toUpperCase())} on the bait: troll past the edge, or stop short and cast in.`, 9);
+  hud.toast($t`Birds working off the ${sideWord} bow: ${best.home.south ? $t('shearwaters') : $t('gannets')} diving. ${lower(best.sp.name).replace(/^./, (c) => c.toUpperCase())} on the bait: troll past the edge, or stop short and cast in.`, 9);
 }
 
 // The weather turning out on the open sea: shorten sail (or ease her back) and carry on, turn back
@@ -8725,7 +8725,7 @@ function closeBoard() {
   if (modal === 'board') modal = null;
 }
 function renderBoard() {
-  const sky = weather.rain > 0.6 ? $t('Heavy rain') : weather.rain > 0.15 ? $t('Light rain') : weather.cloud > 0.7 ? 'Overcast' : weather.cloud > 0.3 ? $t('Some cloud') : 'Clear';
+  const sky = weather.rain > 0.6 ? $t('Heavy rain') : weather.rain > 0.15 ? $t('Light rain') : weather.cloud > 0.7 ? $t('Overcast') : weather.cloud > 0.3 ? $t('Some cloud') : $t('Clear');
   $('board-sub').textContent = $t`${formatClock(clock.hour)} · day ${state.day}`;
   renderJobs();
   const p = (text, cls = '') => {
@@ -8743,7 +8743,7 @@ function renderBoard() {
     d.className = 'board-fish';
     const b = document.createElement('b');
     b.textContent = a.sp.name;
-    d.append(b, p(`${a.act > 0.85 ? 'Busy' : 'About'} ${a.where}. ${a.how ? `Try ${a.how}.` : ''}`));
+    d.append(b, p(`${a.act > 0.85 ? $t('Busy') : $t('About')} ${a.where}. ${a.how ? `Try ${a.how}.` : ''}`));
     const g = document.createElement('button');
     g.type = 'button';
     g.className = 'pk-btn quiet';
@@ -9124,7 +9124,7 @@ function haulByRoad(b, to) {
   const pontoon = B && PIERS[B.pier] !== HAVEN_QUAY;
   hud.toast(to === 'sea'
     ? $t`Down from Longmere by road: the ${b.name} is ${pontoon ? $t('tied up at the visitors’ pontoon') : B ? $t('tied up alongside the quay') : $t('lying off the quay head')}. The yard’s trailer, an hour and a half, ${money(ROAD_HAUL.fee)}. At sea now: the quay pumps fill her.`
-    : $t`Up to Longmere by road: the ${b.name} is ${B ? $t('tied up') : 'lying'} at the boathouse jetty. The yard’s trailer, an hour and a half, ${money(ROAD_HAUL.fee)}.`, 8);
+    : $t`Up to Longmere by road: the ${b.name} is ${B ? $t('tied up') : $t('lying')} at the boathouse jetty. The yard’s trailer, an hour and a half, ${money(ROAD_HAUL.fee)}.`, 8);
   return true;
 }
 function boatsRound(here = regionOf(player())) {
@@ -9137,7 +9137,7 @@ function boatsRound(here = regionOf(player())) {
   // (By road, at Willowhaven: down from Longmere, or the bass boat back up to it.)
   const down = here !== 'home' ? [] : boats.filter((b) => onMere(b) && roadable(b));
   const up = here !== 'home' ? [] : boats.filter((b) => !onMere(b) && regionOf(b) === 'home' && homeOf(b.kind) === 'lake' && roadable(b));
-  const otherName = south ? 'Willowhaven' : $t('Puerto Brasa');
+  const otherName = south ? $t('Willowhaven') : $t('Puerto Brasa');
   const onShip = [...coming].map((k) => BOATS[k].name);
   const shipNote = onShip.length ? $t` On the supply ship already: the ${onShip.join($t(' and the '))}, here tomorrow morning.` : '';
   if (!near.length && !far.length && !down.length && !up.length) {
@@ -9199,7 +9199,7 @@ function chooseLaunch() {
   ask($t('Put a boat in the water'), afloatCount() >= MAX_AFLOAT ? $t`Three of your boats are in the water already, so one of them is laid up in her place.` : $t('Which one?'), [
     { text: $t('Never mind'), cls: 'quiet' },
     ...laid.flatMap((b) => [
-      { text: homeOf(b.kind) === 'lake' ? $t`The ${boatCall(b)}, on Longmere` : `The ${boatCall(b)}`, run: () => launchBoat(b) },
+      { text: homeOf(b.kind) === 'lake' ? $t`The ${boatCall(b)}, on Longmere` : $t`The ${boatCall(b)}`, run: () => launchBoat(b) },
       ...(byRoad(b) ? [{ text: $t`The ${boatCall(b)}, down here by road (${money(ROAD_HAUL.fee)})`, cls: 'quiet', run: () => (launchBoat(b, { quiet: true }) ? haulByRoad(b, 'sea') : launchBoat(b)) }] : []),
     ]),
   ]);
@@ -9488,7 +9488,7 @@ function platformControls(M) {
   const opts = [{ text: $t('Never mind'), cls: 'quiet' }];
   if (T) opts.push({ text: $t`Launch the ${BOATS[T].name}`, run: () => launchTender(M) });
   opts.push(down ? { text: $t('Raise the platform'), run: () => setPlatformWant(M, 0) } : { text: $t('Lower the platform (a swim step)'), cls: T ? 'quiet' : '', run: () => setPlatformWant(M, 1) });
-  ask($t('The platform controls'), $t`${T ? $t`The ${BOATS[T].name} is strapped on her chocks.` : $t('Her chocks are empty.')} The platform’s ${down ? (M.platformDrop >= 1 ? $t('down, at the water') : $t('going down')) : M.platformDrop > 0 ? $t('coming up') : 'up'}.${down ? $t(' While it’s down her engine won’t go into gear.') : ''}`, opts);
+  ask($t('The platform controls'), $t`${T ? $t`The ${BOATS[T].name} is strapped on her chocks.` : $t('Her chocks are empty.')} The platform’s ${down ? (M.platformDrop >= 1 ? $t('down, at the water') : $t('going down')) : M.platformDrop > 0 ? $t('coming up') : $t('up')}.${down ? $t(' While it’s down her engine won’t go into gear.') : ''}`, opts);
 }
 // Launching: still enough, water enough and not too much sea; then down it goes, and she floats off.
 function launchTender(M) {
@@ -9690,7 +9690,7 @@ function shipBoat(b, to) {
   const due = (state.hour < 3 ? state.day : state.day + 1) * 24 + 8;
   state.shipping = [...(state.shipping || []).filter((s) => s.kind !== b.id), { kind: b.id, to, due }];
   audio.knock?.(0.3);
-  hud.toast($t`The ${b.name} goes on the supply ship tonight. She’ll be tied up at the pontoon in ${to === 'south' ? $t('Puerto Brasa') : 'Willowhaven'} at eight tomorrow morning. (Sleep, or rest a while.)`, 7);
+  hud.toast($t`The ${b.name} goes on the supply ship tonight. She’ll be tied up at the pontoon in ${to === 'south' ? $t('Puerto Brasa') : $t('Willowhaven')} at eight tomorrow morning. (Sleep, or rest a while.)`, 7);
   save();
 }
 function deliverShipping() {
@@ -9856,7 +9856,7 @@ function binocularsStep(dt) {
     const e = SPECIES.get(`sea:${kind}`), fresh = !state.seaLife?.[kind] || state.seaLife[kind].heard;
     $('bn-name').textContent = e?.name || SEA_LIFE[kind]?.name || kind;
     $('bn-sci').textContent = e?.sci || '';
-    $('bn-new').textContent = fresh ? $t('New to your journal') : `${Math.round(best.d)} m off`;
+    $('bn-new').textContent = fresh ? $t('New to your journal') : $t`${Math.round(best.d)} m off`;
     $('binocs').classList.add('named');
     seeSeaLife(kind, c.x + _bnDir.x * best.d, c.z + _bnDir.z * best.d);
     if (fresh) audio.chime?.();
@@ -10163,7 +10163,7 @@ function baitRoom(id, size) {
 }
 function bucketWords() {
   const B = state.gear.bucket, n = B.fish.length;
-  return $t`${n} in the ${livewellHere() ? 'livewell' : 'bucket'}, the water ${waterWords(B)}`;
+  return $t`${n} in the ${livewellHere() ? $t('livewell') : $t('bucket')}, the water ${waterWords(B)}`;
 }
 // The hours go by (however they went: fishing, sleeping, travelling) and the bucket's water with
 // them; in stale water the bait starts to die.
@@ -10342,7 +10342,7 @@ function checkPlaces(dt) {
     audio.chime();
     hud.toast($t`${pl.name} is in your journal now`);
     hud.pulseJournal();
-    if (pl.id === 'landing' && !onFoot) teach('landingTip', $t`Tie up here: ${scheme() === 'touch' ? $t('tap the prompt') : `press ${input.keyLabel('interact')}`} to step ashore. Camp is just up the path.`, 6);
+    if (pl.id === 'landing' && !onFoot) teach('landingTip', $t`Tie up here: ${scheme() === 'touch' ? $t('tap the prompt') : $t`press ${input.keyLabel('interact')}`} to step ashore. Camp is just up the path.`, 6);
     if (pl.id === 'camp') teach('campTip', $t('Camp: grill what you catch, change your tackle, and sleep until morning. The tackle box has every rod and bait.'), 7);
     if (pl.id === 'stream') teach('streamTip', $t('Fernbeck’s trout hold in the pools. They’re shy: walk softly, and bring the fly rod from camp.'), 7);
     if (pl.id === 'lake') teach('lakeTip', $t('Reedmere: perch and pike take lures, carp graze the bottom. Rudd sip near the lily pads.'), 7);
@@ -10362,7 +10362,7 @@ function checkPlaces(dt) {
     if (pl.id === 'coldfoot') teach('coldfootTip', $t('Coldwater Foot: the path up the river to the bothy and Hoarfell’s top. Past waterfalls and trout pools.'), 9);
     if (pl.id === 'bothy') teach('bothyTip', $t`The bothy: cook, sleep and swap tackle here (${scheme() === 'touch' ? $t('tap the prompt') : input.keyLabel('interact')} at the door). Now you’ve walked here, you can come straight back from the map.`, 9);
     if (pl.id === 'tarn') teach('tarnTip', $t('Hoar Tarn: small, wild trout rise at dusk in the cold water. Cast a fly or a little spinner along the edge where the shelf drops away.'), 8);
-    if (pl.id === 'summit') teach('summitTip', $t`The top of Hoarfell. ${scheme() === 'touch' ? $t('Tap the prompt') : `Press ${input.keyLabel('interact')}`} at the cairn to add a stone and look out over the coast.`, 8);
+    if (pl.id === 'summit') teach('summitTip', $t`The top of Hoarfell. ${scheme() === 'touch' ? $t('Tap the prompt') : $t`Press ${input.keyLabel('interact')}`} at the cairn to add a stone and look out over the coast.`, 8);
     // (Up the coast: docs/NORTH.md.)
     if (pl.id === 'halvig') teach('halvigTip', $t`Halvig: fuel at the pier’s root, stores and ice at Halvig Stores. Diesel and petrol from the pump; the shop’s open any hour (${scheme() === 'touch' ? $t('tap the prompt') : input.keyLabel('interact')} at its door).`, 9);
     if (pl.id === 'lochbothy') teach('lochBothyTip', $t`The Loch Bothy: a stove, a sleeping platform, and a book on the sill. ${scheme() === 'touch' ? $t('Tap the prompt') : input.keyLabel('interact')} at the door.`, 9);
@@ -10685,7 +10685,7 @@ BOATS.sail.onGybe = (b) => {
   audio.knock(0.9);
   // (A jolt as the boom slams over: the camera's shake is an amount, as for a strike.)
   if (!settings.controls.reducedMotion) rig.shake = Math.max(rig.shake, 0.25);
-  hud.flash(state.tips.gybed ? 'Gybe!' : $t('Gybe! The wind crossed the stern and the boom slammed across. Haul the sheet in a little before you turn the stern through the wind, and it comes over gently.'), t, state.tips.gybed ? 1.4 : 5);
+  hud.flash(state.tips.gybed ? $t('Gybe!') : $t('Gybe! The wind crossed the stern and the boom slammed across. Haul the sheet in a little before you turn the stern through the wind, and it comes over gently.'), t, state.tips.gybed ? 1.4 : 5);
   state.tips.gybed = true;
 };
 // A propeller on the bottom (boat.js propStrike): only for a leg you trim yourself, and not on
@@ -10705,7 +10705,7 @@ eachBoat((b) => {
     const band = s.dmg >= 0.9 ? 3 : s.dmg >= 0.5 ? 2 : s.dmg >= 0.15 ? 1 : 0, was = bt._strikeBand ?? -1;
     bt._strikeBand = band;
     if (band <= was) return;
-    hud.flash(band ? $t`A bang from the stern: her propeller’s hit the bottom${band >= 2 ? ' hard' : ''}. She’s ${band >= 3 ? $t('barely making way') : $t('down on speed')} and the engine runs rough. Trim the leg right up into its shallow-water range before you run over shallows; the Marine Works can fit a new propeller.` : $t('The propeller ticks the bottom. Trim the leg up (into its shallow-water range) or find deeper water.'), t, band ? 6 : 3.5);
+    hud.flash(band ? $t`A bang from the stern: her propeller’s hit the bottom${band >= 2 ? $t(' hard') : ''}. She’s ${band >= 3 ? $t('barely making way') : $t('down on speed')} and the engine runs rough. Trim the leg right up into its shallow-water range before you run over shallows; the Marine Works can fit a new propeller.` : $t('The propeller ticks the bottom. Trim the leg up (into its shallow-water range) or find deeper water.'), t, band ? 6 : 3.5);
     if (band) vesselLog(bt.id, $t`Propeller damaged on the bottom (${Math.round(s.dmg * 100)}%).`);
     save();
   };
@@ -10724,7 +10724,7 @@ eachBoat((b) => {
       const holed = Object.keys(FLOOD_WHERE).filter((s) => D.hull[s] >= 0.85).map((s) => FLOOD_WHERE[s]);
       if (mine) {
         const has = bt.kind in PUMP_NAMES, live = has && (bt.pumpPower ?? 1) > 0;
-        const next = live ? $t('Her bilge pump’s on its float switch and will take what it can; bail too if it can’t keep up (look her over), and get her in to the Marine Works.') : $t`${has ? $t('Her battery’s too flat for the bilge pump: bail') : 'Bail'} (look her over), and get her to the Marine Works.`;
+        const next = live ? $t('Her bilge pump’s on its float switch and will take what it can; bail too if it can’t keep up (look her over), and get her in to the Marine Works.') : $t`${has ? $t('Her battery’s too flat for the bilge pump: bail') : $t('Bail')} (look her over), and get her to the Marine Works.`;
         hud.flash((holed.length > 1 ? $t`Water’s coming in: ${holed.join($t(' and ')) || $t('her hull')} are holed below the waterline. ${next}` : $t`Water’s coming in: ${holed.join($t(' and ')) || $t('her hull')} is holed below the waterline. ${next}`), t, 7);
         audio.splashSmall?.(0.4);
       }
@@ -10743,7 +10743,7 @@ eachBoat((b) => {
         hud.flash($t('She’s swamped: awash, heavy and barely making way. Bail or pump her out; or look her over to radio the harbour for a tow.'), t, 7);
         haptics.pulse('snap', 0.5);
       }
-      vesselLog(bt.id, 'Swamped.');
+      vesselLog(bt.id, $t('Swamped.'));
       save();
     } else if (what === 'dry' && mine) hud.flash($t('Pumped dry.'), t, 2);
   };
@@ -10753,7 +10753,7 @@ const PUMP_NAMES = { bass: 1, cabin: 1, console: 1, rib: 1, cruiser: 1, trawler:
 function waterBit() {
   const F = boat?.flooding;
   if (!F || F.litres < 5) return '';
-  return $t`<span class="lv-warn">${F.swamped ? 'swamped · ' : ''}${floodWords(F.litres)}${F.gaining ? ', gaining' : ''}${boat.pumpRunning ? $t(' · pump on') : ''}</span>`;
+  return $t`<span class="lv-warn">${F.swamped ? $t('swamped · ') : ''}${floodWords(F.litres)}${F.gaining ? $t(', gaining') : ''}${boat.pumpRunning ? $t(' · pump on') : ''}</span>`;
 }
 eachBoat((b) => {
   b.damageMode = modeOf(state.difficulty);
@@ -10768,8 +10768,8 @@ eachBoat((b) => {
         haptics.pulse('snap', 0.7);
       }
       const side = CHAMBERS[r.chamber];
-      if (mine) hud.flash($t`A bang and a hiss: the ${side} tube’s ${r.torn ? $t('torn open') : 'punctured'} on ${what}. ${r.torn ? $t('It’s going soft fast') : $t('It’ll go soft over a few minutes')}, and she’ll sit lower on that side; the other chambers hold her up. On her deck, look her over to pump it up; the Marine Works can patch it.`, t, 7);
-      vesselLog(name, $t`The ${side} tube ${r.torn ? 'torn' : 'punctured'} on ${what}.`);
+      if (mine) hud.flash($t`A bang and a hiss: the ${side} tube’s ${r.torn ? $t('torn open') : $t('punctured')} on ${what}. ${r.torn ? $t('It’s going soft fast') : $t('It’ll go soft over a few minutes')}, and she’ll sit lower on that side; the other chambers hold her up. On her deck, look her over to pump it up; the Marine Works can patch it.`, t, 7);
+      vesselLog(name, $t`The ${side} tube ${r.torn ? $t('torn') : $t('punctured')} on ${what}.`);
       save();
       return;
     }
@@ -10781,7 +10781,7 @@ eachBoat((b) => {
     if (mine) {
       const how = ev.slid ? $t`dragged over ${what}` : $t`into ${what} at ${Math.max(1, Math.round(ev.vn * KN_PER))} knots`;
       const after = band === 0 ? $t('Only the paint, for now.') : band === 1 ? $t('Worth the yard’s eye when you’re in.') : $t('She’s slower for it; the Marine Works can put it right.');
-      hud.flash($t`${ev.slid ? 'A grinding' : 'A crunch'}: ${how}. ${SECTION_NAMES[r.section][0].toUpperCase() + SECTION_NAMES[r.section].slice(1)} is ${word}. ${after}`, t, band >= 2 ? 6 : 4);
+      hud.flash($t`${ev.slid ? $t('A grinding') : $t('A crunch')}: ${how}. ${SECTION_NAMES[r.section][0].toUpperCase() + SECTION_NAMES[r.section].slice(1)} is ${word}. ${after}`, t, band >= 2 ? 6 : 4);
     }
     vesselLog(name, `${SECTION_NAMES[r.section][0].toUpperCase() + SECTION_NAMES[r.section].slice(1)} ${word} on ${what}.`);
     save();
@@ -10892,7 +10892,7 @@ function damageTick(dt) {
   if (low >= 0.999) {
     pumping = null;
     const leaking = D.tubes.filter((c) => c.leak).length;
-    hud.flash($t`Pumped up: the tubes are firm${leaking ? $t`. The puncture${leaking > 1 ? 's are' : ' is'} still letting go, slowly: bring her in to the Marine Works to have ${leaking > 1 ? 'them' : 'it'} patched` : ''}.`, t, 5);
+    hud.flash($t`Pumped up: the tubes are firm${leaking ? (leaking > 1 ? $t`. The punctures are still letting go, slowly: bring her in to the Marine Works to have them patched` : $t`. The puncture is still letting go, slowly: bring her in to the Marine Works to have it patched`) : ''}.`, t, 5);
     save();
   } else if (Math.floor(P.t) !== Math.floor(P.t - dt)) hud.flash($t`Pumping: the softest chamber at ${Math.round(low * 100)}%. Stand still to keep at it.`, t, 1.2);
 }
@@ -10931,7 +10931,7 @@ function lookHerOver() {
     const [what, key] = id.split(':'), ragged = what === 'hull' ? D.plugs?.[key] === 'rag' : D.tubes?.[+key]?.plugged === 'rag';
     if (ragged && !spare(what)) continue;
     const where = what === 'hull' ? $t`the hole in ${SECTION_NAMES[key]}` : $t`the ${CHAMBERS[+key]} tube’s puncture`;
-    acts.push({ text: ragged ? $t`A proper ${what === 'hull' ? 'plug' : 'stopper'} for ${where}` : spare(what) ? (what === 'hull' ? `Plug ${where}` : `Stop ${where}`) : $t`Stuff a rag in ${where} (no ${what === 'hull' ? 'plugs' : 'stoppers'} left)`, run: () => plugIt(id) });
+    acts.push({ text: ragged ? $t`A proper ${what === 'hull' ? $t('plug') : $t('stopper')} for ${where}` : spare(what) ? (what === 'hull' ? $t`Plug ${where}` : $t`Stop ${where}`) : $t`Stuff a rag in ${where} (no ${what === 'hull' ? $t('plugs') : $t('stoppers')} left)`, run: () => plugIt(id) });
   }
   // (Help from the harbour: anywhere out of it; F1b, as you can call it from here.)
   if (!inMarina(boat.pos) && (!hullSound(D) || wet)) acts.push({ text: HELP_ASK[helpHere()], cls: 'quiet', run: () => askTow() });
@@ -10977,13 +10977,13 @@ function askTow() {
   const span = (h) => (h < 1 ? $t('Half an hour') : h > 1.5 ? `${Math.round(h)} hours` : $t('About an hour'));
   // (F1b) By phone or her VHF, the harbour office answers; with a flare or nothing, it's whoever sees you.
   if (how === 'flare' || how === 'wait') {
-    ask(how === 'flare' ? 'A flare' : $t('Nobody to call'), `${HELP_WORDS[how]} ${how === 'flare' ? $t`Someone should see it and come: ${span(hrs).toLowerCase()} or so, by the time they find you` : $t`${span(hrs)} or more before a boat passes close enough to see you`}${T.fee ? $t`, and £${T.fee} for the harbour's trouble once you're in` : ''}.`, [
+    ask(how === 'flare' ? $t('A flare') : $t('Nobody to call'), `${HELP_WORDS[how]} ${how === 'flare' ? $t`Someone should see it and come: ${span(hrs).toLowerCase()} or so, by the time they find you` : $t`${span(hrs)} or more before a boat passes close enough to see you`}${T.fee ? $t`, and £${T.fee} for the harbour's trouble once you're in` : ''}.`, [
       { text: $t('Not now'), cls: 'quiet', cancel: true, run: () => {} },
       { text: how === 'flare' ? $t`Fire a flare (${state.safety.flares} left)` : $t('Wait for a boat'), run: () => harbourTow(how) },
     ]);
     return;
   }
-  ask(how === 'vhf' ? $t('The harbour office, on the radio') : $t('The harbour office, on your phone'), $t`“We’ll send the launch out with a pump. ${span(T.hours)}${T.hours > 1.5 ? ', mind' : ''}${T.fee ? $t`, and it’s £${T.fee} for the trouble` : $t(', and no charge')}.”`, [
+  ask(how === 'vhf' ? $t('The harbour office, on the radio') : $t('The harbour office, on your phone'), $t`“We’ll send the launch out with a pump. ${span(T.hours)}${T.hours > 1.5 ? $t(', mind') : ''}${T.fee ? $t`, and it’s £${T.fee} for the trouble` : $t(', and no charge')}.”`, [
     { text: $t('Not now'), cls: 'quiet', cancel: true, run: () => {} },
     { text: $t('Send the launch'), run: () => harbourTow(how) },
   ]);
@@ -11011,7 +11011,7 @@ function harbourTow(how = 'vhf') {
   if (fee > 0) payOut(state, fee, $t('The harbour launch: a tow in'));
   audio.knock?.(0.4);
   const gone = hrs < 1 ? $t('half an hour') : hrs > 1.5 ? `${Math.round(hrs)} hours` : $t('an hour');
-  hud.toast((how === 'flare' || how === 'wait' ? $t`${how === 'flare' ? $t('Your flare goes up red over the water. In time a fishing boat comes, and the harbour launch behind her: they put') : how === 'wait' ? $t`Nobody hears you out here. ${gone[0].toUpperCase() + gone.slice(1)} go by before a passing boat sees you and calls the harbour launch: they put` : $t('The harbour launch comes out, puts')} a pump and a plug in her and tow you in to ${south ? $t('Puerto Brasa') : mere ? $t('the boathouse') : $t('Willowhaven quay')}${how === 'wait' ? '' : `: ${gone} gone`}${fee ? $t`, £${fee} for their trouble` : T.fee ? $t(', and they’ll not take your last penny') : ''}. The Marine Works can put her right.${how === 'wait' ? $t(' (A VHF, or flares from the chandlery, and they’d have come sooner.)') : ''}` : $t`${how === 'flare' ? $t('Your flare goes up red over the water. In time a fishing boat comes, and the harbour launch behind her: they put') : how === 'wait' ? $t`Nobody hears you out here. ${gone[0].toUpperCase() + gone.slice(1)} go by before a passing boat sees you and calls the harbour launch: they put` : $t('The harbour launch comes out, puts')} a pump and a plug in her and tows you in to ${south ? $t('Puerto Brasa') : mere ? $t('the boathouse') : $t('Willowhaven quay')}${how === 'wait' ? '' : `: ${gone} gone`}${fee ? $t`, £${fee} for their trouble` : T.fee ? $t(', and they’ll not take your last penny') : ''}. The Marine Works can put her right.${how === 'wait' ? $t(' (A VHF, or flares from the chandlery, and they’d have come sooner.)') : ''}`), 9);
+  hud.toast((how === 'flare' || how === 'wait' ? $t`${how === 'flare' ? $t('Your flare goes up red over the water. In time a fishing boat comes, and the harbour launch behind her: they put') : how === 'wait' ? $t`Nobody hears you out here. ${gone[0].toUpperCase() + gone.slice(1)} go by before a passing boat sees you and calls the harbour launch: they put` : $t('The harbour launch comes out, puts')} a pump and a plug in her and tow you in to ${south ? $t('Puerto Brasa') : mere ? $t('the boathouse') : $t('Willowhaven quay')}${how === 'wait' ? '' : $t`: ${gone} gone`}${fee ? $t`, £${fee} for their trouble` : T.fee ? $t(', and they’ll not take your last penny') : ''}. The Marine Works can put her right.${how === 'wait' ? $t(' (A VHF, or flares from the chandlery, and they’d have come sooner.)') : ''}` : $t`${how === 'flare' ? $t('Your flare goes up red over the water. In time a fishing boat comes, and the harbour launch behind her: they put') : how === 'wait' ? $t`Nobody hears you out here. ${gone[0].toUpperCase() + gone.slice(1)} go by before a passing boat sees you and calls the harbour launch: they put` : $t('The harbour launch comes out, puts')} a pump and a plug in her and tows you in to ${south ? $t('Puerto Brasa') : mere ? $t('the boathouse') : $t('Willowhaven quay')}${how === 'wait' ? '' : $t`: ${gone} gone`}${fee ? $t`, £${fee} for their trouble` : T.fee ? $t(', and they’ll not take your last penny') : ''}. The Marine Works can put her right.${how === 'wait' ? $t(' (A VHF, or flares from the chandlery, and they’d have come sooner.)') : ''}`), 9);
   vesselLog(boat.id, $t('Towed in by the harbour launch.'));
   save();
 }
@@ -11149,9 +11149,9 @@ const qualityText = () => {
 let oceanMode = 'simple';
 const oceanText = () => {
   const G = settings.graphics, auto = G.ocean === 'auto';
-  if (oceanMode === 'full') return auto ? $t('Auto: Full on this device.') : 'Full.';
+  if (oceanMode === 'full') return auto ? $t('Auto: Full on this device.') : $t('Full.');
   if (G.ocean === 'full') return $t('This browser can’t work the short waves out on its graphics card, so it’s Simple.');
-  return auto ? $t('Auto: Simple on this device.') : 'Simple.';
+  return auto ? $t('Auto: Simple on this device.') : $t('Simple.');
 };
 // How many pixels to draw for the window as it is now (the preset's, within a 4K screen's worth:
 // see budgetRatio), for the last preset applied; again whenever the window changes size.
@@ -11214,7 +11214,7 @@ function applyQuality() {
   underwater.setPixelRatio(pr);
   quality.caustics = q.caustics;
   post.setMode(q.post);
-  const text = `Graphics: ${qualityText()}`;
+  const text = $t`Graphics: ${qualityText()}`;
   $('title-quality').textContent = text;
 }
 
@@ -11505,7 +11505,7 @@ function viewChip() {
       ? $t('<b>Watching your bait</b> · drag to look around · the view button switches back')
       : $t`<b>Watching your bait</b> · ${LOOK()} · ${K('view')} next view · ${K('reset')} ${back}`, 6);
   } else if (rig.mode === 'eye' && cabinIn) {
-    hud.chip($t`<b>First person</b> · ${T ? 'drag' : LOOK().replace(/ \(.*\)/, '')} to look round the cabin`, 3);
+    hud.chip($t`<b>First person</b> · ${T ? $t('drag') : LOOK().replace(/ \(.*\)/, '')} to look round the cabin`, 3);
   } else if (rig.mode === 'eye') {
     hud.chip(T
       ? $t('<b>First person</b> · drag to look around · the view button switches')
@@ -11705,7 +11705,7 @@ const STATUS_TEXT = {
   run: $t('A run! The alarm is screaming!'),
   sip: $t('It sipped the fly!'),
   take: $t('The indicator darted under!'),
-  hooked: 'Hooked!',
+  hooked: $t('Hooked!'),
   fishon: $t('Fish on! It hooked itself'),
 };
 
@@ -11823,7 +11823,7 @@ function currentHint() {
         return T ? $t('Let the fly drift with the current · hold to strip line in') : $t`Let the fly drift with the current · tap to twitch · hold ${space} to strip in`;
       }
       if (T) return $t`Stick up/down: bait depth · hold the button to reel in · tap to twitch${state.tips.under ? '' : $t(' · drag the view up to sink it under the water')}`;
-      return $t`${UD} bait depth · hold ${space} to reel in · tap to twitch${state.tips.under ? '' : $t` · ${P ? `${kbd('R-stick')} up` : $t('drag up')} to sink the view under the water`}`;
+      return $t`${UD} bait depth · hold ${space} to reel in · tap to twitch${state.tips.under ? '' : $t` · ${P ? $t`${kbd('R-stick')} up` : $t('drag up')} to sink the view under the water`}`;
     case 'bite': {
       const k = fishing.biteKind;
       const what = k === 'strike' ? $t('It hit the lure!') : k === 'tap' ? $t('A tap on the lure!') : k === 'run' ? 'A run!' : k === 'sip' ? $t('It took the fly!') : k === 'take' ? $t('The indicator dipped!') : $t('Bite! The float went under.');
@@ -11836,7 +11836,7 @@ function currentHint() {
       // (Beaten and alongside: winding now tears the hook out. The one thing to do is net it; or, too
       // big for the net, land it as the shore allows: see landing.js.)
       // (E2c: fast in the weed or the rocks.)
-      if (F?.stuck) return T ? $t`${F.stuck === 'rock' ? $t('Wedged under the rocks') : 'Weeded'}: let go to give it slack, or pull from a new angle` : $t`${F.stuck === 'rock' ? $t('Wedged under the rocks') : 'Weeded'}: let go of ${space} to give it slack, or pull from a new angle${F.stuck === 'rock' ? '' : $t(' (or a steady pressure)')}`;
+      if (F?.stuck) return T ? $t`${F.stuck === 'rock' ? $t('Wedged under the rocks') : $t('Weeded')}: let go to give it slack, or pull from a new angle` : $t`${F.stuck === 'rock' ? $t('Wedged under the rocks') : $t('Weeded')}: let go of ${space} to give it slack, or pull from a new angle${F.stuck === 'rock' ? '' : $t(' (or a steady pressure)')}`;
       // (E3d) The big game from a boat, on the leader: yours to take, or a friend's.
       if (F?.atNet && F.landBy === 'leader') return F.leaderBy ? $t`${F.leaderBy} has the leader: keep the rod up while they draw it alongside`
         : T ? $t('The leader’s at the rod tip: hold the button to draw it alongside, and let go as it stirs') : $t`The leader’s at the rod tip: hold ${space} to draw it alongside, and let go as it stirs${together.active ? $t(' (a friend aboard can take it)') : ''}`;
@@ -11852,7 +11852,7 @@ function currentHint() {
       const hold = T ? $t('Hold the button') : `Hold ${space}`, swing = T ? $t('swing the rod low to one side with the stick') : $t`${LR} swing the rod low to one side`;
       if (F?.move === 'charge') return $t`It’s coming straight at you! ${hold}: wind fast to keep the line tight`;
       if (F?.shakeT > 0) return $t`Head-shaking at the top! ${swing}: keep its head down and the line steady`;
-      if (F?.pulling && F.move === 'dive') return $t`It’s diving${F.cover ? $t` for the ${F.coverKind === 'rock' ? 'rocks' : 'weed'}` : ' deep'}! ${swing} against it: side strain turns its head · ${drag}`;
+      if (F?.pulling && F.move === 'dive') return $t`It’s diving${F.cover ? $t` for the ${F.coverKind === 'rock' ? $t('rocks') : $t('weed')}` : $t(' deep')}! ${swing} against it: side strain turns its head · ${drag}`;
       if (F?.pulling && F.move === 'longrun') {
         const follow = followAction() && !following ? $t` · ${T ? $t('tap the prompt') : K('interact')} to follow it with the boat` : '';
         return $t`A long run: let it go, rod up, and don’t wind into it${F.extra > 0.5 ? $t(' · a click more drag slows it') : ''}${follow} · ${drag}`;
@@ -11863,8 +11863,8 @@ function currentHint() {
       if (F?.move === 'circle' && !F.pulling) return F.coming ? $t`Circling below: it’s coming up the near side. ${hold}: wind!` : $t('Circling below: it’s going round the far side. Hold off winding');
       // (Side pressure: the rod swung low against its run.)
       const side = T ? '' : $t` · ${LR} swing the rod against its run`;
-      if (F?.pulling) return $t`${F.slipping ? $t('It’s taking line against the drag.') : F.style?.words || $t('It’s pulling.')} ${T ? 'Hold' : `Hold ${space}`} to keep pressure on and tire it${side} · ${drag}`;
-      return $t`${T ? $t('Hold the button') : `Hold ${space}`} to reel it in · ease off when it surges · ${drag}`;
+      if (F?.pulling) return $t`${F.slipping ? $t('It’s taking line against the drag.') : F.style?.words || $t('It’s pulling.')} ${T ? $t('Hold') : $t`Hold ${space}`} to keep pressure on and tire it${side} · ${drag}`;
+      return $t`${T ? $t('Hold the button') : $t`Hold ${space}`} to reel it in · ease off when it surges · ${drag}`;
     }
     case 'casting': case 'landing': case 'caught': case 'releasing': case 'keeping': case 'retrieving': return '';
     default:
@@ -11879,7 +11879,7 @@ function currentHint() {
   if (!onFoot && boat.deck) {
     const how = T ? $t('the stick walks you about her') : `${P ? kbd('L-stick') : MOVE()} walk`;
     // (Aboard the trawler, where you are: the pilothouse, the saloon, below, or on deck.)
-    const fl = boat.plan ? boat.deck.floor : '', where = boat.below ? 'Below' : fl === 'pilot' ? $t('In the pilothouse') : boat.indoors ? $t('In the saloon') : $t('Walking the deck');
+    const fl = boat.plan ? boat.deck.floor : '', where = boat.below ? $t('Below') : fl === 'pilot' ? $t('In the pilothouse') : boat.indoors ? $t('In the saloon') : $t('Walking the deck');
     return boat.atHelm ? $t`At the wheel · ${T ? $t('tap the prompt') : K('interact')} to take the helm · ${how}` : $t`${where} · ${how} · back at the wheel to take the helm`;
   }
   // The trolling motor down (see trolling.js): the keys are its push and its head.
@@ -11887,7 +11887,7 @@ function currentHint() {
     const M = boat.troll, pc = Math.round((tanks().troll[boat.id] ?? 1) * 100);
     if (M.mode === 'lock') return $t`Spot-Lock: holding her, ${M.off.toFixed(1)} m off her spot · ${K('spotlock')} let go · ${K('trolling')} stow the motor · battery ${pc}%`;
     if (T) return $t`Trolling motor: the stick up or down for its push, across to turn its head · battery ${pc}%`;
-    return $t`Trolling motor: ${P ? `${kbd('L-stick')} ↕` : UD} push · ${P ? '↔' : LR} turn its head${M.gps ? ` · ${K('spotlock')} ${Math.abs(trollPush) > 0.05 ? $t('hold this heading') : 'Spot-Lock'}` : ''} · ${K('trollDepth')} depth · ${K('trolling')} stow · ${K('throttleUp')} main engine (stops it) · battery ${pc}%`;
+    return $t`Trolling motor: ${P ? `${kbd('L-stick')} ↕` : UD} push · ${P ? '↔' : LR} turn its head${M.gps ? ` · ${K('spotlock')} ${Math.abs(trollPush) > 0.05 ? $t('hold this heading') : $t('Spot-Lock')}` : ''} · ${K('trollDepth')} depth · ${K('trolling')} stow · ${K('throttleUp')} main engine (stops it) · battery ${pc}%`;
   }
   if (leverKind()) {
     const kind = leverKind(), lv = boat.lever;
@@ -11903,11 +11903,11 @@ function currentHint() {
       return T ? $t`Engine off · tap the prompt to ${how}` : $t`Engine off · ${K('motor')} ${how} · ${fuel}`;
     }
     const motor = kind === 'kayak' ? ` · ${T ? $t('Raise motor to paddle') : $t`${K('motor')} raise it and paddle`}` : kind === 'sail' ? ` · ${T ? $t('Raise the outboard on the lever') : $t`${K('outboard')} outboard up`}` : '';
-    if (T) return $t`${kind === 'kayak' ? 'Motor' : 'Throttle'}: ${word} · the stick: up or down ${smooth ? $t('for the throttle') : 'a notch'}, across to steer · Stop on the lever · ${fuel}`;
+    if (T) return $t`${kind === 'kayak' ? $t('Motor') : $t('Throttle')}: ${word} · the stick: up or down ${smooth ? $t('for the throttle') : $t('a notch')}, across to steer · Stop on the lever · ${fuel}`;
     // (The trawler: her autopilot and bow thruster.)
     const aids = boat.hull.autopilot ? $t` · ${K('spotlock')} autopilot${pilot.on ? ` (${degrees(pilot.set)}°)` : ''} · ${P ? `${padName('LB')} ${padName('RB')}` : `${K('trimDown')}${K('trimUp')}`} thruster` : '';
-    if (P) return $t`${kind === 'kayak' ? 'Motor' : 'Throttle'}: ${word} · ${kbd('L-stick')} ↕ ${notch}, ↔ ${pilot.on ? $t('its course') : 'steer'} · ${K('neutral')} stop · ${K('anchor')} anchor${motor}${aids} · ${fuel}`;
-    return $t`${kind === 'kayak' ? 'Motor' : 'Throttle'}: ${word} · ${UD} ${notch} · ${LR} ${pilot.on ? $t('its course') : 'steer'} · ${K('neutral')} stop · ${K('anchor')} anchor${motor}${aids} · ${fuel}`;
+    if (P) return $t`${kind === 'kayak' ? $t('Motor') : $t('Throttle')}: ${word} · ${kbd('L-stick')} ↕ ${notch}, ↔ ${pilot.on ? $t('its course') : $t('steer')} · ${K('neutral')} stop · ${K('anchor')} anchor${motor}${aids} · ${fuel}`;
+    return $t`${kind === 'kayak' ? $t('Motor') : $t('Throttle')}: ${word} · ${UD} ${notch} · ${LR} ${pilot.on ? $t('its course') : $t('steer')} · ${K('neutral')} stop · ${K('anchor')} anchor${motor}${aids} · ${fuel}`;
   }
   // The windsurf board: the sheet and leaning the rig to steer; ease out in the gusts.
   if (boat.hull.rig) {
@@ -11931,27 +11931,27 @@ function currentHint() {
   if (!state.tips.cast) return T ? $t('Hold the button to aim and cast your line') : $t`Hold ${space} to aim and cast your line`;
   if (state.tips.caught && !state.tips.journal) return T ? $t('Tap Journal to see what you’ve found') : $t`${K('journal')} to open your journal`;
   if (state.tips.caught && !state.places.camp) return $t('Your camp is on the west shore of the bay: row to the landing (follow the Camp marker)');
-  if (state.tips.caught && !state.tips.under) return T ? $t('Drag the view up and it sinks beneath the water') : $t`${P ? `${kbd('R-stick')} up` : $t('Drag the view up')} and it sinks beneath the water (${K('view')} for a fixed underwater view)`;
+  if (state.tips.caught && !state.tips.under) return T ? $t('Drag the view up and it sinks beneath the water') : $t`${P ? $t`${kbd('R-stick')} up` : $t('Drag the view up')} and it sinks beneath the water (${K('view')} for a fixed underwater view)`;
   if (state.tips.caught && !state.tips.sonar) return T ? $t('The sonar button shows a fish finder') : $t`${K('finder')} for the fish finder`;
   return '';
 }
 
 const ACTION_LABELS = {
-  idle: 'Cast', aiming: $t('Let go'), casting: '', drifting: 'Twitch', bite: 'Strike!', reeling: 'Reel',
+  idle: $t('Cast'), aiming: $t('Let go'), casting: '', drifting: $t('Twitch'), bite: $t('Strike!'), reeling: $t('Reel'),
   landing: '', caught: $t('Let go'), releasing: '', keeping: '', retrieving: '',
 };
 
 function actionLabel() {
-  if (modal === 'note') return 'OK';
-  if (dive) return dive.kit === 'scuba' ? 'Photo' : shot.loaded ? 'Shoot' : '…';
-  if (driving) return 'Brake';
-  if (fishing.state === 'reeling' && fishing.fight?.atNet) return fishing.fight.leaderBy ? 'Wait' : LAND_WAYS[fishing.fight.landBy || 'net'].act;
-  if (fishing.state === 'reeling' && (fishing.fight?.surgeT > 0 || (fishing.fight?.warned && !fishing.pulling))) return 'Easy';
-  if (fishing.state === 'reeling' && fishing.pulling) return 'Hold';
+  if (modal === 'note') return $t('OK');
+  if (dive) return dive.kit === 'scuba' ? $t('Photo') : shot.loaded ? $t('Shoot') : '…';
+  if (driving) return $t('Brake');
+  if (fishing.state === 'reeling' && fishing.fight?.atNet) return fishing.fight.leaderBy ? $t('Wait') : LAND_WAYS[fishing.fight.landBy || 'net'].act;
+  if (fishing.state === 'reeling' && (fishing.fight?.surgeT > 0 || (fishing.fight?.warned && !fishing.pulling))) return $t('Easy');
+  if (fishing.state === 'reeling' && fishing.pulling) return $t('Hold');
   if (fishing.state === 'drifting' && (fishing.kind === 'ledger' || fishing.kind === 'bottom')) return $t('Wind in');
-  if (fishing.state === 'drifting' && fishing.kind === 'jig') return 'Lift';
-  if (fishing.state === 'drifting' && fishing.kind === 'fly') return 'Strip';
-  if (fishing.state === 'drifting' && fishing.kind === 'lure') return 'Reel';
+  if (fishing.state === 'drifting' && fishing.kind === 'jig') return $t('Lift');
+  if (fishing.state === 'drifting' && fishing.kind === 'fly') return $t('Strip');
+  if (fishing.state === 'drifting' && fishing.kind === 'lure') return $t('Reel');
   return ACTION_LABELS[fishing.state] ?? '';
 }
 
@@ -12026,12 +12026,12 @@ function updateConditionsPanel(dt) {
   const P = player().pos, w = windAt(P.x, P.z);
   const kmh = (v) => Math.round(v * 3.6);
   const sustained = conditions.wind.speed;
-  $('cd-wind').textContent = w.speed < 0.6 ? 'calm' : $t`${arrowFor(w.x, w.z)} ${kmh(w.speed)} km/h from ${compass(conditions.wind.from)}${w.gust > 1.15 ? ' · gusting' : ''}${sustained > 0.6 && w.speed < sustained * 0.6 ? ' · sheltered' : ''}`;
+  $('cd-wind').textContent = w.speed < 0.6 ? $t('calm') : $t`${arrowFor(w.x, w.z)} ${kmh(w.speed)} km/h from ${compass(conditions.wind.from)}${w.gust > 1.15 ? $t(' · gusting') : ''}${sustained > 0.6 && w.speed < sustained * 0.6 ? $t(' · sheltered') : ''}`;
   const at = fishing.state === 'drifting' ? fishing.hook : P;
   const c = currentAt(at.x, at.z, 0), cs = Math.hypot(c.x, c.z) * currentScale();
-  $('cd-cur').textContent = cs < 0.03 ? `slack${fishing.state === 'drifting' ? $t(' at your rig') : ''}` : `${arrowFor(c.x, c.z)} ${cs.toFixed(cs < 0.1 ? 2 : 1)} m/s to ${compass(bearingOf(c.x, c.z))}${fishing.state === 'drifting' ? $t(' at your rig') : ''}`;
+  $('cd-cur').textContent = cs < 0.03 ? $t`slack${fishing.state === 'drifting' ? $t(' at your rig') : ''}` : $t`${arrowFor(c.x, c.z)} ${cs.toFixed(cs < 0.1 ? 2 : 1)} m/s to ${compass(bearingOf(c.x, c.z))}${fishing.state === 'drifting' ? $t(' at your rig') : ''}`;
   const hgt = waveHeightHere(P.x, P.z);
-  $('cd-sea').textContent = $t`${seaWords(hgt)}, ${hgt < 0.1 ? 'under 0.1' : `about ${hgt.toFixed(1)}`} m`;
+  $('cd-sea').textContent = $t`${seaWords(hgt)}, ${hgt < 0.1 ? $t('under 0.1') : $t`about ${hgt.toFixed(1)}`} m`;
   $('cd-tide').textContent = tideWords(clock.abs);
   const wz = waterOf(zoneAt(P.x, P.z));
   $('cd-water').textContent = `${tempWords(waterTempAt(P.x, P.z))}, ${wz === 'fresh' ? 'fresh' : `${wz === 'brackish' ? 'brackish, ' : ''}${colourWords(seaColourNow())}`}`;
@@ -12040,7 +12040,7 @@ function updateConditionsPanel(dt) {
 function updateHud() {
   const h = clock.hour, sh = sunHour(h, clock.abs);
   const night = sh >= 20.5 || sh < 5.5;
-  const w = weather.storm > 0.5 ? 'Storm' : weather.rain > 0.6 ? $t('Heavy rain') : weather.rain > 0.15 ? $t('Light rain') : weather.cloud > 0.7 ? 'Overcast' : '';
+  const w = weather.storm > 0.5 ? $t('Storm') : weather.rain > 0.6 ? $t('Heavy rain') : weather.rain > 0.15 ? $t('Light rain') : weather.cloud > 0.7 ? $t('Overcast') : '';
   hud.clock(formatClock(h), `${phaseName(sh)} · ${seasonWords(clock.day).toLowerCase()}`, w, night);
   // How you feel, in a word or two by the clock (the worst first), and well fed when you are.
   const needs = needsMode() === 'off' ? [] : needsOf(state.comfort, state.food);
@@ -12114,7 +12114,7 @@ function updateHud() {
     _p.y = Math.max(_p.y, 0) + 0.35;
     _p.project(camera);
     const k = fishing.biteKind;
-    const text = fishOn ? $t('Fish on!') : k === 'float' ? $t('Bite — strike!') : k === 'tip' ? $t('Tip pulls — strike!') : k === 'grab' ? $t('Squid — strike!') : k === 'sip' ? $t('Rise — strike!') : k === 'tap' ? $t('Tap — strike!') : 'Strike!';
+    const text = fishOn ? $t('Fish on!') : k === 'float' ? $t('Bite — strike!') : k === 'tip' ? $t('Tip pulls — strike!') : k === 'grab' ? $t('Squid — strike!') : k === 'sip' ? $t('Rise — strike!') : k === 'tap' ? $t('Tap — strike!') : $t('Strike!');
     hud.bite((_p.x * 0.5 + 0.5) * innerWidth, (-_p.y * 0.5 + 0.5) * innerHeight, _p.z < 1, text, fishOn);
   } else hud.bite(0, 0, false);
 
@@ -12157,7 +12157,7 @@ function updateHud() {
   const job = jobTarget();
   if (job && $('job-name').textContent !== job.name) $('job-name').textContent = job.name;
   // (The story's next place says so, not "Job".)
-  if (job && $('job-kind').textContent !== (job.story ? 'Story' : 'Job')) $('job-kind').textContent = job.story ? 'Story' : 'Job';
+  if (job && $('job-kind').textContent !== (job.story ? $t('Story') : $t('Job'))) $('job-kind').textContent = job.story ? $t('Story') : $t('Job');
   // (F4a) The mark your navigator's calling for, in any boat: oars, sail or engine.
   if (navNow && $('nav-name').textContent !== `${navNow.name}’s mark ${navNow.leg + 1}`) $('nav-name').textContent = $t`${navNow.name}’s mark ${navNow.leg + 1}`;
   placeMarker($('nav-marker'), navNow?.x ?? 0, 2, navNow?.z ?? 0, !!navNow && started && !modal && !dive && !onFoot);
@@ -12206,7 +12206,7 @@ function placeFriendMarkers() {
     // (Their latest call shows with their name for a few seconds; a fish on, while it's on, with
     // what it's doing; a catch, what it was, for a few seconds after.)
     const call = p.call && together.clock - p.call.at < 7 ? p.call.text : P.o ? FISH_MOVE_WORDS[P.mv] || $t('fish on!') : p.landed && together.clock - p.landed.at < 8 ? p.landed.text : '';
-    const text = P.m === 'dive' ? `${p.name} (diving)` : P.m === 'car' ? `${p.name} (driving)` : p.name;
+    const text = P.m === 'dive' ? $t`${p.name} (diving)` : P.m === 'car' ? $t`${p.name} (driving)` : p.name;
     const nameEl = el.querySelector('.m-name');
     if (nameEl.textContent !== text) nameEl.textContent = text;
     let callEl = el.querySelector('.m-call');
@@ -12313,7 +12313,7 @@ function placeShoalMarkers() {
       $('boat-marker').before(el);
       shoalMarkers.set(m.key, el);
     }
-    const words = `${m.name} shoal: ${m.sp.toLowerCase()}`, name = el.querySelector('.m-label span');
+    const words = $t`${m.name} shoal: ${m.sp.toLowerCase()}`, name = el.querySelector('.m-label span');
     if (name.textContent !== words) name.textContent = words;
     placeMarker(el, m.x, waveHeight(m.x, m.z, t) + 1.5, m.z, started && !modal);
   }
@@ -12510,7 +12510,7 @@ function friendHelp(p, d) {
     if (!teamwork.mayLeader(p, d.f, F, fishing.fishPos) || !fishing.friendLeader(p.name)) return;
     F.leaderId = p.id;
     hud.flash($t`${p.name} takes the leader for you: keep the rod up.`, t, 3);
-  } else if (d.e === 'thanks') hud.toast(d.h === 'leader' ? $t`You took the leader of ${p.name}’s ${d.sp ? d.sp.toLowerCase() : 'fish'}${d.kg ? `, ${kgWords(d.kg)}` : ''}, and drew it alongside. Nice work.` : $t`You netted ${p.name}’s ${d.sp ? d.sp.toLowerCase() : 'fish'}${d.kg ? `, ${kgWords(d.kg)}` : ''}. Nice work.`, 5);
+  } else if (d.e === 'thanks') hud.toast(d.h === 'leader' ? $t`You took the leader of ${p.name}’s ${d.sp ? d.sp.toLowerCase() : $t('fish')}${d.kg ? `, ${kgWords(d.kg)}` : ''}, and drew it alongside. Nice work.` : $t`You netted ${p.name}’s ${d.sp ? d.sp.toLowerCase() : $t('fish')}${d.kg ? `, ${kgWords(d.kg)}` : ''}. Nice work.`, 5);
 }
 function openCalls() {
   if (!together.active) return;
@@ -12685,8 +12685,8 @@ function tipWords(e) {
   const item = e.item && TACKLE[e.item] ? TACKLE[e.item].name : null, rod = RODS[e.rod]?.name;
   const h = e.hour, when = h < 5 || h >= 21.5 ? $t('after dark') : h < 8 ? $t('at dawn') : h < 11.5 ? $t('in the morning') : h < 14 ? $t('around midday') : h < 17.5 ? $t('in the afternoon') : $t('in the evening');
   const tide = { high: $t('at high water'), low: $t('at low water'), flood: $t('on the flood'), ebb: $t('on the ebb') }[e.tide];
-  const on = item ? `on ${/^[aeiou]/i.test(item) ? 'an' : 'a'} ${item[0].toLowerCase()}${item.slice(1)}${rod ? ` (${rod.toLowerCase()})` : ''}` : rod ? $t`on the ${rod.toLowerCase()}` : '';
-  const bits = [e.place, on, when, e.water === 'fresh' ? null : tide, e.depth >= 1 ? `${Math.round(e.depth)} m down` : null].filter(Boolean);
+  const on = item ? $t`on ${an(`${item[0].toLowerCase()}${item.slice(1)}`)}${rod ? ` (${rod.toLowerCase()})` : ''}` : rod ? $t`on the ${rod.toLowerCase()}` : '';
+  const bits = [e.place, on, when, e.water === 'fresh' ? null : tide, e.depth >= 1 ? $t`${Math.round(e.depth)} m down` : null].filter(Boolean);
   return `${bits.join(', ')}.`.replace(/^./, (c) => c.toUpperCase());
 }
 // Your fish sold, playing together: friends paid the same (Settings → Play together, "Fish you
@@ -12714,7 +12714,7 @@ function flushSale(now = false) {
 function friendPaid(p, d) {
   earnIn(state, d.a, $t`Shared by ${p.name}`);
   const where = d.w === 'kaigan' ? $t('to Kaigan') : d.w === 'kitchen' ? $t('to a kitchen') : $t('at the market');
-  hud.toast($t`${p.name} sold ${d.n === 1 ? 'a fish' : `${d.n} fish`} ${where}: ${money(d.a)} into your purse too.`, 5);
+  hud.toast($t`${p.name} sold ${d.n === 1 ? $t('a fish') : $t`${d.n} fish`} ${where}: ${money(d.a)} into your purse too.`, 5);
   audio.chime?.();
   save();
 }
@@ -12789,7 +12789,7 @@ function friendFind(p, F) {
   const wreck = F.t.startsWith('The Kittiwake: ');
   const news = {
     place: `${p.name} found ${the(F.t)}`, site: `${p.name} dived ${the(F.t)}`,
-    detail: wreck ? $t`${p.name} found something on the Kittiwake: ${F.t.slice(15)}` : `${p.name} found ${the(F.t)}`,
+    detail: wreck ? $t`${p.name} found something on the Kittiwake: ${F.t.slice(15)}` : $t`${p.name} found ${the(F.t)}`,
     fish: $t`${p.name}’s tip for ${F.t.toLowerCase()}`, mark: $t`${p.name} sent you a mark: ${F.t}`,
   }[F.k];
   if ((F.k === 'place' || F.k === 'site') && F.id && state.places[F.id] && (F.k === 'place' || state.dive.sites[F.id])) {
@@ -12883,7 +12883,7 @@ function updateDiveHud() {
   }
   if (!on) return;
   const d = dive, depth = diver.depth, free = d.kit === 'free';
-  hud.setHTML('dvKind', $('dv-kind'), free ? 'Freediving' : 'Scuba');
+  hud.setHTML('dvKind', $('dv-kind'), free ? $t('Freediving') : $t('Scuba'));
   hud.setHTML('dvDepth', $('dv-depth'), `${depth.toFixed(1)} m`);
   const bottom = Math.max(0, -heightAt(diver.pos.x, diver.pos.z));
   let info = $t`bottom ${bottom.toFixed(0)} m · visibility ${underwater.visibility(weather.rain, env.night)} m`;
@@ -12892,7 +12892,7 @@ function updateDiveHud() {
     fill = d.o2;
     mark = depth > 1 ? Math.min(1, breathToSurface(depth)) : -1;
     const surf = diver.atSurface(t);
-    hud.setHTML('dvGas', $('dv-gas'), surf ? (d.o2 < 0.98 ? $t('Breathing up') : 'Breath') : `Breath · ${Math.round(d.hold)} s`);
+    hud.setHTML('dvGas', $('dv-gas'), surf ? (d.o2 < 0.98 ? $t('Breathing up') : $t('Breath')) : `Breath · ${Math.round(d.hold)} s`);
     warn = !surf && d.o2 < mark;
   } else {
     const bar = state.dive.tank;
@@ -13027,7 +13027,7 @@ function renderSaveStatus() {
   const ago = saveStatus.lastSaved ? Math.round((Date.now() - saveStatus.lastSaved) / 1000) : null;
   const when = ago == null ? $t('not yet') : ago < 10 ? $t('just now') : ago < 90 ? $t`${ago} seconds ago` : $t`${Math.round(ago / 60)} minutes ago`;
   const where = onDesktop() ? $t('on this computer, and to a file in the saves folder') : $t('in this browser');
-  el.textContent = $t`${state.play === 'free' ? $t('A Free Roam game') : 'A Career'}, saved automatically ${where} (last saved ${when}): no account needed. ${state.log.length} catches in your log.`;
+  el.textContent = $t`${state.play === 'free' ? $t('A Free Roam game') : $t('A Career')}, saved automatically ${where} (last saved ${when}): no account needed. ${state.log.length} catches in your log.`;
 }
 
 // The optional account box under "Your progress". Only shown when a backend is configured.
@@ -13058,7 +13058,7 @@ function renderCloud() {
     const when = cloud.lastSync ? Math.round((Date.now() - cloud.lastSync) / 60000) : null;
     const sync = !offline.online ? $t('offline, so syncing is paused until the connection is back')
       : cloud.paused ? 'paused' : cloud.syncing ? 'syncing…' : cloud.pending ? $t('changes waiting to sync') : when == null ? $t('not synced yet this visit') : when < 1 ? $t('synced just now') : $t`synced ${when} min ago`;
-    kids.push(make('p', $t`Signed in as ${cloud.email || 'you'}: ${sync}. Your progress is also kept in this browser.`));
+    kids.push(make('p', $t`Signed in as ${cloud.email || $t('you')}: ${sync}. Your progress is also kept in this browser.`));
     kids.push(btn($t('Sync now'), async () => {
       save();
       renderCloud();
@@ -13152,7 +13152,7 @@ cloudReady.then(() => {
 
 function renderOffline() {
   const el = $('offline-status');
-  const net = offline.online ? 'Online.' : $t('Offline: everything keeps working and saving on this device.');
+  const net = offline.online ? $t('Online.') : $t('Offline: everything keeps working and saving on this device.');
   const sync = cloud.signedIn && !offline.online ? $t(' Cloud sync is paused and will catch up when you’re back online.') : '';
   let store;
   if (offline.desktop) store = $t('The game plays from the app’s own files: no connection needed.');
@@ -13175,7 +13175,7 @@ function renderOffline() {
 {
   const d = BUILT ? new Date(`${BUILT}T12:00:00Z`) : null;
   const day = d && !Number.isNaN(d.getTime()) ? d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : '';
-  $('title-version').textContent = $t`Version ${RELEASE}${BUILD ? ` · build ${BUILD.slice(0, 8)}` : ''}${day ? ` · ${day}` : ''}`;
+  $('title-version').textContent = $t`Version ${RELEASE}${BUILD ? $t` · build ${BUILD.slice(0, 8)}` : ''}${day ? ` · ${day}` : ''}`;
 }
 
 function updateNow() {
@@ -13201,8 +13201,8 @@ function renderUpdate() {
     : app?.state === 'out' ? $t`Version${ver} is out: Update opens the download page.`
     : updateNote;
   $('title-update').disabled = $('update-now').disabled = busy;
-  $('title-update').textContent = busy ? 'Updating…' : app?.state === 'ready' ? $t('Restart to update') : app?.state === 'out' ? $t('Get the new version') : 'Update';
-  $('update-now').textContent = busy ? 'Updating…' : !offline.updateReady ? $t('Check for updates')
+  $('title-update').textContent = busy ? $t('Updating…') : app?.state === 'ready' ? $t('Restart to update') : app?.state === 'out' ? $t('Get the new version') : $t('Update');
+  $('update-now').textContent = busy ? $t('Updating…') : !offline.updateReady ? $t('Check for updates')
     : app?.state === 'ready' ? $t('Restart into the new version') : app?.state === 'out' ? $t('Get the new version') : $t('Update to the new version');
   $('title-update-note').textContent = note;
   $('update-note').textContent = note;
@@ -13373,8 +13373,9 @@ function downloadSave() {
 // A game's line: "Free Roam · day 12 · 34 fish of 9 kinds · 6 places · £120".
 function gameLine(g) {
   if (!g) return '';
-  const fish = g.caught ? $t`${g.caught} fish of ${g.kinds} ${g.kinds === 1 ? 'kind' : 'kinds'}` : $t('no fish yet');
-  return `${PLAYS[g.play]?.name || 'Career'} · day ${g.day} · ${fish} · ${g.places} ${g.places === 1 ? 'place' : 'places'} · £${g.money.toLocaleString('en-GB')}`;
+  const fish = g.caught ? $t`${g.caught} fish of ${g.kinds} ${g.kinds === 1 ? $t('kind') : $t('kinds')}` : $t('no fish yet');
+  const name = PLAYS[g.play]?.name || $t('Career'), money = g.money.toLocaleString('en-GB');
+  return g.places === 1 ? $t`${name} · day ${g.day} · ${fish} · ${g.places} place · £${money}` : $t`${name} · day ${g.day} · ${fish} · ${g.places} places · £${money}`;
 }
 function lastPlayed(ms) {
   if (!ms) return '';
@@ -13384,7 +13385,7 @@ function lastPlayed(ms) {
 // The title screen's line: which game Begin (or Continue) plays.
 function renderTitleGame() {
   const fresh = !state.log.length && !Object.keys(state.places).length;
-  $('title-game').textContent = $t`Game ${SLOT} · ${PLAYS[state.play].name}${fresh ? $t(' · a new game') : ` · day ${state.day}`}`;
+  $('title-game').textContent = $t`Game ${SLOT} · ${PLAYS[state.play].name}${fresh ? $t(' · a new game') : $t` · day ${state.day}`}`;
 }
 function openGames() {
   if (started || modal) return;
@@ -13423,7 +13424,7 @@ function renderGames() {
     } else if (has[n]) {
       const g = I.games[n];
       p.textContent = g ? `${gameLine(g)}${g.savedAt ? ` · ${lastPlayed(g.savedAt)}` : ''}` : $t('A game (its details show once it’s played again).');
-      acts.append(pkBtn($t('Play it'), () => playGame(n)), pkBtn('Delete…', () => deleteGame(n), 'quiet'));
+      acts.append(pkBtn($t('Play it'), () => playGame(n)), pkBtn($t('Delete…'), () => deleteGame(n), 'quiet'));
     } else {
       p.textContent = $t('Empty.');
       acts.append(pkBtn($t('New: Career'), () => newGameIn(n, 'career'), 'quiet'), pkBtn($t('New: Free Roam'), () => newGameIn(n, 'free'), 'quiet'));
@@ -13547,7 +13548,7 @@ function begin() {
   const returning = !!state.places.bay;
   if (!returning) state.places.bay = { day: state.day, hour: state.hour };
   const zone = zoneAt(player().pos.x, player().pos.z);
-  const names = { lake: 'Reedmere', stream: 'Fernbeck', cove: $t('Driftwood Cove') };
+  const names = { lake: $t('Reedmere'), stream: $t('Fernbeck'), cove: $t('Driftwood Cove') };
   const home = onFoot && atHomeNow();
   // (At Las Brasas: the island, or its harbour.)
   const south = player().pos.z > SOUTH_Z, puerto = south && Math.hypot(player().pos.x - PUERTO_AT.x, player().pos.z - PUERTO_AT.z) < 160;
@@ -13571,7 +13572,7 @@ function begin() {
   if (state.outing.travel) {
     const to = state.outing.travel.to;
     arrive(to);
-    setTimeout(() => hud.toast($t`${to === 'home' ? 'Home' : DESTS[to].name}: the drive finished while the game was closed. Everything you packed is with you.`, 8), 2400);
+    setTimeout(() => hud.toast($t`${to === 'home' ? $t('Home') : DESTS[to].name}: the drive finished while the game was closed. Everything you packed is with you.`, 8), 2400);
   }
   refreshHomeGear(true);
   refreshHomeWall();
@@ -13595,7 +13596,7 @@ function begin() {
     setTimeout(() => {
       if (state.tips.brasaIntro || state.tips.brasa) return;
       state.tips.brasaIntro = true;
-      hud.toast($t`New: Las Brasas, a warm volcanic island across the sea to the south. Take the sailing boat out of the bay and ${scheme() === 'touch' ? $t('tap the prompt') : `press ${input.keyLabel('interact')}`} for the crossing.`, 10);
+      hud.toast($t`New: Las Brasas, a warm volcanic island across the sea to the south. Take the sailing boat out of the bay and ${scheme() === 'touch' ? $t('tap the prompt') : $t`press ${input.keyLabel('interact')}`} for the crossing.`, 10);
       save();
     }, 15000 + campNotes.length * 11000);
   }
@@ -13689,7 +13690,7 @@ function routeDayLines(pts) {
   if (sunset <= abs) sunset = day0 + 24 + sunTimes(abs + 24).set;
   const toGale = hoursToGale(abs);
   const D = routeDay(pts, B.knots, abs, { sunset, galeAt: toGale != null ? abs + toGale : null });
-  const when = (a) => `${formatClock(((a % 24) + 24) % 24)}${Math.floor(a / 24) > Math.floor(abs / 24) ? (Math.floor(a / 24) - Math.floor(abs / 24) === 1 ? ' tomorrow' : $t` on day ${Math.floor(a / 24)}`) : ''}`;
+  const when = (a) => `${formatClock(((a % 24) + 24) % 24)}${Math.floor(a / 24) > Math.floor(abs / 24) ? (Math.floor(a / 24) - Math.floor(abs / 24) === 1 ? $t(' tomorrow') : $t` on day ${Math.floor(a / 24)}`) : ''}`;
   const hrs = (h) => (h < 1 ? `${Math.max(5, Math.round((h * 60) / 5) * 5)} minutes` : `${Math.round(h * 2) / 2} hours`);
   const out = [{ ok: true, text: $t`Leaving now, she's in about ${when(D.arrive)}: ${hrs(D.hours)} of the day.` }];
   if (D.dark) {
@@ -13867,7 +13868,7 @@ function tendTick(dt) {
   if (tendT < 1.5) return;
   // (Someone else aboard has it.)
   if (TW.e && TW.e !== together.id) {
-    const who = together.peers.get(TW.e)?.name || 'Someone';
+    const who = together.peers.get(TW.e)?.name || $t('Someone');
     hud.flash($t`${who} is tending the towline.`, t, 2.5);
     tending = null;
     return;
@@ -13899,8 +13900,8 @@ const lifeWords = (k) => (SEA_LIFE[k]?.name || k).split(' ').map((w) => (/^(Atla
 function fromTheBow(x, z) {
   const dx = x - boat.pos.x, dz = z - boat.pos.z, d = Math.hypot(dx, dz);
   const rel = Math.atan2(dx * boat.right.x + dz * boat.right.z, dx * boat.fwd.x + dz * boat.fwd.z) * (180 / Math.PI);
-  const a = Math.abs(rel), side = rel > 0 ? 'starboard' : 'port';
-  const where = a < 15 ? $t('dead ahead') : a < 60 ? $t`off the ${side} bow` : a < 120 ? $t`on the ${side} beam` : a < 165 ? $t`off the ${side} quarter` : 'astern';
+  const a = Math.abs(rel), side = rel > 0 ? $t('starboard') : $t('port');
+  const where = a < 15 ? $t('dead ahead') : a < 60 ? $t`off the ${side} bow` : a < 120 ? $t`on the ${side} beam` : a < 165 ? $t`off the ${side} quarter` : $t('astern');
   return $t`${where}, about ${d < 100 ? Math.max(10, Math.round(d / 10) * 10) : Math.round(d / 50) * 50} m`;
 }
 function seenHeard(p, S) {
@@ -15284,7 +15285,7 @@ function tick(now, manual = false) {
   // The first time the view dips under the water by itself: a word on how it works.
   if (rig.below && started && !state.tips.under) {
     state.tips.under = true;
-    hud.chip($t`<b>Under the water</b> · ${scheme() === 'pad' ? `${kbd('R-stick')} down` : $t('drag down')} to come back up`, 3.5);
+    hud.chip($t`<b>Under the water</b> · ${scheme() === 'pad' ? $t`${kbd('R-stick')} down` : $t('drag down')} to come back up`, 3.5);
     save();
   }
   updateFirstPerson(dt);

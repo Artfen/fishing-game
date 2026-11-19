@@ -158,15 +158,15 @@ export class FishFinder {
     const F = this.state.finder, set = (k, t) => { const e = document.querySelector(`#sonar-keys [data-k="${k}"] b`); if (e) e.textContent = t; };
     set('page', PAGE_NAMES[this.page]);
     set('shallower', 'shallower');
-    set('deeper', F.range === 'auto' ? 'Auto' : `${F.range} m`);
+    set('deeper', F.range === 'auto' ? $t('Auto') : `${F.range} m`);
     set('gainDown', 'less');
     set('zoom', ZOOMS[F.zoom]);
     set('gainUp', `${F.gain}`);
     set('colour', PALETTES[F.pal].name);
-    set('fish', F.symbols ? 'Symbols' : 'Arches');
+    set('fish', F.symbols ? $t('Symbols') : $t('Arches'));
     const u = $('sonar-unit');
     if (u) {
-      u.textContent = F.unit ? 'Simple' : 'Unit';
+      u.textContent = F.unit ? $t('Simple') : $t('Unit');
       u.setAttribute('aria-pressed', String(!!F.unit));
       u.setAttribute('aria-label', F.unit ? $t('Back to the simple fish finder') : $t('Switch to the head unit'));
     }

@@ -47,7 +47,7 @@ export const NAME_MAX = 18;
 // a faster troll, shade, an anchor that holds in a blow. A slot holds one: a new engine choice
 // replaces the old. (Each motorboat's engine and propeller come from the engine catalogue
 // instead: see engines.js and repowerBoat.)
-export const FIT_CATS = { fuel: 'Fuel', electronics: 'Electronics', power: 'Power', trolling: $t('Trolling motor'), deck: 'Deck', gear: $t('Ground tackle') };
+export const FIT_CATS = { fuel: $t('Fuel'), electronics: $t('Electronics'), power: $t('Power'), trolling: $t('Trolling motor'), deck: $t('Deck'), gear: $t('Ground tackle') };
 export const FITS = {
   tank: {
     name: $t('Long-range tank'), cat: 'fuel', kg: 8, amps: 0,

@@ -42,16 +42,16 @@ test('the game: towed in, rescued, shipped home and said where she is by the wat
   assert.equal(src.match(/mere \? boathouseMooring\(boat\) : havenMooring\(boat\)/g)?.length, 2, 'the out-of-fuel tow and the harbour launch');
   assert.doesNotMatch(src, /kind === 'bass' \? mooring\('bass'\)/);
   assert.doesNotMatch(src, /boat\.iind/);
-  assert.match(src, /into = onMere\(boat\) \? 'the boathouse'/);
+  assert.match(src, /into = onMere\(boat\) \? \$t\('the boathouse'\)/);
   // The supply ship bringing her home with no berth free: off the quay, not up on the mere.
   assert.match(src, /south \? \{ x: PONTOON_S\.x1 \+ 9, z: PONTOON_S\.z1 \+ 6, heading: 0 \} : homeOf\(b\.kind\) === 'lake' \? havenMooring\(b\) : mooring\(b\.id\);/);
   // The harbour office: where she is, and she's brought round or shipped like the others at sea.
-  assert.match(src, /if \(onMere\(b\)\) return 'on Longmere';/);
+  assert.match(src, /if \(onMere\(b\)\) return \$t\('on Longmere'\);/);
   assert.doesNotMatch(src, /b\.kind !== 'bass' && regionOf/);
   assert.doesNotMatch(src, /The bass boat lives on Longmere/);
   // By road: down from the mere, or (the bass boat) back up to it, and laid up she can go in here.
   assert.match(src, /haulByRoad\(b, 'sea'\)/);
   assert.match(src, /haulByRoad\(b, 'mere'\)/);
   // Her fuel: no pump on the mere, the quay pumps at sea.
-  assert.match(src, /BOATS\[what\] && onMere\(BOATS\[what\]\) \? 'Longmere has no pump/);
+  assert.match(src, /BOATS\[what\] && onMere\(BOATS\[what\]\) \? \$t\('Longmere has no pump/);
 });

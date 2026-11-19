@@ -48,7 +48,7 @@ export function boxWords(state, kind, now) {
   const h = boxHoursLeft(state, kind, now), box = FISHBOX[kindOf(kind)];
   if (h <= 0) return $t`no ice in her ${box}`;
   const n = Math.max(1, Math.round(h));
-  return $t`her ${box} iced for ${h >= 36 ? `${Math.round(h / 24)} days` : h >= 20 ? 'a day' : `${n} hour${n === 1 ? '' : 's'}`} more`;
+  return $t`her ${box} iced for ${h >= 36 ? $t`${Math.round(h / 24)} days` : h >= 20 ? $t('a day') : (n === 1 ? $t`${n} hour` : $t`${n} hours`)} more`;
 }
 
 // From a save: known boats, finite hours.

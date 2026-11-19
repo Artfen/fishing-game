@@ -37,7 +37,7 @@ const CROSS_STAGES = ['out', 'in', 'back'];
 export function noteCrossing(today, { to, stage, how = 'helm', boat = '', mins = 0 }) {
   if (!CROSS_STAGES.includes(stage) || (to !== 'south' && to !== 'home')) return;
   today.cross ??= [];
-  if (today.cross.length < 4) today.cross.push({ to, stage, how: how === 'fast' ? 'fast' : 'helm', boat: String(boat).slice(0, 30), mins: Math.round(mins) });
+  if (today.cross.length < 4) today.cross.push({ to, stage, how: how === 'fast' ? $t('fast') : $t('helm'), boat: String(boat).slice(0, 30), mins: Math.round(mins) });
 }
 // A while sat somewhere (the first of the day): by the fire, in your camp chair, at home, on the
 // bench, or back in the boat.
@@ -130,7 +130,7 @@ export function rel(e) {
   return sp ? (e.size - sp.size[0]) / Math.max(1, sp.size[1] - sp.size[0]) : 0;
 }
 
-const SKY_WORDS = { clear: 'clear', partly: $t('some cloud'), overcast: 'grey', light: 'showers', heavy: $t('heavy rain'), storm: 'a storm' };
+const SKY_WORDS = { clear: $t('clear'), partly: $t('some cloud'), overcast: $t('grey'), light: $t('showers'), heavy: $t('heavy rain'), storm: $t('a storm') };
 const listWords = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 const placeName = (id) => {
   const p = PLACES.find((q) => q.id === id);
@@ -182,7 +182,7 @@ export function dayText(p) {
     const m = Math.max(1, Math.round(r.hours * 60)), hh = Math.round(r.hours * 10) / 10; // (as trip.js's summary says it)
     const h = r.hours < 1 ? `${m} minute${m > 1 ? 's' : ''}` : `${hh} hour${hh === 1 ? '' : 's'}`;
     const others = r.total - r.target;
-    out.push($t`A trip to ${r.name}${boat} for ${fish}: ${r.target ? `${r.target} caught` : $t('none this time')}${others > 0 ? $t` (and ${others} other fish)` : ''}, ${h} out.`);
+    out.push($t`A trip to ${r.name}${boat} for ${fish}: ${r.target ? $t`${r.target} caught` : $t('none this time')}${others > 0 ? $t` (and ${others} other fish)` : ''}, ${h} out.`);
   }
   // The crossing.
   for (const c of p.cross || []) {
@@ -384,7 +384,7 @@ function cleanCross(v) {
   const out = [];
   for (const c of v.slice(0, 4)) {
     if (!c || typeof c !== 'object' || !CROSS_STAGES.includes(c.stage) || (c.to !== 'south' && c.to !== 'home')) continue;
-    out.push({ to: c.to, stage: c.stage, how: c.how === 'fast' ? 'fast' : 'helm', boat: typeof c.boat === 'string' ? c.boat.slice(0, 30) : '', mins: Math.round(num(c.mins, 0, 0, 9999)) });
+    out.push({ to: c.to, stage: c.stage, how: c.how === 'fast' ? $t('fast') : $t('helm'), boat: typeof c.boat === 'string' ? c.boat.slice(0, 30) : '', mins: Math.round(num(c.mins, 0, 0, 9999)) });
   }
   return out;
 }

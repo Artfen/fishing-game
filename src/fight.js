@@ -849,7 +849,7 @@ export function breakReason(cause, sp, rod, extra = {}) {
     case 'kicked':
       // (E3d) On the leader, the big game from a boat.
       if (extra.landBy === 'leader') return $t`The ${fish} surged as you held the leader, and the hook tore out${extra.loosened ? $t(': the fight had worn it loose') : ''}. Let go of the leader as it stirs: the rod takes the surge, then take the leader again once it’s spent. A friend aboard can take it for you.`;
-      if (extra.landBy === 'beach' || extra.landBy === 'lift') return $t`The ${fish} gave a last kick while you were winding it ${extra.landBy === 'beach' ? $t('up the beach') : 'up'}, and the hook came out. Let go as it stirs, and wind again when it lies still.`;
+      if (extra.landBy === 'beach' || extra.landBy === 'lift') return $t`The ${fish} gave a last kick while you were winding it ${extra.landBy === 'beach' ? $t('up the beach') : $t('up')}, and the hook came out. Let go as it stirs, and wind again when it lies still.`;
       return $t`The ${fish} gave a last kick alongside while you were winding hard, and the hook came out. Let go as it kicks, and ${extra.landBy === 'hand' ? $t('take it by the tail') : $t('net it')} when it rolls over again.`;
     case 'knocked':
       return $t`You swung the net at the ${fish} as it kicked, and the rim knocked the hook out${extra.loosened ? $t(': the fight had worn it loose') : ''}. Wait for it to lie still, then net it.`;

@@ -89,7 +89,7 @@ export const hasAboard = (c, kind, id) => aboard(c, kind).some((it) => it.id ===
 export function buy(c, id) {
   const C = CARGO[id];
   if (!C || !SOLD.includes(id)) return { ok: false, why: $t('Not sold here.') };
-  if (owned(c, id) >= (C.most || 1)) return { ok: false, why: $t`You’ve ${C.most > 1 ? `${C.most} already` : $t('one already')}.` };
+  if (owned(c, id) >= (C.most || 1)) return { ok: false, why: $t`You’ve ${C.most > 1 ? $t`${C.most} already` : $t('one already')}.` };
   if (c.items.length >= CARGO_MAX * 2) return { ok: false, why: $t('Bert’s store room is full of your things.') };
   let n = c.items.length + 1;
   while (c.items.some((it) => it.uid === `c${n}`)) n++;

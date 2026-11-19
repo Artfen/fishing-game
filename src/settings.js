@@ -73,7 +73,7 @@ export const PAD_HELP = [
   [$t('A line in the water'), [['fish', 'advice', $t('why aren’t they biting?')], ['fish', 'feed', $t('throw loose bait')], ['fish', 'walkline', $t('walk with the line out (along the bank, or about the deck), or stand to fish again')]]],
   [$t('A fish on'), [['fight', 'cast', $t('reel (let go when it surges)')], ['fight', 'ease', $t('ease the drag off')], ['fight', 'forward', $t('tighten or ease the drag')]]],
   [$t('The catch card'), [['catch', 'cast', $t('let it go')], ['catch', 'keep', $t('keep it')], ['catch', 'photo', $t('photograph it')]]],
-  ['Driving', [['drive', 'throttle', 'go'], ['drive', 'brake', $t('brake, then reverse')], ['drive', 'left', 'steer'], ['drive', 'interact', $t('get out')], ['drive', 'tackle', $t('where to?')]]],
+  [$t('Driving'), [['drive', 'throttle', 'go'], ['drive', 'brake', $t('brake, then reverse')], ['drive', 'left', 'steer'], ['drive', 'interact', $t('get out')], ['drive', 'tackle', $t('where to?')]]],
 ];
 
 // (The learned layouts kept: each checked, its name a sensible length, the last eight.)
@@ -168,7 +168,7 @@ const el = (tag, cls, text) => {
   return e;
 };
 const TABS = [['audio', $t('Sound')], ['graphics', $t('Graphics')], ['weather', $t('Weather & sea')], ['controls', $t('Controls & comfort')], ['you', $t('You')], ['together', $t('Play together')]];
-const LEVEL_NAMES = { auto: $t('With the preset'), low: 'Low', medium: 'Medium', high: 'High', ultra: 'Ultra' };
+const LEVEL_NAMES = { auto: $t('With the preset'), low: $t('Low'), medium: $t('Medium'), high: $t('High'), ultra: $t('Ultra') };
 
 // hooks: { changed(section, key, value), close(), playAlert(), restartSound() → status, soundStatus(), qualityText(), difficulty(), setDifficulty(id),
 //   behaviour(), setBehaviour(id), keyLabel(code), together() (the Together session), setName(name),
@@ -293,17 +293,17 @@ export class SettingsUI {
     };
     const words = (k) => this.choice(LOOK_OPTIONS[k].map((v) => [v, LOOK_WORDS[k][v]]), L[k], (v) => put(k, v));
     out.push(el('p', 'st-note', $t('How you look, on foot and at the helm, and to friends playing with you. Your clothes keep you warm and dry whatever their colour (the woolly hat still comes out when it’s cold).')));
-    out.push(this.row('Skin', null, swatches('skin', 'Skin')));
-    out.push(this.row('Raincoat', $t('When it’s on.'), swatches('coat', 'Raincoat')));
-    out.push(this.row('Jumper', $t('With the coat off on a cool day.'), swatches('jumper', 'Jumper')));
-    out.push(this.row('Shirt', $t('On a warm one.'), swatches('shirt', 'Shirt')));
-    out.push(this.row('Trousers', null, swatches('legs', 'Trousers')));
-    out.push(this.row('Boots', null, swatches('boots', 'Boots')));
-    out.push(this.row('Hat', null, words('hat')));
+    out.push(this.row($t('Skin'), null, swatches('skin', $t('Skin'))));
+    out.push(this.row($t('Raincoat'), $t('When it’s on.'), swatches('coat', $t('Raincoat'))));
+    out.push(this.row($t('Jumper'), $t('With the coat off on a cool day.'), swatches('jumper', $t('Jumper'))));
+    out.push(this.row($t('Shirt'), $t('On a warm one.'), swatches('shirt', $t('Shirt'))));
+    out.push(this.row($t('Trousers'), null, swatches('legs', $t('Trousers'))));
+    out.push(this.row($t('Boots'), null, swatches('boots', $t('Boots'))));
+    out.push(this.row($t('Hat'), null, words('hat')));
     if (L.hat !== 'hair' && L.hat !== 'bun') out.push(this.row($t('Hat colour'), null, swatches('hatColor', $t('Hat colour'))));
-    out.push(this.row('Hair', $t('Shows with no hat on, and in a beard.'), swatches('hair', 'Hair')));
-    out.push(this.row('Beard', null, words('beard')));
-    out.push(this.row('Glasses', null, words('glasses')));
+    out.push(this.row($t('Hair'), $t('Shows with no hat on, and in a beard.'), swatches('hair', $t('Hair'))));
+    out.push(this.row($t('Beard'), null, words('beard')));
+    out.push(this.row($t('Glasses'), null, words('glasses')));
     const reset = el('button', 'pk-btn quiet', $t('As you were: the yellow raincoat and the teal sun hat'));
     reset.type = 'button';
     reset.addEventListener('click', () => {
@@ -371,7 +371,7 @@ export class SettingsUI {
       return out;
     }
     if (T.status === 'connecting') {
-      out.push(el('p', 'st-tg-status', T.message || 'Connecting…'));
+      out.push(el('p', 'st-tg-status', T.message || $t('Connecting…')));
       const stop = el('button', 'pk-btn quiet', $t('Cancel'));
       stop.type = 'button';
       stop.addEventListener('click', () => { T.leave(true); T.changed(''); });
@@ -392,7 +392,7 @@ export class SettingsUI {
       if (T.reconnecting) box.append(el('p', 'st-note st-warn', T.message));
       const list = el('ul', 'st-tg-list');
       const me = el('li', 'me');
-      me.append(el('strong', null, name || 'You'), el('span', null, $t` (you${T.hosting ? ', host' : ''})`));
+      me.append(el('strong', null, name || $t('You')), el('span', null, $t` (you${T.hosting ? $t(', host') : ''})`));
       list.append(me);
       const others = T.others;
       for (const p of others) {
@@ -408,7 +408,7 @@ export class SettingsUI {
       if (U) {
         const mins = Math.max(1, Math.round((Date.now() - U.since) / 60000));
         const kb = Math.round((U.bytesOut + U.bytesIn) / 1024);
-        const again = U.reconnects ? $t`, and the connection was got back ${U.reconnects === 1 ? 'once' : `${U.reconnects} times`}` : '';
+        const again = U.reconnects ? $t`, and the connection was got back ${U.reconnects === 1 ? $t('once') : $t`${U.reconnects} times`}` : '';
         box.append(el('p', 'st-note st-tg-usage', (mins === 1 ? $t`This session so far: ${U.out.toLocaleString()} messages sent and ${U.in.toLocaleString()} received (about ${kb.toLocaleString()} KB) in ${mins} minute${again}. Supabase counts messages against its monthly Realtime allowance.` : $t`This session so far: ${U.out.toLocaleString()} messages sent and ${U.in.toLocaleString()} received (about ${kb.toLocaleString()} KB) in ${mins} minutes${again}. Supabase counts messages against its monthly Realtime allowance.`)));
         // The shared sea and the rest, by kind: for anyone checking how the session is doing.
         const D = this.hooks.netDiagnostics?.();
@@ -473,7 +473,7 @@ export class SettingsUI {
       const words = el('div', 'st-text');
       words.append(el('span', 'st-label', learnWords(P.step)), el('span', 'st-desc', $t`${P.step + 1} of ${LEARN.length} · on the controller, then let go`));
       const g = el('div', 'st-choice');
-      g.append(btn('Skip', () => this.hooks.padSkip?.(), 'pk-btn quiet'), btn('Stop', () => this.hooks.padStop?.(), 'pk-btn quiet'));
+      g.append(btn($t('Skip'), () => this.hooks.padSkip?.(), 'pk-btn quiet'), btn($t('Stop'), () => this.hooks.padStop?.(), 'pk-btn quiet'));
       box.append(words, g);
       return [box];
     }
@@ -530,22 +530,22 @@ export class SettingsUI {
     return g;
   }
 
-  toggle(section, key, on = 'On', off = 'Off') {
+  toggle(section, key, on = $t('On'), off = $t('Off')) {
     return this.choice([[true, on], [false, off]], !!this.S[section][key], (v) => this.set(section, key, v));
   }
 
   audioPane() {
     const A = this.S.audio;
     const out = [];
-    out.push(this.row('Mute', $t('Silences every sound in the game straight away, including anything that starts while muted.'),
+    out.push(this.row($t('Mute'), $t('Silences every sound in the game straight away, including anything that starts while muted.'),
       this.choice([[true, $t('Muted')], [false, $t('Sound on')]], A.mute, (v) => this.set('audio', 'mute', v))));
     const vol = (key, label, desc) => out.push(this.row(label, desc, this.slider('audio', key)));
     vol('master', $t('Master volume'), $t('Everything together.'));
-    vol('music', 'Music', $t('The slow tune that comes and goes.'));
-    vol('ambient', 'Surroundings', $t('Birds, the stream, frogs, the campfire and the water lapping.'));
-    vol('wind', 'Wind', $t('The wind in your ears: louder in gusts and out in the open.'));
-    vol('waves', 'Waves', $t('The wash of the sea and surf on the shore, with the sea state.'));
-    vol('rain', 'Rain', $t('The patter and hiss of rain.'));
+    vol('music', $t('Music'), $t('The slow tune that comes and goes.'));
+    vol('ambient', $t('Surroundings'), $t('Birds, the stream, frogs, the campfire and the water lapping.'));
+    vol('wind', $t('Wind'), $t('The wind in your ears: louder in gusts and out in the open.'));
+    vol('waves', $t('Waves'), $t('The wash of the sea and surf on the shore, with the sea state.'));
+    vol('rain', $t('Rain'), $t('The patter and hiss of rain.'));
     vol('effects', $t('Fishing and boat sounds'), $t('Oars, the motor, casts and splashes.'));
     vol('reel', $t('Reel and line'), $t('The drag clicking as a fish takes line (faster the faster it runs), the reel whirring as you wind, and the line singing as it nears breaking. Turn it down for a quieter fight.'));
     const test = el('button', 'pk-btn quiet', $t('Play the ring'));
@@ -580,12 +580,12 @@ export class SettingsUI {
   graphicsPane() {
     const G = this.S.graphics;
     const out = [];
-    out.push(this.row('Screen', G.screen === 'clean'
+    out.push(this.row($t('Screen'), G.screen === 'clean'
       ? $t('Clean: the buttons along the top show just their icons (and keys), the weather panel comes up while you’re fishing or sailing, and the rod pill tucks away while you’re under way. More sea, less screen.')
       : $t('Full: every button labelled, the weather panel and your rod always on screen.'),
     this.choice([['full', $t('Full')], ['clean', $t('Clean')]], G.screen, (v) => this.set('graphics', 'screen', v))));
-    out.push(this.row('Preset', $t`${this.hooks.qualityText()}. Auto starts at High on computers and Medium on phones, and steps down by itself if the game runs slowly; it never picks Ultra or Cinematic for you. Ultra is the best that still plays smoothly on a computer with a good graphics card.`,
-      this.choice(CHOICES.map((c) => [c, c === 'auto' ? 'Auto' : PRESETS[c].label]), G.preset, (v) => this.set('graphics', 'preset', v))));
+    out.push(this.row($t('Preset'), $t`${this.hooks.qualityText()}. Auto starts at High on computers and Medium on phones, and steps down by itself if the game runs slowly; it never picks Ultra or Cinematic for you. Ultra is the best that still plays smoothly on a computer with a good graphics card.`,
+      this.choice(CHOICES.map((c) => [c, c === 'auto' ? $t('Auto') : PRESETS[c].label]), G.preset, (v) => this.set('graphics', 'preset', v))));
     if (G.preset === 'cinematic') {
       out.push(el('p', 'st-note st-warn', $t('Cinematic draws the richest picture the game has: sharper, clearer and further, with glowing light and shafts from a low sun. It is made for powerful computers and photographs, and can run at a lower frame rate, especially on laptops and phones. Ultra keeps most of the look and plays more smoothly.')));
     }
@@ -597,12 +597,12 @@ export class SettingsUI {
       this.hooks.changed('graphics', 'preset', 'auto');
       this.render();
     });
-    out.push(this.row('Recommended', $t('Back to Auto, with every part below following it: the game picks what suits this device.'), reset));
+    out.push(this.row($t('Recommended'), $t('Back to Auto, with every part below following it: the game picks what suits this device.'), reset));
     out.push(this.row($t('Render resolution'), $t('Lower draws fewer pixels and runs faster, a little softer. 100% is sharpest.'),
       this.slider('graphics', 'scale', { min: 0.5, max: 1, step: 0.05 })));
-    out.push(this.row('Shadows', $t('Soft shadows from the sun and the lantern. Off is quicker.'),
+    out.push(this.row($t('Shadows'), $t('Soft shadows from the sun and the lantern. Off is quicker.'),
       this.choice([['auto', $t('With the preset')], ['on', $t('On')], ['off', $t('Off')]], G.shadows, (v) => this.set('graphics', 'shadows', v))));
-    out.push(this.row('Ocean', $t`${this.hooks.oceanText?.() || ''} Full works out the sea's short waves on the graphics card, every frame: its texture and glitter close by, lacy foam on the breaking crests, and wakes you can see a long way off. Simple leaves them to the shading, for phones and slower computers. The waves your boat rides are the same either way. Auto picks Full on a computer that can run it.`,
+    out.push(this.row($t('Ocean'), $t`${this.hooks.oceanText?.() || ''} Full works out the sea's short waves on the graphics card, every frame: its texture and glitter close by, lacy foam on the breaking crests, and wakes you can see a long way off. Simple leaves them to the shading, for phones and slower computers. The waves your boat rides are the same either way. Auto picks Full on a computer that can run it.`,
       this.choice([['auto', $t('Auto')], ['full', $t('Full')], ['simple', $t('Simple')]], G.ocean, (v) => this.set('graphics', 'ocean', v))));
     for (const [id, grp] of Object.entries(GROUPS)) {
       out.push(this.row(grp.label, grp.desc, this.choice(['auto', ...LEVELS].map((l) => [l, LEVEL_NAMES[l]]), G[id], (v) => this.set('graphics', id, v))));
@@ -637,9 +637,9 @@ export class SettingsUI {
     // The sea, the wind and the currents: gameplay, not graphics (every graphics setting plays
     // the same water).
     out.push(el('h3', 'st-sub', $t('Sea, wind and currents')));
-    out.push(this.row('Sea', W.sea === 'auto' ? $t('Follows the weather: calmer in fine spells, livelier in rain and cloud.') : SEA_PRESETS[W.sea].note,
+    out.push(this.row($t('Sea'), W.sea === 'auto' ? $t('Follows the weather: calmer in fine spells, livelier in rain and cloud.') : SEA_PRESETS[W.sea].note,
       this.choice([['auto', $t('With the weather')], ...SEA_IDS.map((id) => [id, SEA_PRESETS[id].name])], W.sea, (v) => this.set('weather', 'sea', v))));
-    out.push(this.row('Wind', W.windMode === 'auto' ? $t('Shifts and freshens by itself, with the sea setting above.') : $t`Steady from the ${compass(W.windFrom * Math.PI / 180, true)}, ${Math.round(W.windSpeed * 3.6)} km/h, with its gusts.`,
+    out.push(this.row($t('Wind'), W.windMode === 'auto' ? $t('Shifts and freshens by itself, with the sea setting above.') : $t`Steady from the ${compass(W.windFrom * Math.PI / 180, true)}, ${Math.round(W.windSpeed * 3.6)} km/h, with its gusts.`,
       this.choice([['auto', $t('Automatic')], ['manual', $t('Set it yourself')]], W.windMode, (v) => this.set('weather', 'windMode', v))));
     if (W.windMode === 'manual') {
       const dirs = el('div', 'st-choice st-compass');
@@ -664,7 +664,7 @@ export class SettingsUI {
       sp.append(i, o);
       out.push(this.row($t('Wind strength'), $t('From still air to a fresh breeze.'), sp));
     }
-    out.push(this.row('Currents', { natural: $t('Currents carry your boat, float and rig as they run: strongest in the river, the estuary channel, off Gannet Isle and over Long Shoal.'), gentle: $t('Currents carry your boat and rig at half strength.'), still: $t('Your boat and rig stay where you put them (the fish still know where the water runs).') }[W.currents],
+    out.push(this.row($t('Currents'), { natural: $t('Currents carry your boat, float and rig as they run: strongest in the river, the estuary channel, off Gannet Isle and over Long Shoal.'), gentle: $t('Currents carry your boat and rig at half strength.'), still: $t('Your boat and rig stay where you put them (the fish still know where the water runs).') }[W.currents],
       this.choice([['natural', $t('Natural')], ['gentle', $t('Gentle')], ['still', $t('Still')]], W.currents, (v) => this.set('weather', 'currents', v))));
     out.push(this.row($t('Wind lines'), { sailing: $t('White lines drift through the air with the wind while you sail, showing where it blows from and how hard (the gusts too).'), always: $t('The wind lines show wherever you are: on foot, rowing or under motor too.'), off: $t('No wind lines: read the wind from the water, the flag at the masthead and the panel.') }[W.windLines],
       this.choice([['sailing', $t('When sailing')], ['always', $t('Always')], ['off', $t('Off')]], W.windLines, (v) => this.set('weather', 'windLines', v))));
@@ -679,18 +679,18 @@ export class SettingsUI {
     const ps = this.hooks.playStyle?.();
     out.push(this.row($t('Play style'), ps ? STYLES[ps].desc : $t('Your own mix of the settings below. Choose a style to set them all together.'),
       this.choice(STYLE_IDS.map((id) => [id, STYLES[id].name]), ps, (v) => { this.hooks.setPlayStyle?.(v); this.render(); })));
-    out.push(this.row('Technique', TECHNIQUES[C.technique].desc,
+    out.push(this.row($t('Technique'), TECHNIQUES[C.technique].desc,
       this.choice(TECHNIQUE_IDS.map((id) => [id, TECHNIQUES[id].name]), C.technique, (v) => this.set('controls', 'technique', v))));
-    out.push(this.row('Casting', CAST_MODES[C.cast].note,
+    out.push(this.row($t('Casting'), CAST_MODES[C.cast].note,
       this.choice(Object.entries(CAST_MODES).map(([k, v]) => [k, v.name]), C.cast, (v) => this.set('controls', 'cast', v))));
     const d = this.hooks.difficulty();
-    out.push(this.row('Difficulty', $t`${DIFFICULTY[d].desc} Change it whenever you like: nothing is lost.`,
+    out.push(this.row($t('Difficulty'), $t`${DIFFICULTY[d].desc} Change it whenever you like: nothing is lost.`,
       this.choice(DIFFICULTY_IDS.map((id) => [id, DIFFICULTY[id].label]), d, (v) => this.hooks.setDifficulty(v))));
     const b = this.hooks.behaviour?.() || 'relaxed';
     out.push(this.row($t('Fish behaviour'), `${BEHAVIOUR[b].desc}`,
       this.choice(BEHAVIOUR_IDS.map((id) => [id, BEHAVIOUR[id].label]), b, (v) => this.hooks.setBehaviour?.(v))));
     const e = this.hooks.economy?.() || 'gentle';
-    out.push(this.row('Economy', ECONOMY[e].desc,
+    out.push(this.row($t('Economy'), ECONOMY[e].desc,
       this.choice(ECONOMY_IDS.map((id) => [id, ECONOMY[id].name]), e, (v) => { this.hooks.setEconomy?.(v); this.render(); })));
     out.push(this.row($t('Camera sensitivity'), $t('How far the view turns as you drag.'), this.slider('controls', 'sensitivity', { min: 0.3, max: 2.5, step: 0.1, pct: false })));
     out.push(this.row($t('Invert left and right'), $t('Dragging moves the view the other way across.'), this.toggle('controls', 'invertX')));
@@ -722,7 +722,7 @@ export class SettingsUI {
       for (const c of codes) k.append(el('kbd', null, this.hooks.keyLabel(c)));
       r.append(k);
       if (!a.fixed) {
-        const b = el('button', `pk-btn quiet${this.capturing === a.id ? ' waiting' : ''}`, this.capturing === a.id ? $t('Press a key…') : 'Change');
+        const b = el('button', `pk-btn quiet${this.capturing === a.id ? ' waiting' : ''}`, this.capturing === a.id ? $t('Press a key…') : $t('Change'));
         b.type = 'button';
         b.addEventListener('click', () => {
           this.capturing = this.capturing === a.id ? null : a.id;
@@ -746,13 +746,13 @@ export class SettingsUI {
     out.push(el('p', 'st-note', $t('Choose Change, then press the key you want. If another action had that key, it takes this action’s old key. Esc stops waiting. Touch screens use the on-screen controls.')));
     // How the boats, the cabin and the camera work, whatever the controls.
     out.push(el('h3', null, $t('Boats, the cabin and the camera')));
-    out.push(this.row('Throttle', C.throttle === 'lever'
+    out.push(this.row($t('Throttle'), C.throttle === 'lever'
       ? $t('A real lever: push it forward or pull it back and it stays where you leave it, the revs following smoothly. The first bit of travel puts her into gear at idle; back through neutral it stops there: let go, and push again for astern. The notches are still marked along it, and the D-pad (or + and −) jumps to the next one.')
       : $t('Clear notches: astern, neutral, dead slow, slow, trolling, half and full. Forward and back move it a notch at a time and it stays where you leave it; held, it goes on, pausing at neutral.'),
       this.choice([['notches', $t('Notches')], ['lever', $t('Smooth lever')]], C.throttle, (v) => this.set('controls', 'throttle', v))));
     out.push(this.row($t('Engine start-up'), START_MODES[C.start].desc,
       this.choice(START_IDS.map((id) => [id, START_MODES[id].name]), C.start, (v) => this.set('controls', 'start', v))));
-    out.push(this.row('Helm', C.helm === 'dash'
+    out.push(this.row($t('Helm'), C.helm === 'dash'
       ? $t('The dashboard: in first person at the helm of the RIB or the centre console, the switches, key, throttle and trim are on the console itself. Point and click (or tap); with a controller or the keyboard, the engine key looks down at it to move round it. In third person the engine key opens the helm panel.')
       : $t('The helm panel: the engine key opens a panel with every switch, gauge and the start-up checklist, wherever you look from.'),
       this.choice([['dash', $t('Dashboard')], ['panel', $t('Panel')]], C.helm, (v) => this.set('controls', 'helm', v))));

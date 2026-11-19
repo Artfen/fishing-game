@@ -162,7 +162,7 @@ export class LeverUI {
     if (s.kind !== this.kind) this.build(s.kind);
     this.smooth = !!s.smooth;
     this.root.classList.toggle('lv-smooth', this.smooth);
-    this.title.textContent = s.title || 'Throttle';
+    this.title.textContent = s.title || $t('Throttle');
     this.now.textContent = s.words;
     this.motorBtn.hidden = !s.motor;
     this.motorBtn.textContent = s.motor === 'outboard' ? $t('Outboard up · sail or row') : s.motor === 'down' ? $t('Raise motor · paddle') : $t('Lower motor');

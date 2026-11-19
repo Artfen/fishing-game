@@ -24,7 +24,7 @@
 // Pure: the game passes in what's happening (main.js) and does the paying and the showing.
 
 import { fits, smallestFor, misery, vesselOf, VESSELS, KG_PER_PERSON } from './vessels.js';
-import { $t } from './i18n.js';
+import { $t, langNow } from './i18n.js';
 
 export const CONTRACT_MAX = 3;
 
@@ -39,7 +39,7 @@ const SPECIMENS = [
   { id: 'rockgoby', name: $t('a rock goby'), an: $t('a rock goby'), hint: $t('under the stones of a rockpool, or at the foot of the Willowhaven quay.'), at: 'pools' },
   { id: 'kittiwake', name: $t('a kittiwake'), an: 'a kittiwake', hint: $t('on the cliffs of Gannet Isle in spring and summer.'), at: 'light', hard: true },
 ];
-export const CATEGORIES = { fishing: 'Fishing', wildlife: 'Wildlife', survey: 'Survey', delivery: 'Delivery', handling: $t('Boat handling'), charter: 'Charter', rescue: 'Assistance', expedition: 'Expedition' };
+export const CATEGORIES = { fishing: $t('Fishing'), wildlife: $t('Wildlife'), survey: $t('Survey'), delivery: $t('Delivery'), handling: $t('Boat handling'), charter: $t('Charter'), rescue: $t('Assistance'), expedition: $t('Expedition') };
 // Who offers work (the harbour's people, and the bodies they speak for).
 export const GIVERS = {
   ruth: $t('Ruth at The Lobster Pot'),
@@ -108,7 +108,7 @@ function boatFor(W, need, what) {
 // (G2c) Where a job's people and freight come aboard, and where they're brought back to:
 // Willowhaven's harbour, or Puerto Brasa's for the island's work (obj.base 'puerto'). x.home and
 // x.puerto: afloat and stopped in that harbour (see tick).
-export const BASES = { home: 'Willowhaven', puerto: $t('Puerto Brasa') };
+export const BASES = { home: $t('Willowhaven'), puerto: $t('Puerto Brasa') };
 const baseName = (o) => BASES[o?.base] || BASES.home;
 const atBase = (o, x) => (o?.base === 'puerto' ? !!x.puerto : !!x.home);
 // Where a job's paid: the slate at Bar El Muelle for the island's work, the notice board at home.
@@ -472,7 +472,7 @@ export const TEMPLATES = {
     cat: 'rescue', giver: 'wenna', call: true,
     make(W, r) {
       if (W.region !== 'home' || W.storm || W.wind > 10 || !W.callSpot) return null;
-      const name = pick(r, [$t('Mary Ann'), $t('Sea Pink'), 'Kestrel', 'Wren', $t('Two Brothers')]);
+      const name = pick(r, [$t('Mary Ann'), $t('Sea Pink'), $t('Kestrel'), $t('Wren'), $t('Two Brothers')]);
       return {
         title: $t`A tow for the ${name}`, story: $t`Harbour office: “The ${name}, a little skiff, has a dead engine ${W.callSpot.where} and her owner’s drifting. Can you get a line on her and tow her into Willowhaven?”`,
         goal: $t`Take the ${name} in tow ${W.callSpot.where} (alongside slowly, then the mooring key) and bring her into Willowhaven`, obj: { kind: 'tow', at: { x: W.callSpot.x, z: W.callSpot.z }, boat: 'skiff', name },
@@ -562,7 +562,7 @@ export const TEMPLATES = {
     make(W, r) {
       const S = W.groundSpot;
       if (W.region !== 'home' || W.storm || W.wind > 12 || !S) return null;
-      const name = pick(r, ['Curlew', $t('Sea Holly'), 'Lapwing', 'Morwenna', 'Spindrift']);
+      const name = pick(r, [$t('Curlew'), $t('Sea Holly'), $t('Lapwing'), $t('Morwenna'), $t('Spindrift')]);
       return {
         title: $t`The ${name}, aground`, story: $t`Harbour office: “The ${name}, a little cabin boat, has run up on ${S.name}, and the tide’s falling. If she’s not off before it leaves her she’ll sit there till the flood: she’ll be high and dry by about ${S.dryWords}. Come in off her bow from the deep water, gently (it’s shallow there, and you don’t want to join her), and they’ll heave you a line. Then ease her off.”`,
         goal: $t`Pull the ${name} off ${S.name} before the tide leaves her, by about ${S.dryWords} (close off her bow, slowly, then the mooring key for her line, then ease her off into deep water)`, obj: { kind: 'tow', at: { x: S.x, z: S.z }, heading: S.heading, boat: 'cabin', name, aground: true, by: S.dryAt },
@@ -646,7 +646,7 @@ export const TEMPLATES = {
     cat: 'rescue', giver: 'wenna', call: true, harder: true,
     make(W, r) {
       if (W.region !== 'home' || W.storm || W.wind > 12 || !W.callSpot) return null;
-      const name = pick(r, ['Bluebell', 'Seren', 'Pentire', $t('Little Auk'), 'Dunlin']), S = W.callSpot;
+      const name = pick(r, [$t('Bluebell'), $t('Seren'), $t('Pentire'), $t('Little Auk'), $t('Dunlin')]), S = W.callSpot;
       return {
         title: $t`The ${name}, taking water`, story: $t`Harbour office: “The ${name}, a little skiff, is taking water ${S.where}: a plank’s sprung, and her owner’s bailing and losing. Get a line on her before she’s swamped and tow her in. Pass them your bucket when you’re alongside.”`,
         goal: $t`Get the ${name} on your line ${S.where} before she’s swamped (alongside slowly, then the mooring key), and tow her into Willowhaven`, obj: { kind: 'tow', at: { x: S.x, z: S.z }, boat: 'skiff', name, leak: 0.9 },
@@ -661,7 +661,7 @@ export const TEMPLATES = {
     cat: 'rescue', giver: 'wenna', call: true, far: true,
     make(W, r) {
       if (W.region !== 'home' || W.storm || W.wind > 12 || !W.callSpot || !W.offshore) return null;
-      const name = pick(r, ['Curlew', 'Spindrift', 'Sanderling', 'Merlin', $t('Fair Isle')]), S = W.callSpot, km = W.offshore.km;
+      const name = pick(r, [$t('Curlew'), $t('Spindrift'), $t('Sanderling'), $t('Merlin'), $t('Fair Isle')]), S = W.callSpot, km = W.offshore.km;
       const why = W.wind < 4 ? $t('becalmed, her engine dead') : $t('dead in the water, her engine gone and her mainsail split');
       return {
         title: $t`The ${name}, out on the Blue Water`, story: $t`The coastguard, relayed by the harbour office on the VHF: “The sailing boat ${name} is ${why}, out on the Blue Water ${km} km from the harbour, with a family aboard. You’re the nearest boat with a radio: can you get a line on her and tow her home?”`,
@@ -711,7 +711,8 @@ export const TEMPLATE_IDS = Object.keys(TEMPLATES);
 
 function an(name) {
   const w = name.toLowerCase();
-  return `${/^[aeiou]/.test(w) ? 'an' : 'a'} ${w}`;
+  // (In Spanish or French the sentence round it has the article: the word alone.)
+  return langNow() !== 'en' ? w : `${/^[aeiou]/.test(w) ? 'an' : 'a'} ${w}`;
 }
 
 /* ---------------- the record ---------------- */
@@ -1188,7 +1189,7 @@ export function standing(a) {
   if (o.kind === 'catch' && (o.count || 1) > 1) return $t`${P.got} of ${o.count} so far.`;
   if (o.kind === 'visit') return $t`Mark ${Math.min(P.next + 1, o.marks.length)} of ${o.marks.length}${o.limit && P.started != null ? $t(' (the clock’s running)') : ''}.`;
   if (o.kind === 'charter') {
-    if (!P.aboard) return $t`They’re waiting at ${at}: bring a boat with room for ${o.pax}${o.divers ? ' divers' : ''}.`;
+    if (!P.aboard) return $t`They’re waiting at ${at}: bring a boat with room for ${o.pax}${o.divers ? $t(' divers') : ''}.`;
     if (!P.seen) return o.dive ? $t`Divers down: ${Math.floor(P.stay)} of ${o.dive.stay} s on the site.` : o.fish ? $t`${P.caught} of ${o.fish} fish so far.` : o.see === 'whale' ? $t('Find them a whale.') : $t('Find them dolphins to ride your bow.');
     return $t`Bring them ${o.base === 'puerto' ? $t('back to Puerto Brasa') : $t('home to Willowhaven')}${P.rough > 60 ? $t(' (a rough trip: no tip)') : ''}.`;
   }

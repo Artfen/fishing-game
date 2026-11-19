@@ -90,7 +90,7 @@ export class Memories {
     grid.replaceChildren(...list.map((p) => {
       const f = el('button', 'mem-photo');
       f.type = 'button';
-      f.setAttribute('aria-label', $t`Photograph: ${p.title || 'untitled'}`);
+      f.setAttribute('aria-label', $t`Photograph: ${p.title || $t('untitled')}`);
       const img = el('img');
       img.alt = '';
       img.loading = 'lazy';
@@ -115,7 +115,7 @@ export class Memories {
     const v = $('mem-viewer');
     v.hidden = false;
     $('mem-viewer-img').src = (await this.h.photos.url(p.id, 'blob')) || (await this.h.photos.url(p.id, 'thumb')) || '';
-    $('mem-viewer-img').alt = p.title || 'A photograph';
+    $('mem-viewer-img').alt = p.title || $t('A photograph');
     const title = $('mem-viewer-title');
     title.value = p.title || '';
     title.onchange = () => {
@@ -123,9 +123,9 @@ export class Memories {
       this.renderPhotos();
     };
     $('mem-viewer-text').textContent = this.describe(p);
-    const acts = [btn('Download', () => this.h.downloadPhoto(p.id)), btn($t('Show where on the map'), () => { this.closeViewer(); this.h.showOnMap(p.x, p.z); })];
+    const acts = [btn($t('Download'), () => this.h.downloadPhoto(p.id)), btn($t('Show where on the map'), () => { this.closeViewer(); this.h.showOnMap(p.x, p.z); })];
     if (this.h.canPinWall(p)) acts.push(btn($t('Pin it up on the chandlery wall'), () => { this.h.pinWall(p.id); this.closeViewer(); }, 'pk-btn'));
-    acts.push(btn('Delete…', () => {
+    acts.push(btn($t('Delete…'), () => {
       const yes = $('mem-viewer-acts').querySelector('.mem-really');
       if (yes) {
         this.h.removePhoto(p.id);
@@ -172,7 +172,7 @@ export class Memories {
         if (!done && !r.clue) continue;
         const li = el('li', done ? 'on' : '', `${done ? '✓' : '○'} ${S.text}${done ? ` (${whenText(done)})` : ''}`);
         if (done && A.id === 'notebook' && PAGES[S.id]) {
-          li.append(btn('Read', () => this.h.readPage(S.id)));
+          li.append(btn($t('Read'), () => this.h.readPage(S.id)));
         }
         ul.append(li);
       }
@@ -206,7 +206,7 @@ export class Memories {
       if (p.from) d.append(el('p', 'mem-link', $t`From ${p.from}, while you played together.`));
       d.append(el('p', 'mem-link', linkText(catchesNear(st.log, p.x, p.z, 40))));
       const acts = el('div', 'mem-acts');
-      acts.append(btn($t('On the map'), () => this.h.showOnMap(p.x, p.z)), btn('Edit', () => this.h.editPin(p)));
+      acts.append(btn($t('On the map'), () => this.h.showOnMap(p.x, p.z)), btn($t('Edit'), () => this.h.editPin(p)));
       d.append(acts);
       out.push(d);
     }

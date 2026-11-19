@@ -56,7 +56,7 @@ test('the language to start in: the one chosen; a new player, the browser\'s own
 });
 
 test('the keys found in the source are the keys $t looks up: a plain string, a template with parts and nested templates, escapes', () => {
-  const src = "x = $t('Drop the anchor first.'); y = $t`Off ${a ? `${b} m` : 'the point'}, ${n} fish`; z = $t(\"It\\u2019s here\"); w = $t`Line one\\nline two`;";
+  const src = "x = $t('Drop the anchor first.'); y = $t`Off ${a ? $t`${b} m` : 'the point'}, ${n} fish`; z = $t(\"It\\u2019s here\"); w = $t`Line one\\nline two`;";
   assert.deepEqual(K.keysIn(src), ['Drop the anchor first.', 'Off {0}, {1} fish', '{0} m', 'It’s here', 'Line one\nline two']);
   assert.equal(I.keyOf(['Off ', ', ', ' fish']), 'Off {0}, {1} fish');
 });

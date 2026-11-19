@@ -31,10 +31,16 @@ export function seasonOf(day) {
   return { name: SEASONS[index], index, dayOf: Math.floor(n % SEASON_DAYS) + 1, year: Math.floor(n / YEAR) + 1 };
 }
 // "Early spring", "Midsummer", "Late autumn".
+// (Each said whole, so each language can say it its own way.)
+const SEASON_WORDS = {
+  spring: [$t('Early spring'), $t('Mid-spring'), $t('Late spring')],
+  summer: [$t('Early summer'), $t('Midsummer'), $t('Late summer')],
+  autumn: [$t('Early autumn'), $t('Mid-autumn'), $t('Late autumn')],
+  winter: [$t('Early winter'), $t('Midwinter'), $t('Late winter')],
+};
 export function seasonWords(day) {
   const S = seasonOf(day);
-  if (S.dayOf >= 3 && S.dayOf <= 5) return S.name === 'summer' ? 'Midsummer' : S.name === 'winter' ? 'Midwinter' : `Mid-${S.name}`;
-  return `${S.dayOf <= 2 ? 'Early' : 'Late'} ${S.name}`;
+  return SEASON_WORDS[S.name][S.dayOf <= 2 ? 0 : S.dayOf <= 5 ? 1 : 2];
 }
 
 // Sunrise and sunset (clock hours): a long day at midsummer, a short one at midwinter.

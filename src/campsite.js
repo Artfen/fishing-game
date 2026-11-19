@@ -19,7 +19,7 @@ export const TENTS = {
   rust: { name: $t('Rust'), fly: '#b0663f', canvas: '#ead8b8', dark: '#cbb38d' },
   blue: { name: $t('Harbour blue'), fly: '#4f7486', canvas: '#dfd6c2', dark: '#c4b89c' },
 };
-export const DECOR = { bunting: 'Bunting', rug: $t('Rag rug'), chimes: $t('Wind chimes'), deckchair: $t('Striped deckchair') };
+export const DECOR = { bunting: $t('Bunting'), rug: $t('Rag rug'), chimes: $t('Wind chimes'), deckchair: $t('Striped deckchair') };
 // Decorations you have to earn first (see adventures.js): the key in state.unlocks.
 export const DECOR_UNLOCK = { deckchair: 'deckchair' };
 export const LANTERN_MODES = ['auto', 'on', 'off'];
@@ -138,7 +138,7 @@ export function checkSite(x, z, yaw, world, { others = [], ignore = null } = {})
 
 function describe(x, z, h, rise, world) {
   const ground = world.ground?.(x, z, h) || (h < 1.7 ? 'sand' : 'grass');
-  const level = rise < 0.25 ? 'Level' : $t('Gently sloping');
+  const level = rise < 0.25 ? $t('Level') : $t('Gently sloping');
   const parts = [`${level} ${ground}`];
   if (world.treesNear?.(x, z)) parts.push($t('among the trees'));
   const water = world.waterNear?.(x, z);

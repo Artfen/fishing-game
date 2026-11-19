@@ -2314,7 +2314,7 @@ export class Fishing {
       const rock = F.stuck === 'rock', reel = this.hooks.key('cast');
       F.stuckAt = { x: this.fishPos.x, z: this.fishPos.z };
       F.stuckBearing = Math.atan2(F.stuckAt.x - b.x, F.stuckAt.z - b.z);
-      say(rock ? $t('fast in the rocks!') : 'weeded!', 2.4);
+      say(rock ? $t('fast in the rocks!') : $t('weeded!'), 2.4);
       this.fx.ripple(this.fishPos.x, this.fishPos.z, 1.2, 1.1, 0.5);
       this.audio.splashSmall(0.6);
       this.hooks.feel?.('turn');
@@ -2343,7 +2343,7 @@ export class Fishing {
       if (F.time > 6 && F.sizeK > 0.35 && !F.toldSide) {
         F.toldSide = true;
         const L = this.hooks.key('left'), R = this.hooks.key('right');
-        this.hooks.teach('side', $t`A big fish runs hard. Swing the rod low to the side against its run (${L === R ? L : `${L} or ${R}`}): side pressure turns it and tires it sooner.`, 7);
+        this.hooks.teach('side', $t`A big fish runs hard. Swing the rod low to the side against its run (${L === R ? L : $t`${L} or ${R}`}): side pressure turns it and tires it sooner.`, 7);
       }
     }
     // A flick on the surface just before each run, so it can be read in time; the rod tip
@@ -2558,8 +2558,8 @@ export class Fishing {
         H.teach('headshake', $t`Head-shaking at the top! Swing the rod low to one side (${LR}) to keep its head down and the line steady. Rod up and winding hard, every shake snatches at the line; ease right off and it falls slack.`, 8);
         break;
       case 'dive':
-        say(F.cover ? $t`diving for the ${F.coverKind === 'rock' ? 'rocks' : 'weed'}!` : $t('diving deep!'), 1.8);
-        H.teach('dive', $t`It’s diving for the bottom${F.cover ? $t` and the ${F.coverKind === 'rock' ? 'rocks' : 'weed'}` : ''}. Swing the rod low against it (${LR}): side strain turns its head.`, 7);
+        say(F.cover ? $t`diving for the ${F.coverKind === 'rock' ? $t('rocks') : $t('weed')}!` : $t('diving deep!'), 1.8);
+        H.teach('dive', $t`It’s diving for the bottom${F.cover ? $t` and the ${F.coverKind === 'rock' ? $t('rocks') : $t('weed')}` : ''}. Swing the rod low against it (${LR}): side strain turns its head.`, 7);
         break;
       case 'lastdash':
         say($t('one last dive!'), 1.8);

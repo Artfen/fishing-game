@@ -33,7 +33,7 @@ export class Placement {
     this.active = { mode, camp, dist: 4.2, turn: Math.PI, x: w.pos.x, z: w.pos.z, yaw: 0, spot: null, t: 0, key: '', holdT: 0 };
     $('place-panel').hidden = false;
     document.body.classList.add('placing');
-    $('pl-title').textContent = mode === 'move' ? `Move ${camp.name}` : $t('Pitch your camp');
+    $('pl-title').textContent = mode === 'move' ? $t`Move ${camp.name}` : $t('Pitch your camp');
     this.h.preview.show(true);
     this.refresh(true);
   }

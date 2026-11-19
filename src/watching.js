@@ -40,7 +40,7 @@ export function seasonsWords(R) {
   const one = (i) => `${SEASONS[i]} (${s[i]})`;
   if (!rest.length) return $t`only in ${one(top)} so far`;
   const tail = rest.map(one);
-  return $t`mostly in ${one(top)}; in ${tail.length > 1 ? `${tail.slice(0, -1).join(', ')} and ${tail[tail.length - 1]}` : tail[0]} too`;
+  return $t`mostly in ${one(top)}; in ${tail.length > 1 ? $t`${tail.slice(0, -1).join(', ')} and ${tail[tail.length - 1]}` : tail[0]} too`;
 }
 
 // Where it's mostly seen, in words: "mostly off the Kelp Forest, and at Gull Rock", or null.

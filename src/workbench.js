@@ -215,7 +215,7 @@ export class Workbench {
     rows.push(el('h4', '', $t('Backpack')), el('p', 'wb-faint', $t`${g.pack.rods.map((r) => RODS[r].short.toLowerCase()).join(', ')} · ${g.pack.items.length} of ${PACK.items} tackle${KIT_IDS.filter((k) => s.equip.kit[k] === 'pack').map((k) => ` · ${KIT[k].short}`).join('')}`));
     rows.push(el('h4', '', $t('Car')), el('p', 'wb-faint', car.rods.length || car.items.length || KIT_IDS.some((k) => s.equip.kit[k] === 'car')
       ? [car.rods.length && `${car.rods.length} rod${car.rods.length === 1 ? '' : 's'}`, car.items.length && `${car.items.length} tackle`, ...KIT_IDS.filter((k) => s.equip.kit[k] === 'car').map((k) => KIT[k].short)].filter(Boolean).join(' · ')
-      : 'Empty'));
+      : $t('Empty')));
     const check = checkAll(s, p, { campDest: this.h.campDest, carHome: this.h.carHome() });
     const warns = check.filter((l) => l.level === 'warn').length;
     rows.push(el('p', warns ? 'wb-warnline' : 'wb-okline', warns ? (warns === 1 ? $t`${warns} thing to look at on the packing list` : $t`${warns} things to look at on the packing list`) : $t('Nothing missing that I can see')));
@@ -233,7 +233,7 @@ export class Workbench {
       b.append(el('b', '', title), el('span', '', text));
       cards.append(b);
     };
-    card('fish', 'Fishing', $t('The rods, the tackle and somewhere with fish in it.'));
+    card('fish', $t('Fishing'), $t('The rods, the tackle and somewhere with fish in it.'));
     card('camp', $t('Camping overnight'), $t('Pitch the tent, cook, sleep to the hour you choose, fish at dawn.'));
     card('explore', $t('Exploring & photographs'), $t('Landmarks, the notices, the wreck, a picture to keep.'));
     out.push(cards);
@@ -296,7 +296,7 @@ export class Workbench {
       const t = el('div', 'wb-dest-t');
       t.append(el('b', '', D.name), el('span', '', `${D.kind} · ${wayWords(D, driveMinutes('home', id))}`));
       const tags = el('div', 'wb-tags');
-      tags.append(el('span', explored ? 'wb-tag' : 'wb-tag new', explored ? 'Explored' : $t('Not yet explored')));
+      tags.append(el('span', explored ? 'wb-tag' : 'wb-tag new', explored ? $t('Explored') : $t('Not yet explored')));
       if (camp) tags.append(el('span', 'wb-tag camp', $t`${camp.name} is here`));
       if (s.car.at === id) tags.append(el('span', 'wb-tag', $t('The car is parked here')));
       t.append(tags);
@@ -381,7 +381,7 @@ export class Workbench {
       if (items.length) c.append(el('p', 'wb-faint', items.map((i) => TACKLE[i].short).join(', ')));
       return c;
     };
-    tackle.append(col($t`Backpack (${g.pack.rods.length}/${PACK.rods} rods, ${g.pack.items.length}/${PACK.items} tackle)`, g.pack.rods, g.pack.items, 'Empty.'));
+    tackle.append(col($t`Backpack (${g.pack.rods.length}/${PACK.rods} rods, ${g.pack.items.length}/${PACK.items} tackle)`, g.pack.rods, g.pack.items, $t('Empty.')));
     tackle.append(col($t`In the car (${car.rods.length}/${CAR_HOLD.rods} rods, ${car.items.length}/${CAR_HOLD.items} tackle)`, car.rods, car.items, carHome ? $t('Nothing loaded.') : $t`The car is ${this.h.carWhere()}.`));
     if (p.fish) {
       out.push(el('h3', '', $t('Fishing tackle')), tackle);
@@ -425,11 +425,11 @@ export class Workbench {
     const col = (title, lines) => {
       const c = el('div', 'wb-col');
       c.append(el('h4', '', title));
-      for (const l of lines.length ? lines : ['Nothing']) c.append(el('p', lines.length ? '' : 'wb-faint', l));
+      for (const l of lines.length ? lines : [$t('Nothing')]) c.append(el('p', lines.length ? '' : 'wb-faint', l));
       return c;
     };
     const kitIn = (where) => KIT_IDS.filter((k) => s.equip.kit[k] === where).map((k) => KIT[k].name);
-    cols.append(col($t('Carried (backpack)'), [...g.pack.rods.map((r) => `${RODS[r].name}${TACKLE[g.rig[r]] && fits(RODS[r], TACKLE[g.rig[r]]) ? $t`, ${TACKLE[g.rig[r]].short.toLowerCase()} tied on` : ''}`), ...(g.pack.items.length ? [g.pack.items.map((i) => TACKLE[i].short).join(', ')] : []), ...kitIn('pack'), 'Camera']));
+    cols.append(col($t('Carried (backpack)'), [...g.pack.rods.map((r) => `${RODS[r].name}${TACKLE[g.rig[r]] && fits(RODS[r], TACKLE[g.rig[r]]) ? $t`, ${TACKLE[g.rig[r]].short.toLowerCase()} tied on` : ''}`), ...(g.pack.items.length ? [g.pack.items.map((i) => TACKLE[i].short).join(', ')] : []), ...kitIn('pack'), $t('Camera')]));
     cols.append(col($t('Loaded (car)'), [...car.rods.map((r) => RODS[r].name), ...(car.items.length ? [car.items.map((i) => TACKLE[i].short).join(', ')] : []), ...kitIn('car')]));
     const pitched = KIT_IDS.filter((k) => s.equip.kit[k].startsWith('camp:')).map((k) => `${KIT[k].name} (at ${campOfKit(s, k)?.name || $t('your camp')})`);
     cols.append(col($t('Staying behind'), [...kitIn('home').map((n) => `${n} (garage)`), ...pitched, $t('The rest of your tackle (on the wall)')]));
@@ -461,7 +461,7 @@ export class Workbench {
       t.append(el('b', '', lo.name), el('span', 'wb-faint', $t`${lo.pack.rods.map((r) => RODS[r].short.toLowerCase()).join($t(' and '))}, ${lo.pack.items.length} tackle${lo.car.rods.length || lo.car.items.length ? $t('; spares in the car') : ''}${KIT_IDS.some((k) => lo.kit[k] !== 'home') ? $t('; camping gear') : ''}`));
       row.append(t);
       const a = el('div', 'wb-setup-acts');
-      a.append(btn($t('Use it'), () => { const r = applyLoadout(s, lo, { carHome }); this.changed(r.notes.length ? r.notes.join(' ') : $t`Packed as “${lo.name}”.`); }, 'pk-btn small'), btn('Forget', () => { s.outing.loadouts.splice(i, 1); this.changed(`Forgot “${lo.name}”.`); }, 'pk-btn quiet small'));
+      a.append(btn($t('Use it'), () => { const r = applyLoadout(s, lo, { carHome }); this.changed(r.notes.length ? r.notes.join(' ') : $t`Packed as “${lo.name}”.`); }, 'pk-btn small'), btn($t('Forget'), () => { s.outing.loadouts.splice(i, 1); this.changed(`Forgot “${lo.name}”.`); }, 'pk-btn quiet small'));
       row.append(a);
       out.push(row);
     });
@@ -518,7 +518,7 @@ export class Workbench {
       acts.append(a);
     }
     const b = btn('', () => this.h.depart(p.dest, 'skip'), 'wb-go-btn');
-    b.append(el('b', '', D.boat ? $t`Let the drive to ${L.name} go by` : L.drive ? $t('Let the drive go by') : $t('Drive there')), el('span', '', $t`A short fade, and you’re at ${D.boat ? `${L.name}’s` : 'the'} car park with the car (about ${minsWords(driveMinutes('home', p.dest))} pass). Your boats and camp stay where they are.`));
+    b.append(el('b', '', D.boat ? $t`Let the drive to ${L.name} go by` : L.drive ? $t('Let the drive go by') : $t('Drive there')), el('span', '', $t`A short fade, and you’re at ${D.boat ? `${L.name}’s` : $t('the')} car park with the car (about ${minsWords(driveMinutes('home', p.dest))} pass). Your boats and camp stay where they are.`));
     acts.append(b);
     out.push(acts);
     return out;

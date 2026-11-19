@@ -115,7 +115,7 @@ export const REGISTER = REGISTER_DATA.map((r) => {
     ...r,
     names: DISPLAY_EN[r.id] ? { ...r.names, en: DISPLAY_EN[r.id] } : r.names,
     game: g ? r.id : null,
-    status: g?.status || (VERIFY[r.id] ? 'verify' : 'planned'),
+    status: g?.status || (VERIFY[r.id] ? $t('verify') : $t('planned')),
     verify: VERIFY[r.id] || null,
     nameNote: NAME_NOTES[r.id] || null,
     model: g?.model || 'none',

@@ -31,7 +31,7 @@ const LIMITS = {
 };
 // Through the mask you can look all the way up and down.
 const MASK = { pitch: [-1.45, 1.45], dist: [0, 0] };
-export const VIEW_NAMES = { boat: $t('Boat view'), foot: $t('On foot'), under: 'Underwater', bait: $t('Watching your bait'), eye: $t('First person'), car: 'Driving', cabin: $t('The cabin'), dive: 'Diving' };
+export const VIEW_NAMES = { boat: $t('Boat view'), foot: $t('On foot'), under: $t('Underwater'), bait: $t('Watching your bait'), eye: $t('First person'), car: $t('Driving'), cabin: $t('The cabin'), dive: $t('Diving') };
 // The camera stays this far clear of the surface on either side of it (never half in, half out).
 const ABOVE = 0.6, BELOW = 0.4;
 const EYE_PITCH = 0.2; // looking a little down at the water when you first raise your eyes

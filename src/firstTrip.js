@@ -186,7 +186,7 @@ export function words(g, ctx) {
       const camp = ctx.tent === 'pack' ? $t`or pitch a camp for the night (the tent’s in your backpack${touch ? '' : `, ${key('pack')}`})`
         : ctx.tent === 'car' ? $t('or pitch a camp for the night (the tent’s in the boot)')
           : $t('or another time, pack the tent and camp out');
-      out.text = $t`${ctx.caught ? $t`${ctx.caught === 1 ? $t('One fish') : `${ctx.caught} fish`} in your journal from this trip. ` : ''}Fish on as long as you like, then drive home (“Where to?” in the car, or “Head back” in the backpack), ${camp}.`;
+      out.text = $t`${ctx.caught ? $t`${ctx.caught === 1 ? $t('One fish') : $t`${ctx.caught} fish`} in your journal from this trip. ` : ''}Fish on as long as you like, then drive home (“Where to?” in the car, or “Head back” in the backpack), ${camp}.`;
       if (ctx.car && ctx.carAt !== 'home') out.target = { x: ctx.car.x, z: ctx.car.z, label: $t('Car') };
       break;
     }

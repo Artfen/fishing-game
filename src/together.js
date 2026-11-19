@@ -166,7 +166,7 @@ export function cleanName(raw) {
   return [...s].slice(0, NAME_MAX).join('').trim();
 }
 
-const NAME_WORDS = ['Angler', 'Skipper', 'Boatman', 'Wader', 'Drifter', 'Rambler', 'Caster', 'Deckhand'];
+const NAME_WORDS = [$t('Angler'), $t('Skipper'), $t('Boatman'), $t('Wader'), $t('Drifter'), $t('Rambler'), $t('Caster'), $t('Deckhand')];
 export function suggestName(rand = Math.random) {
   return `${NAME_WORDS[Math.floor(rand() * NAME_WORDS.length)]} ${10 + Math.floor(rand() * 90)}`;
 }
@@ -328,7 +328,7 @@ export function explain(err) {
 export function poseWords(pose, boatName = (k) => k, gearName = () => '') {
   if (!pose) return $t('on their way');
   const gear = gearName(pose), w = gear ? ` (${gear})` : '';
-  if (pose.m === 'boat') return $t`in the ${boatName(pose.k)}${pose.o ? $t(', playing a fish') : pose.f ? ', fishing' : ''}${pose.f || pose.o ? w : ''}`;
+  if (pose.m === 'boat') return $t`in the ${boatName(pose.k)}${pose.o ? $t(', playing a fish') : pose.f ? $t(', fishing') : ''}${pose.f || pose.o ? w : ''}`;
   if (pose.m === 'dive') return 'diving';
   if (pose.m === 'car') return 'driving';
   return pose.o ? $t`playing a fish from the shore${w}` : pose.a === 'fish' ? $t`fishing from the shore${w}` : pose.a === 'sit' ? $t('sitting a while') : $t('on foot');
@@ -650,7 +650,7 @@ export class Together {
   }
 
   meta() {
-    return { id: this.id, name: this.name() || 'Someone', host: this.hosting, ...(this.look() ? { look: this.look() } : {}) };
+    return { id: this.id, name: this.name() || $t('Someone'), host: this.hosting, ...(this.look() ? { look: this.look() } : {}) };
   }
 
   // Start a session of your own: a fresh code nobody else is using (or, given one, take back your
@@ -729,7 +729,7 @@ export class Together {
       this.status = 'joined';
       this.rt.track(this.meta());
       const host = this.peers.get(this.hostId);
-      this.changed($t`You’ve joined ${host?.name ? `${host.name}’s` : 'the'} session.`);
+      this.changed(host?.name ? $t`You’ve joined ${host.name}’s session.` : $t('You’ve joined the session.'));
       this.onEvent('joined', host || null);
       return true;
     } catch (err) {
@@ -1003,8 +1003,8 @@ export class Together {
         p.toldVersion = true;
         if (v > POSE_V) {
           this.newer = true;
-          this.changed($t`${p.name || 'A friend'} is playing a newer version of Slow Tide. Reload the page to update, so you see their boats as they are.`);
-        } else this.changed($t`${p.name || 'A friend'} is playing an older version of Slow Tide: they’ll need to reload the page to see your boats as they are.`);
+          this.changed($t`${p.name || $t('A friend')} is playing a newer version of Slow Tide. Reload the page to update, so you see their boats as they are.`);
+        } else this.changed($t`${p.name || $t('A friend')} is playing an older version of Slow Tide: they’ll need to reload the page to see your boats as they are.`);
       }
       if (!pose) return;
       // When they sent it, by their clock; and how far their clock is behind ours, plus the

@@ -7,7 +7,7 @@
 //    working a shoal, dolphins about, a whale blowing out in the deep, the tuna up, a storm coming,
 //    the sea set to glow tonight, a good fish landed. (Nothing is made up to sound fishy.)
 
-import { $t } from './i18n.js';
+import { $t, langNow } from './i18n.js';
 export const STORIES = {
   haven: [
     { id: 'kittiwake', text: $t('The Kittiwake? A steam drifter out of here, built in 1907, wooden. Lost on the reef off Shell Strand in a winter gale, every man of her crew got ashore. Her bell’s still down there in the sand by her bow, they say. And the conger in her hull are the size of a man’s leg.') },
@@ -46,7 +46,9 @@ const pick = (a) => a[Math.floor(Math.random() * a.length)];
 // with its article (an Atlantic bonito, a European flounder).
 const PROPER = /\b(atlantic|european|senegalese|mediterranean)\b/g;
 export const lower = (name) => name.toLowerCase().replace(PROPER, (w) => w[0].toUpperCase() + w.slice(1));
-export const an = (w) => `${!/^(eu|uni|use)/i.test(w) && /^[aeiou]/i.test(w) ? 'an' : 'a'} ${w}`;
+// (In English, a or an before it; in Spanish or French the sentence round it has the article, as
+// its book has it: the word alone.)
+export const an = (w) => (langNow() !== 'en' ? w : `${!/^(eu|uni|use)/i.test(w) && /^[aeiou]/i.test(w) ? 'an' : 'a'} ${w}`);
 
 // Advice for the water as it is. ctx: { place ('haven' or 'muelle'), hour, rain, wind (m/s), about
 // (whatsAbout's list near Willowhaven: { sp, where, how, act }), storm (0 … 1), caught (Set of
@@ -60,7 +62,7 @@ export function adviceFor(ctx) {
     // What Chano and the boats have seen today: the island's fish as they are this hour.
     for (const a of ctx.about || []) {
       const fresh = ctx.caught && !ctx.caught.has(a.sp.id);
-      out.push($t`${fresh ? $t`Have you had ${an(lower(a.sp.name))} yet? ` : ''}The ${lower(a.sp.name)} are ${a.act > 0.85 ? $t('feeding hard') : 'about'} ${a.where} just now.${a.how ? $t` ${a.how[0].toUpperCase()}${a.how.slice(1)}, that’s what Chano uses.` : ''}`);
+      out.push($t`${fresh ? $t`Have you had ${an(lower(a.sp.name))} yet? ` : ''}The ${lower(a.sp.name)} are ${a.act > 0.85 ? $t('feeding hard') : $t('about')} ${a.where} just now.${a.how ? $t` ${a.how[0].toUpperCase()}${a.how.slice(1)}, that’s what Chano uses.` : ''}`);
     }
     if (dawnDusk) out.push($t('Go to Punta del Faro at first light or at sunset. The current runs past the point a little faster, and the bluefish and the little tunny hunt there.'));
     if (night) out.push($t('At night the squid come to the lights on the quay. And on the reef the morays come out of their holes to hunt.'));
@@ -79,7 +81,7 @@ export function adviceFor(ctx) {
   else if (T) out.push($t`Slack water just now, ${T.phase === 'high' ? $t('top of the tide') : $t('bottom of the tide')}: the fish go quiet. Wait for it to turn and start running again.`);
   for (const a of ctx.about || []) {
     const fresh = ctx.caught && !ctx.caught.has(a.sp.id);
-    out.push($t`${fresh ? $t`You’ve not had ${an(lower(a.sp.name))} yet, have you? ` : ''}The ${lower(a.sp.name)} are ${a.act > 0.85 ? 'on' : 'about'} ${a.where} just now.${a.how ? $t` ${a.how[0].toUpperCase()}${a.how.slice(1)}, that’s what I’d use.` : ''}`);
+    out.push($t`${fresh ? $t`You’ve not had ${an(lower(a.sp.name))} yet, have you? ` : ''}The ${lower(a.sp.name)} are ${a.act > 0.85 ? $t('feeding on') : $t('about')} ${a.where} just now.${a.how ? $t` ${a.how[0].toUpperCase()}${a.how.slice(1)}, that’s what I’d use.` : ''}`);
   }
   if (dawnDusk) out.push($t('This is the hour. Dawn and dusk the bass come up into the shallows and the pollack rise off the rocks. Don’t waste it in here.'));
   if (night) out.push($t('After dark, the squid come in under the lamps: the quay’s, and the Old Jetty’s. A little jig, sunk, darted up and let glide down. And the soles come out on the sand.'));

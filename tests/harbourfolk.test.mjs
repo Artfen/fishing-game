@@ -328,5 +328,5 @@ test('the figures: drawn at their harbours, not from Willowhaven; Bryn sweeping,
   assert.match(src, /spot === 'cliff' \|\| spot === 'headland' \? 'count'/);
   assert.match(src, /SPOTS\[p\.block\?\.spot\]\?\.seat \?\? 0\.47/);
   // And a word with them before the camp's tackle box, which is within reach of most of their camp.
-  assert.match(readFileSync(new URL('../src/main.js', import.meta.url), 'utf8'), /if \(keeper && FOLK\[keeper\.id\]\.remote\) return \{ text: `Talk to \$\{FOLK\[keeper\.id\]\.short\}`/);
+  assert.match(readFileSync(new URL('../src/main.js', import.meta.url), 'utf8'), /if \(keeper && FOLK\[keeper\.id\]\.remote\) return \{ text: \$t`Talk to \$\{FOLK\[keeper\.id\]\.short\}`/);
 });

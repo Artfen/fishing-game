@@ -95,7 +95,7 @@ export function trimAdvice(f, over = 0) {
   if (f.state === 'luffing') return { words: $t('luffing: haul in'), sheet: -1 };
   if (f.state === 'stalled') return { words: $t('stalled: ease out'), sheet: 1 };
   if (f.awa > 2.6) return { words: 'running', sheet: 0 };
-  return { words: f.awa < 0.75 ? 'close-hauled' : f.awa < 1.9 ? 'reaching' : $t('broad reach'), sheet: 0 };
+  return { words: f.awa < 0.75 ? 'close-hauled' : f.awa < 1.9 ? $t('reaching') : $t('broad reach'), sheet: 0 };
 }
 
 // For a light hand on the sheet (the assisted setting): the sheet that would set the sail at its

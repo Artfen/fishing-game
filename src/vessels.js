@@ -54,7 +54,7 @@ export function vesselOf(kind) {
 // Can she take this job's people and freight? Returns why not, or null.
 export function fits(kind, { pax = 0, cargo = 0, divers = false } = {}) {
   const V = vesselOf(kind);
-  if (pax > V.seats) return $t`room for ${pax}: she seats ${V.seats || 'nobody'} besides you`;
+  if (pax > V.seats) return $t`room for ${pax}: she seats ${V.seats || $t('nobody')} besides you`;
   if (cargo > V.cargo) return $t`${cargo} kg of freight: she carries ${V.cargo} kg`;
   if (divers && !V.divers) return $t('divers and their kit: she has no ladder or room for tanks');
   return null;

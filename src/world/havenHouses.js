@@ -429,7 +429,7 @@ export function buildHavenHouses(rnd, group, obstacles, spots) {
       for (let lx = -b.w / 2 + 0.9; lx <= b.w / 2 - 0.9 + 0.01; lx += Math.max(1.2, (b.w - 1.8) / Math.max(1, Math.round((b.w - 1.8) / 1.6)))) {
         for (let lz = -b.d / 2 + 0.9; lz <= b.d / 2 - 0.9 + 0.01; lz += Math.max(1.2, (b.d - 1.8) / Math.max(1, Math.round((b.d - 1.8) / 1.6)))) {
           const p = F.world(lx, lz);
-          obstacles.push({ x: p.x, z: p.z, r: 1.3, top: y + S.wallH + S.rise, kind: 'building', name: b.kind === 'cottage' ? 'a cottage' : 'Kaigan' });
+          obstacles.push({ x: p.x, z: p.z, r: 1.3, top: y + S.wallH + S.rise, kind: 'building', name: b.kind === 'cottage' ? $t('a cottage') : $t('Kaigan') });
         }
       }
       const door = F.world(0, b.d / 2 + 1.2);
@@ -495,7 +495,7 @@ export function buildHavenHouses(rnd, group, obstacles, spots) {
       woodParts.push({ geo: box(0.6, 0.9, 0.03), matrix: mat(cb.x, y + 0.5, cb.z - 0.03, -0.18, b.yaw, 0), color: '#6a503b' });
       signs.inn = sign;
     } else if (b.kind === 'chandlery') {
-      const t = textTexture(512, 128, signPainter('#26383b', '#d8c48f', '#efe2bd', 'Chandlery', $t('tackle · bait · charts · advice')));
+      const t = textTexture(512, 128, signPainter('#26383b', '#d8c48f', '#efe2bd', $t('Chandlery'), $t('tackle · bait · charts · advice')));
       const sign = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 0.8), new THREE.MeshLambertMaterial({ map: t.tex }));
       const sp = F.world(1.3, front + 0.05);
       sign.position.set(sp.x, y + 2.55, sp.z);

@@ -1252,7 +1252,7 @@ export class MapSheet {
       ctx.arc(x, y, 12 * s, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
-      this.label(ctx, 'You', x + 12 * s, y + 12 * s, 15, INK, 0.9);
+      this.label(ctx, $t('You'), x + 12 * s, y + 12 * s, 15, INK, 0.9);
     }
 
     // Compass
@@ -1354,7 +1354,7 @@ export class MapSheet {
     const { legs } = legsOf(this.plan);
     const p = document.createElement('p');
     p.className = 'map-note';
-    p.textContent = this.plan.length < 2 ? $t('Click the chart for each mark of your route, in order (it starts where you are).') : `${legs.length} leg${legs.length > 1 ? 's' : ''}:`;
+    p.textContent = this.plan.length < 2 ? $t('Click the chart for each mark of your route, in order (it starts where you are).') : (legs.length > 1 ? $t`${legs.length} legs:` : $t`${legs.length} leg:`);
     out.push(p);
     if (legs.length) {
       const ol = document.createElement('ol');
@@ -1388,7 +1388,7 @@ export class MapSheet {
     const save = btn($t('Save it'), () => this.saveRoute(), false);
     save.disabled = this.plan.length < 2 || (this.state.routes || []).length >= ROUTES_MAX;
     btn($t('Back a mark'), () => { this.plan.pop(); this.renderPlan(); this.draw(); }).disabled = !this.plan.length;
-    btn('Cancel', () => this.setPlanning(false));
+    btn($t('Cancel'), () => this.setPlanning(false));
     out.push(acts);
     el.replaceChildren(...out);
   }
@@ -1431,7 +1431,7 @@ export class MapSheet {
       const go = document.createElement('button');
       go.type = 'button';
       go.className = 'pk-btn';
-      go.textContent = following ? $t('Stop following') : 'Follow';
+      go.textContent = following ? $t('Stop following') : $t('Follow');
       go.addEventListener('click', () => {
         if (following) this.hooks.stopRoute?.();
         else this.hooks.followRoute?.(r.id);
@@ -1582,14 +1582,14 @@ export class MapSheet {
     const bname = document.createElement('button');
     bname.type = 'button';
     bname.className = 'map-name';
-    bname.textContent = $t`The ${this.where?.boat?.name || 'boat'}`;
+    bname.textContent = $t`The ${this.where?.boat?.name || $t('boat')}`;
     bname.addEventListener('click', () => this.centre(this.where?.boat?.pos));
     const bsub = document.createElement('span');
     bsub.textContent = this.where?.onFoot ? $t('where you left it') : $t('you’re aboard');
     const bgo = document.createElement('button');
     bgo.type = 'button';
     bgo.className = 'pk-btn';
-    bgo.textContent = this.where?.onFoot ? $t('Go there') : 'Aboard';
+    bgo.textContent = this.where?.onFoot ? $t('Go there') : $t('Aboard');
     bgo.disabled = !info.boat;
     bgo.addEventListener('click', () => this.hooks.travel('boat'));
     boatRow.append(bname, bsub, bgo);

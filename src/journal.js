@@ -25,7 +25,7 @@ const ZONE_WORDS = {
   kelp: $t('over the kelp in the Selkie Isles'), sound: $t('in Raven Sound'), race: $t('in the Churn'), loch: $t('in Loch Skarn'), skerry: $t('off the Selkie Rocks'), outer: $t('off the Atlantic coast to the north'),
 };
 const NORTHERN = new Set(['kelp', 'sound', 'race', 'loch', 'skerry', 'outer']);
-const SKY_WORDS = { clear: $t('clear sky'), partly: $t('some cloud'), overcast: 'overcast', light: $t('light rain'), heavy: $t('heavy rain') };
+const SKY_WORDS = { clear: $t('clear sky'), partly: $t('some cloud'), overcast: $t('overcast'), light: $t('light rain'), heavy: $t('heavy rain') };
 // The journal's pages of fish, by where they live (squid get a page of their own: not fish).
 const GROUPS = [
   { name: $t('Willow Bay and the coves'), test: (f) => !f.creature && f.water !== 'fresh' && !f.life.zones.some((z) => ['estuary', 'coast', 'deep'].includes(z)) && !f.life.zones.every((z) => NORTHERN.has(z)) },
@@ -87,8 +87,8 @@ export function weightText(kg) {
   return kg < 1 ? `${Math.max(5, Math.round((kg * 1000) / 5) * 5)} g` : `${kg < 10 ? kg.toFixed(1) : Math.round(kg)} kg`;
 }
 const SOMEDAY = [$t('a softer cushion'), $t('a potted fern'), $t('a little cabin by the lake')];
-const OUTCOME_WORDS = { released: 'Released', kept: 'Kept', cooked: 'Cooked', eaten: 'Eaten', sold: 'Sold' };
-const RAIN_WORDS = ['', $t('light rain'), 'rain'];
+const OUTCOME_WORDS = { released: $t('Released'), kept: $t('Kept'), cooked: $t('Cooked'), eaten: $t('Eaten'), sold: $t('Sold') };
+const RAIN_WORDS = ['', $t('light rain'), $t('rain')];
 const PAGE = 25;
 const BOAT_COLORS = { row: '#b5532f', skiff: '#2f4f7a', kayak: '#e8742a', bass: '#7a2430', cabin: '#1f4e5f', sail: '#c4774a', cruiser: '#1d3b56', console: '#3a8fc4', windsurf: '#f2a32a', jetski: '#e8b820', rib: '#6b7279', tender: '#9a6a3c', trawler: '#24354f' };
 
@@ -263,7 +263,7 @@ export class Journal {
       return d;
     }) : [el('p', 'j-faint', $t('None yet. Take her out past the bay, stay out a night, or cross to Las Brasas, and when she’s tied up again the voyage is written up here.'))]));
     const V = st.voyage;
-    $('voy-now').replaceChildren(V ? el('p', '', $t`Since day ${V.day}, ${formatClock(V.hour)}, from ${V.from}, in ${V.boats.map((k) => `the ${names.boat(k)}`).join($t(' and '))}: ${(V.m / 1852).toFixed(1)} nm so far${V.far > 400 ? $t`, ${(V.far / 1000).toFixed(1)} km out at the furthest${V.farAt ? ` (${V.farAt})` : ''}` : ''}${V.fish ? `, ${V.fish} fish` : ''}.`) : el('p', 'j-faint', $t('Not under way: she’s at a berth.')));
+    $('voy-now').replaceChildren(V ? el('p', '', $t`Since day ${V.day}, ${formatClock(V.hour)}, from ${V.from}, in ${V.boats.map((k) => `the ${names.boat(k)}`).join($t(' and '))}: ${(V.m / 1852).toFixed(1)} nm so far${V.far > 400 ? $t`, ${(V.far / 1000).toFixed(1)} km out at the furthest${V.farAt ? ` (${V.farAt})` : ''}` : ''}${V.fish ? $t`, ${V.fish} fish` : ''}.`) : el('p', 'j-faint', $t('Not under way: she’s at a berth.')));
     const all = st.voyages || [], sum = (f) => all.reduce((s, r) => s + f(r), 0);
     const far = all.reduce((a, r) => (!a || r.far > a.far ? r : a), null), long = all.reduce((a, r) => (!a || r.nm > a.nm ? r : a), null);
     const row = (k, v) => [el('dt', '', k), el('dd', '', v)];
@@ -372,9 +372,9 @@ export class Journal {
     if (R) {
       const n = R.n === 1 ? 'once' : `${R.n} times`;
       const first = R.day ? $t` · first on day ${R.day}${R.where ? `, ${R.where}` : ''}` : '';
-      const line = R.how === 'caught' ? `Caught ${R.n === 1 ? 'one' : R.n}${R.best ? $t` · best ${R.best} cm` : ''}`
+      const line = R.how === 'caught' ? $t`Caught ${R.n === 1 ? 'one' : R.n}${R.best ? $t` · best ${R.best} cm` : ''}`
         : R.how === 'heard' ? $t`Heard ${n}${first}, not yet seen`
-          : R.how === 'met' ? $t`Met on ${R.n === 1 ? 'a dive' : `${R.n} dives`}${first}` : `Seen ${n}${first}`;
+          : R.how === 'met' ? $t`Met on ${R.n === 1 ? $t('a dive') : $t`${R.n} dives`}${first}` : $t`Seen ${n}${first}`;
       card.append(el('p', 'j-seen', line), el('p', 'sp-text', e.note || ''));
     } else card.append(el('p', 'sp-text', e.look ? $t`Where to look: ${e.look}` : $t('Not recorded yet.')));
     if (e.kind === 'fish' && this.guide) {
@@ -419,10 +419,10 @@ export class Journal {
     const sea = Object.entries(st.seaLife || {}).filter(([k]) => SEA_LIFE[k]);
     $('notes-sea').replaceChildren(...(sea.length ? sea.map(([k, R]) => {
       const d = el('div', 'n-life');
-      d.append(el('b', '', SEA_LIFE[k].name), el('p', '', SEA_LIFE[k].note), el('p', 'j-seen', $t`First ${R.heard ? 'heard' : 'seen'} day ${R.day}${R.where ? `, ${R.where}` : ''}; ${R.heard ? 'heard' : 'seen'} ${R.n === 1 ? 'once' : `${R.n} times`}.`));
+      d.append(el('b', '', SEA_LIFE[k].name), el('p', '', SEA_LIFE[k].note), el('p', 'j-seen', $t`First ${R.heard ? $t('heard') : $t('seen')} day ${R.day}${R.where ? `, ${R.where}` : ''}; ${R.heard ? $t('heard') : $t('seen')} ${R.n === 1 ? $t('once') : $t`${R.n} times`}.`));
       // (G3) Over the seasons: when it's about, and where it's mostly seen.
       const when = seasonsWords(R), where = placesWords(R);
-      if (when || where) d.append(el('p', 'j-seen', [when && `${when.charAt(0).toUpperCase()}${when.slice(1)}.`, where && `${R.n > 1 ? $t('Mostly seen') : 'Seen'} at ${where}.`].filter(Boolean).join(' ')));
+      if (when || where) d.append(el('p', 'j-seen', [when && `${when.charAt(0).toUpperCase()}${when.slice(1)}.`, where && `${R.n > 1 ? $t('Mostly seen') : $t('Seen')} at ${where}.`].filter(Boolean).join(' ')));
       return d;
     }) : [el('p', 'j-faint', $t('Dolphins, seals, whales and the gannets: watch from the boat.'))]));
   }
@@ -449,7 +449,7 @@ export class Journal {
         if (kinds.size) li.append(el('span', 'j-seen', $t`Caught here: ${[...kinds].map((id) => fishById[id]?.name.toLowerCase()).join(', ')}`));
         // A dive site: how often you've been down, and how deep.
         const dv = p.dive && st.dive?.sites?.[p.id];
-        if (p.dive) li.append(el('span', 'j-seen', dv?.dives ? $t`Dived ${dv.dives === 1 ? 'once' : dv.dives === 2 ? 'twice' : `${dv.dives} times`}, down to ${dv.deepest.toFixed(1)} m${dv.vis ? $t`; the clearest water, about ${dv.vis} m` : ''}.` : $t('A dive site: not dived yet.')));
+        if (p.dive) li.append(el('span', 'j-seen', dv?.dives ? $t`Dived ${dv.dives === 1 ? $t('once') : dv.dives === 2 ? $t('twice') : $t`${dv.dives} times`}, down to ${dv.deepest.toFixed(1)} m${dv.vis ? $t`; the clearest water, about ${dv.vis} m` : ''}.` : $t('A dive site: not dived yet.')));
         // What there is to find there (see divesites.js), and how much of it you have.
         const all = SITE_DETAILS[p.id];
         if (p.dive && all && dv?.dives) {
@@ -498,7 +498,7 @@ export class Journal {
       return art;
     }
     if (rec) {
-      text.append(el('p', 'j-meta', $t`${rec.count} caught · best ${rec.best} cm${rec.heaviest ? ` · heaviest ${weightText(rec.heaviest)}` : ` (${weightText(weightOf(f, rec.best))})`} · ${f.where}`));
+      text.append(el('p', 'j-meta', $t`${rec.count} caught · best ${rec.best} cm${rec.heaviest ? $t` · heaviest ${weightText(rec.heaviest)}` : ` (${weightText(weightOf(f, rec.best))})`} · ${f.where}`));
       // (The rare ones you've had in your hands: see fishlook.js.)
       if (rec.morphs?.length) text.append(el('p', 'j-meta', $t`Unusual ones you've caught: ${rec.morphs.map((m) => MORPH_WORDS[m]?.name || m).join(', ')}`));
       text.append(el('p', 'j-meta', $t`First caught ${ZONE_WORDS[rec.firstZone] || ''} at ${formatClock(rec.firstHour)}${rec.firstRain ? $t(', in the rain') : ''}`));
@@ -621,7 +621,7 @@ export class Journal {
     const rows = caught.map((f) => {
       const rec = st.fish[f.id], lg = logged[f.id];
       const row = el('div', 'j-sp');
-      row.append(el('strong', '', f.name), el('span', 'j-n', $t`${rec.count} caught · best ${rec.best} cm${rec.heaviest ? ` · heaviest ${weightText(rec.heaviest)}` : `, ${weightText(weightOf(f, rec.best))}`}`));
+      row.append(el('strong', '', f.name), el('span', 'j-n', $t`${rec.count} caught · best ${rec.best} cm${rec.heaviest ? $t` · heaviest ${weightText(rec.heaviest)}` : `, ${weightText(weightOf(f, rec.best))}`}`));
       if (lg?.best) {
         const b = lg.best;
         const older = rec && rec.best > b.size ? $t` (your ${rec.best} cm best was before the log began)` : '';

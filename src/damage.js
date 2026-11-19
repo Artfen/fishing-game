@@ -366,7 +366,7 @@ export function survey(D, kind) {
 export function steerWords(D) {
   const S = D.steer, b = Math.abs(S.bend);
   if (b < 0.003 && S.loss < 0.02) return 'sound';
-  const pull = b >= 0.003 ? $t`bent (she pulls to ${S.bend > 0 ? 'starboard' : 'port'})` : 'stiff';
+  const pull = b >= 0.003 ? $t`bent (she pulls to ${S.bend > 0 ? $t('starboard') : $t('port')})` : 'stiff';
   return `${pull}${b >= 0.003 && S.loss >= 0.15 ? $t(' and stiff') : ''}`;
 }
 
@@ -383,11 +383,11 @@ export function repairs(D, kind, base) {
   }
   (D.tubes || []).forEach((c, i) => {
     if (!c.leak && c.air >= 0.995) return;
-    out.push({ id: `tube:${i}`, what: c.leak ? $t`The ${CHAMBERS[i]} tube: ${c.leak >= TUBE.torn * 0.9 ? 'torn' : 'punctured'}. Patched, the glue left to cure, and pumped up.` : $t`The ${CHAMBERS[i]} tube: soft. Pumped up.`, price: c.leak ? Math.max(20, Math.round((b * (c.leak >= TUBE.torn * 0.9 ? 0.09 : 0.04)) / 5) * 5) : 0 });
+    out.push({ id: `tube:${i}`, what: c.leak ? $t`The ${CHAMBERS[i]} tube: ${c.leak >= TUBE.torn * 0.9 ? $t('torn') : $t('punctured')}. Patched, the glue left to cure, and pumped up.` : $t`The ${CHAMBERS[i]} tube: soft. Pumped up.`, price: c.leak ? Math.max(20, Math.round((b * (c.leak >= TUBE.torn * 0.9 ? 0.09 : 0.04)) / 5) * 5) : 0 });
   });
   const price = (share) => Math.max(10, Math.round((b * share) / 5) * 5);
   if (D.steer && (Math.abs(D.steer.bend) > 0.003 || D.steer.loss > 0.02)) out.push({ id: 'steer', what: $t`Her steering: ${steerWords(D)}. ${MATERIAL_OF[kind] === 'wood' || kind === 'sail' ? $t('The rudder straightened and rehung') : $t('The leg lined up again, a new steering cable')}.`, price: price(0.03 + 0.08 * Math.min(1, Math.abs(D.steer.bend) / PARTS.steer.most + D.steer.loss)) });
-  if (D.mount > 0.03) out.push({ id: 'mount', what: $t`The engine’s bracket: ${D.tightened ? $t('done up at sea') : 'loose'}. Lifted, the bolts and the transom checked, new bolts and backing plates.`, price: price(0.03 + 0.05 * D.mount) });
+  if (D.mount > 0.03) out.push({ id: 'mount', what: $t`The engine’s bracket: ${D.tightened ? $t('done up at sea') : $t('loose')}. Lifted, the bolts and the transom checked, new bolts and backing plates.`, price: price(0.03 + 0.05 * D.mount) });
   if (D.wiring?.loose) out.push({ id: 'wiring', what: $t('The battery terminal: loose. Cleaned and done up.'), price: 5 });
   // (Water in her: hauled out, it drains; done with any job on her hull, free.)
   const litres = (D.water || []).reduce((n, l) => n + l, 0);

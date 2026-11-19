@@ -44,7 +44,7 @@ const PLATES = {
   haven: { name: $t('fish pie'), text: $t('Ruth’s fish pie: smoked haddock and prawns under a crust of mash, browned on top. You eat every crumb.'), fill: 55 },
   muelle: { name: 'sancocho', text: $t('Paco’s sancocho: salted fish and sweet potato, with papas arrugadas and green mojo. Just right.'), fill: 55 },
 };
-const HOST = { haven: 'Ruth', muelle: 'Paco' };
+const HOST = { haven: $t('Ruth'), muelle: $t('Paco') };
 const OLD = (fresh) => (fresh >= 0.99 ? 'fresh' : fresh > 0.8 ? $t('a day old') : $t('getting on'));
 
 export class HarbourSheet {
@@ -162,8 +162,8 @@ export class HarbourSheet {
   render() {
     if (!this.isOpen) return;
     const W = this.where;
-    $('hb-title').textContent = W === 'market' ? $t('The fish market') : W === 'kaigan' ? 'Kaigan' : W === 'inn' ? $t('The Lobster Pot') : W === 'chandlery' ? $t('The chandlery') : W === 'works' ? $t('Willowhaven Marine Works') : $t('Bar El Muelle');
-    $('hb-sub').textContent = $t`${formatClock(this.hour)} · day ${this.state.day} · ${W === 'muelle' ? $t('Puerto Brasa') : 'Willowhaven'}`;
+    $('hb-title').textContent = W === 'market' ? $t('The fish market') : W === 'kaigan' ? $t('Kaigan') : W === 'inn' ? $t('The Lobster Pot') : W === 'chandlery' ? $t('The chandlery') : W === 'works' ? $t('Willowhaven Marine Works') : $t('Bar El Muelle');
+    $('hb-sub').textContent = $t`${formatClock(this.hour)} · day ${this.state.day} · ${W === 'muelle' ? $t('Puerto Brasa') : $t('Willowhaven')}`;
     $('hb-purse').textContent = $t`In your purse: ${money(this.state.money)}`;
     const tabs = W === 'market' || W === 'kaigan' ? [] : W === 'inn' ? [['bar', $t('The bar')], ['kitchen', $t('The kitchen')]] : W === 'chandlery' ? [['counter', $t('The counter')], ['boat', $t('For the boat')], ['mend', $t('Mending')], ['ready', $t('Ready for a trip')]] : W === 'works' ? [['boats', $t('Boats')], ['looks', $t('Paint & name')], ['fit', $t('Fit-out')], ['repair', $t('Repairs')]] : [['bar', $t('The bar')], ['kitchen', $t('The kitchen')], ['sell', $t('Sell to Paco')], ['slate', $t('Paco’s slate')]];
     $('hb-tabs').replaceChildren(...tabs.map(([id, text]) => {
@@ -192,7 +192,7 @@ export class HarbourSheet {
     for (const kind of kinds) {
       const row = el('div', `cp-row${kind === this.viewKind ? ' hb-viewing' : ''}`);
       const name = H.boatName(kind);
-      row.append(this.button('Look', () => { this.viewKind = kind; this.render(); }, kind === this.viewKind ? '' : 'quiet'));
+      row.append(this.button($t('Look'), () => { this.viewKind = kind; this.render(); }, kind === this.viewKind ? '' : 'quiet'));
       if (owns(Y, kind)) {
         row.append(el('p', '', $t`The ${name}`), el('span', 'cp-soft', 'yours'));
         // (G8c) Another of her, for a boat that lives at Willowhaven: two to a kind.
@@ -207,7 +207,7 @@ export class HarbourSheet {
         continue;
       } else if (hiredToday(Y, kind, day, this.state.day * 24 + this.state.hour)) {
         const until = Y.hired.until;
-        row.append(el('p', '', $t`The ${name}`), el('span', 'cp-soft', Number.isFinite(until) ? $t`on hire to you until ${formatClock(until % 24)} ${Math.floor(until / 24) > day ? 'tomorrow' : 'today'}` : $t('on hire to you today (back at the yard tomorrow)')));
+        row.append(el('p', '', $t`The ${name}`), el('span', 'cp-soft', Number.isFinite(until) ? $t`on hire to you until ${formatClock(until % 24)} ${Math.floor(until / 24) > day ? $t('tomorrow') : $t('today')}` : $t('on hire to you today (back at the yard tomorrow)')));
         row.append(this.button($t`Buy her: ${money(PRICES[kind])}`, () => H.yardBuy(kind)));
       } else {
         row.append(el('p', '', $t`The ${name}`), el('span', 'cp-soft', $t`${money(PRICES[kind])} · or ${money(hirePrice(kind))} for a day${COMES_WITH[kind] && !owns(Y, COMES_WITH[kind]) ? $t` · her ${COMES_WITH[kind]} comes with her, bought` : ''}`));
@@ -304,10 +304,10 @@ export class HarbourSheet {
     const V = this.state.yard.vessels?.[k], H = this.hooks;
     if (!V) return [];
     const out = [el('h4', 'hb-fit-cat', $t`Her papers: ${V.reg}`)];
-    const best = V.best ? $t`; the best fish aboard a ${V.best.size} cm ${H.fishName(V.best.id)} (${V.best.kg < 1 ? `${Math.round(V.best.kg * 1000)} g` : `${V.best.kg.toFixed(1)} kg`}, day ${V.best.day})` : '';
+    const best = V.best ? $t`; the best fish aboard a ${V.best.size} cm ${H.fishName(V.best.id)} (${V.best.kg < 1 ? `${Math.round(V.best.kg * 1000)} g` : $t`${V.best.kg.toFixed(1)} kg`}, day ${V.best.day})` : '';
     const engine = H.yardEngine(k);
     const run = [V.hours >= 0.05 ? $t`${V.hours.toFixed(1)} engine hours` : null, $t`${V.nm.toFixed(1)} sea miles`, V.litres >= 0.05 ? $t`${V.litres.toFixed(0)} litres burned` : null, $t`${V.fish} fish aboard`,
-      V.nights ? `${V.nights} ${V.nights === 1 ? 'night' : 'nights'} aboard` : null, V.trips ? $t`${V.trips} ${V.trips === 1 ? 'trip' : 'trips'} off her mother’s platform` : null].filter(Boolean).join(' · ');
+      V.nights ? `${V.nights} ${V.nights === 1 ? 'night' : 'nights'} aboard` : null, V.trips ? $t`${V.trips} ${V.trips === 1 ? $t('trip') : $t('trips')} off her mother’s platform` : null].filter(Boolean).join(' · ');
     out.push(el('p', 'hb-fit-sum', $t`Registered at Willowhaven, ${V.reg}. Yours since day ${V.since}${engine ? $t`, her engine the ${ENGINE_MODELS[engine.model]?.name}` : ''}. ${run}${best}.`));
     // (G5) Her engine's service: when it's next due, or how overdue (the Repairs tab does it).
     const svc = H.serviceOf?.(k);
@@ -424,7 +424,7 @@ export class HarbourSheet {
     // pace, not on her tank at her cruise.)
     const power = (E) => (E.electric ? `${E.kw} kW` : n > 1 ? `2 × ${E.hp} hp` : `${E.hp} hp`);
     const far = (x) => (x?.bph ? $t`${Math.round(rangeAt(x, tank, kk))} nautical miles on a full battery at ${x.kn} knots` : $t`${Math.round(rangeAt(x, tank, kk))} nautical miles on a full tank at ${C.cruise} knots`);
-    out.push(el('p', 'hb-fit-sum', (n > 1 ? $t`${where}: ${n > 1 ? $t('a pair of ') : 'the '}${O.name}s (${power(O)} ${O.layout}, ${O.kg * n} kg), on ${n > 1 ? $t`${blades} ${spec.pitch}-inch propellers` : $t`a ${blades} ${spec.pitch}-inch propeller`}.${cur ? $t` She does ${kn(cur.top)} flat out, and ${far(cur)}.` : ''}` : $t`${where}: ${n > 1 ? $t('a pair of ') : 'the '}${O.name} (${power(O)} ${O.layout}, ${O.kg * n} kg), on ${n > 1 ? $t`${blades} ${spec.pitch}-inch propellers` : $t`a ${blades} ${spec.pitch}-inch propeller`}.${cur ? $t` She does ${kn(cur.top)} flat out, and ${far(cur)}.` : ''}`)));
+    out.push(el('p', 'hb-fit-sum', (n > 1 ? $t`${where}: ${n > 1 ? $t('a pair of ') : $t('the ')}${O.name}s (${power(O)} ${O.layout}, ${O.kg * n} kg), on ${n > 1 ? $t`${blades} ${spec.pitch}-inch propellers` : $t`a ${blades} ${spec.pitch}-inch propeller`}.${cur ? $t` She does ${kn(cur.top)} flat out, and ${far(cur)}.` : ''}` : $t`${where}: ${n > 1 ? $t('a pair of ') : $t('the ')}${O.name} (${power(O)} ${O.layout}, ${O.kg * n} kg), on ${n > 1 ? $t`${blades} ${spec.pitch}-inch propellers` : $t`a ${blades} ${spec.pitch}-inch propeller`}.${cur ? $t` She does ${kn(cur.top)} flat out, and ${far(cur)}.` : ''}`)));
     for (const model of C.models) {
       const E = MODELS[model], on = model === now.model, t = T[`${model}/${propsFor(kk, model).includes(now.prop) ? now.prop : 'matched'}`];
       const row = el('div', `cp-row hb-fit${on ? ' on' : ''}`);
@@ -462,7 +462,7 @@ export class HarbourSheet {
       else row.append(this.button(`Fit ${n > 1 ? 'them' : 'it'}: ${money(P.price * n)}`, () => H.yardReprop(k, prop)));
       out.push(row);
     }
-    out.push(el('p', 'cp-soft', $t`The yard ran her with each, out past the bay on a calm day: what she did then is what you’ll get.${C.plate ? $t` Her plate allows ${n > 1 ? $t`${C.plate} hp each` : `${C.plate} hp`}.` : ''} The old is taken in part exchange; new engines come with your kind of propeller, pitched for them. More weight aboard, a sea or a foul bottom all cost speed, whatever’s fitted.`));
+    out.push(el('p', 'cp-soft', $t`The yard ran her with each, out past the bay on a calm day: what she did then is what you’ll get.${C.plate ? $t` Her plate allows ${n > 1 ? $t`${C.plate} hp each` : $t`${C.plate} hp`}.` : ''} The old is taken in part exchange; new engines come with your kind of propeller, pitched for them. More weight aboard, a sea or a foul bottom all cost speed, whatever’s fitted.`));
     return out;
   }
 
@@ -512,7 +512,7 @@ export class HarbourSheet {
         // (Mags is straight with you: Kenji pays more for a fish fit to eat raw.)
         if (place === 'haven') {
           const kv = g.idx.reduce((t, i) => t + kaiganValue(this.state.keep[i], { day, now }).price, 0);
-          if (kv > sum * 1.15 + 1) row.append(el('span', 'cp-soft hb-hint', $t`Kenji at Kaigan, across the apron, would give ${money(kv)} for ${g.n > 1 ? 'these' : 'it'}${g.id === 'tuna' ? $t(': “Take it to him, love. I can’t do a bluefin justice.”') : ''}`));
+          if (kv > sum * 1.15 + 1) row.append(el('span', 'cp-soft hb-hint', $t`Kenji at Kaigan, across the apron, would give ${money(kv)} for ${g.n > 1 ? $t('these') : 'it'}${g.id === 'tuna' ? $t(': “Take it to him, love. I can’t do a bluefin justice.”') : ''}`));
         }
         const b = this.button(g.n > 1 ? $t`Sell all ${g.n}: ${money(sum)}` : `Sell: ${money(sum)}`, () => (g.n > 1 ? this.sellKind(g.id) : this.sell(g.first)));
         b.disabled = !this.marketOpen;
@@ -535,7 +535,7 @@ export class HarbourSheet {
   // The last sale, line by line: what, how heavy, the price by the kilo and why, and the total.
   renderReceipt() {
     const R = this.receipt, box = el('div', 'hb-receipt');
-    box.append(el('h3', '', $t`${this.where === 'kaigan' ? 'Kenji’s' : this.place === 'haven' ? 'Mags’s' : 'Paco’s'} receipt`));
+    box.append(el('h3', '', $t`${this.where === 'kaigan' ? $t('Kenji’s') : this.place === 'haven' ? $t('Mags’s') : $t('Paco’s')} receipt`));
     for (const L of R.lines) {
       const row = el('div', 'hb-rline');
       row.append(el('span', '', $t`${L.name}, ${L.size} cm · ${kgWords(L.kg)} at ${money(L.each)}/kg${L.why.length ? ` (${L.why.join(', ')})` : ''}`), el('strong', '', money(L.price)));
@@ -563,7 +563,7 @@ export class HarbourSheet {
     if (!quiet) {
       const sp = fishById[f.id];
       this.hooks.chime();
-      this.hooks.toast($t`${this.place === 'haven' ? 'Mags' : 'Paco'} weighs the ${lower(sp.name)}: ${v.kg.toFixed(v.kg < 1 ? 2 : 1)} kg. ${money(v.price)} into your purse.`, 4);
+      this.hooks.toast($t`${this.place === 'haven' ? $t('Mags') : $t('Paco')} weighs the ${lower(sp.name)}: ${v.kg.toFixed(v.kg < 1 ? 2 : 1)} kg. ${money(v.price)} into your purse.`, 4);
       this.hooks.changed();
       this.render();
     }
@@ -584,7 +584,7 @@ export class HarbourSheet {
     if (this.receipt) this.receipt.open = false;
     if (!n) return;
     this.hooks.chime();
-    this.hooks.toast($t`${this.place === 'haven' ? 'Mags' : 'Paco'} weighs them up: ${n} ${lower(fishById[id].name)}, ${money(sum)} into your purse.`, 4);
+    this.hooks.toast($t`${this.place === 'haven' ? $t('Mags') : $t('Paco')} weighs them up: ${n} ${lower(fishById[id].name)}, ${money(sum)} into your purse.`, 4);
     this.hooks.changed();
     this.render();
   }
@@ -668,7 +668,7 @@ export class HarbourSheet {
     if (!quiet || !this.receipt?.open) this.receipt = { lines: [], total: 0, open: quiet };
     this.receipt.lines.push(kaiganLine(f, v));
     this.receipt.total = Math.round((this.receipt.total + v.price) * 100) / 100;
-    this.earn(v.price, 'Kaigan', 'kaigan');
+    this.earn(v.price, $t('Kaigan'), 'kaigan');
     this.harbour.sold++;
     this.kaigan.sold++;
     this.kaigan.earned = Math.round((this.kaigan.earned + v.price) * 100) / 100;
@@ -678,7 +678,7 @@ export class HarbourSheet {
     const sp = fishById[f.id];
     const say = f.id === 'tuna'
       ? $t`${first ? $t('The whole kitchen comes out to see it. ') : ''}Kenji runs a hand down the bluefin, ${v.kg.toFixed(0)} kg of it, and smiles for the first time today. “Ōtoro tonight.” ${money(v.price)} into your purse.`
-      : $t`Kenji lifts the ${lower(sp.name)}, looks it in the eye, presses its flank: ${v.grade === 'raw' ? `“Good. ${v.dish[0].toUpperCase()}${v.dish.slice(1)}.”` : $t('“For the grill, then.”')} ${money(v.price)} into your purse.`;
+      : $t`Kenji lifts the ${lower(sp.name)}, looks it in the eye, presses its flank: ${v.grade === 'raw' ? $t`“Good. ${v.dish[0].toUpperCase()}${v.dish.slice(1)}.”` : $t('“For the grill, then.”')} ${money(v.price)} into your purse.`;
     if (quiet) {
       if (f.id === 'tuna') this.bigSay = say;
     } else {
@@ -715,7 +715,7 @@ export class HarbourSheet {
     this.bigSay = null;
     if (!n) return;
     this.hooks.chime();
-    this.hooks.toast($t`${big ? `${big} ` : ''}Kenji weighs ${big ? $t('the rest') : 'them'} on the kitchen scales: ${what}, ${money(sum)} in all.`, big ? 9 : 4);
+    this.hooks.toast($t`${big ? `${big} ` : ''}Kenji weighs ${big ? $t('the rest') : $t('them')} on the kitchen scales: ${what}, ${money(sum)} in all.`, big ? 9 : 4);
     this.hooks.changed();
     this.render();
   }
@@ -732,7 +732,7 @@ export class HarbourSheet {
     // How well the kitchen knows you (orders filled), and what that's worth.
     const st = standingOf(this.harbour.served);
     out.push(el('p', 'cp-soft hb-standing', st.tier
-      ? $t`${host} counts you ${st.name}: ${Math.round(st.bonus * 100)}% over the order’s price${st.next != null ? $t` (${st.next - this.harbour.served} more ${st.next - this.harbour.served === 1 ? 'order' : 'orders'} and you’re ${STANDING[st.tier + 1].name})` : $t(', and your name goes on the board with the dish')}.`
+      ? $t`${host} counts you ${st.name}: ${Math.round(st.bonus * 100)}% over the order’s price${st.next != null ? $t` (${st.next - this.harbour.served} more ${st.next - this.harbour.served === 1 ? $t('order') : $t('orders')} and you’re ${STANDING[st.tier + 1].name})` : $t(', and your name goes on the board with the dish')}.`
       : $t`${host} doesn’t know you yet. Bring good fish for her orders and she will (${st.next - this.harbour.served} more and you’re a regular supplier). A fine fish, well over the size asked, earns a quarter more.`));
     out.push(el('h3', '', $t`${host}’s orders for tonight`));
     for (const o of ordersFor(this.state.day, place)) {
@@ -801,7 +801,7 @@ export class HarbourSheet {
     // (The kitchen's own supplier gets their name on the board with the dish.)
     const board = now.tier >= 2 && name ? $t` On the board tonight: “${name}’s ${lower(sp.meal?.name || sp.name)}”.` : $t(' It’s on the board tonight.');
     const fine = P.fine ? $t(' A fine one, and paid for it.') : '';
-    const up = now.tier > was.tier ? $t` ${this.place === 'haven' ? 'Ruth' : 'Paco'} counts you ${now.name} now.` : '';
+    const up = now.tier > was.tier ? $t` ${this.place === 'haven' ? $t('Ruth') : $t('Paco')} counts you ${now.name} now.` : '';
     this.hooks.toast(this.place === 'haven'
       ? $t`Ruth holds up the ${lower(sp.name)} to the light. “Now that’s a fish.” ${money(P.pay)} into your purse.${fine}${board}${up}`
       : $t`Paco shouts into the kitchen, and his mother comes out to see the ${lower(sp.name)}. ${money(P.pay)} into your purse.${fine}${up}`, 7);
@@ -833,7 +833,7 @@ export class HarbourSheet {
     out.push(...this.favourBlock(place === 'haven' ? 'ruth' : 'paco'));
     // A pint, and a story with it.
     const pint = el('div', 'cp-row');
-    pint.append(el('p', '', place === 'haven' ? $t('A pint of Ruth’s best bitter, and a story with it') : $t('A caña, a little cold beer, and a story with it')), el('span', 'cp-soft', money(PINT)), this.button(this.said.story ? 'Another' : $t('Buy one'), () => {
+    pint.append(el('p', '', place === 'haven' ? $t('A pint of Ruth’s best bitter, and a story with it') : $t('A caña, a little cold beer, and a story with it')), el('span', 'cp-soft', money(PINT)), this.button(this.said.story ? $t('Another') : $t('Buy one'), () => {
       if (!this.pay(PINT)) return;
       const heard = this.harbour.heard[place];
       const s = nextStory(place, heard);
@@ -847,7 +847,7 @@ export class HarbourSheet {
     if (this.said.story) out.push(el('blockquote', 'hb-story', `“${this.said.story.text}”`));
     // Advice (free: everyone has some).
     const adv = el('div', 'cp-row');
-    adv.append(el('p', '', $t`Ask ${host} what’s biting`), this.button(this.said.advice ? $t('Ask again') : 'Ask', () => {
+    adv.append(el('p', '', $t`Ask ${host} what’s biting`), this.button(this.said.advice ? $t('Ask again') : $t('Ask'), () => {
       this.said.advice = adviceFor(talk.advice);
       this.render();
     }, 'quiet'));
@@ -890,7 +890,7 @@ export class HarbourSheet {
     // Advice over the counter: Bert's read of the water today (the same as the bar's, from the
     // world as it is).
     const adv = el('div', 'cp-row');
-    adv.append(el('p', '', $t('Ask Bert what’s biting, and where')), this.button(this.said.advice ? $t('Ask again') : 'Ask', () => {
+    adv.append(el('p', '', $t('Ask Bert what’s biting, and where')), this.button(this.said.advice ? $t('Ask again') : $t('Ask'), () => {
       this.said.advice = adviceFor(this.hooks.talk('haven').advice);
       this.render();
     }, 'quiet'));
@@ -922,7 +922,7 @@ export class HarbourSheet {
     out.push(el('h3', '', $t('For the day')));
     const ice = el('div', 'cp-row');
     const iced = onIce(this.state, now), lots = S.iceUntil > now + 12;
-    ice.append(el('p', '', $t('A bag of ice for your creel: whatever you catch keeps fresh for the next day')), el('span', 'cp-soft', iced ? $t`on ice till ${formatClock(S.iceUntil % 24)}${S.iceUntil >= (this.state.day + 1) * 24 ? ' tomorrow' : ''}` : money(ICE.price)));
+    ice.append(el('p', '', $t('A bag of ice for your creel: whatever you catch keeps fresh for the next day')), el('span', 'cp-soft', iced ? $t`on ice till ${formatClock(S.iceUntil % 24)}${S.iceUntil >= (this.state.day + 1) * 24 ? $t(' tomorrow') : ''}` : money(ICE.price)));
     const ib = this.button($t('Buy a bag'), () => {
       if (this.shop.iceUntil > this.hooks.now() + 12 || !this.pay(ICE.price)) return;
       this.shop.iceUntil = this.hooks.now() + ICE.hours;
@@ -997,7 +997,7 @@ export class HarbourSheet {
         const row = el('div', 'cp-row');
         // (F1a: a stores crate says what's left in it; it's stocked with her lockers, Ready for a trip.)
         const left = it.id === 'stores' ? ` (${(it.days ?? 3) <= 0.01 ? 'empty' : $t`${Math.round((it.days ?? 3) * 2) / 2} of 3 days left`})` : '';
-        row.append(el('p', '', `${D.name}${used ? (it.id === 'cylinder' ? ', breathed' : ', flat') : ''}${left}: ${kind ? $t`aboard the ${C.nameOf(kind)}${it.secured ? '' : ', loose'}` : $t('here, in Bert’s store room')}`));
+        row.append(el('p', '', `${D.name}${used ? (it.id === 'cylinder' ? ', breathed' : ', flat') : ''}${left}: ${kind ? $t`aboard the ${C.nameOf(kind)}${it.secured ? '' : $t(', loose')}` : $t('here, in Bert’s store room')}`));
         if (used && (!kind || lying)) row.append(this.button(it.id === 'cylinder' ? $t('Fill it (free)') : $t('Charge it (free)'), () => {
           C.renew(it.uid);
           this.hooks.toast(it.id === 'cylinder' ? $t('Bert fills the cylinder from the compressor: full again.') : $t('Bert swaps it for one off the charger: charged.'), 3);
@@ -1088,12 +1088,12 @@ export function paintSlate(ctx, w, h, { day, wanted = [], plenty = [] } = {}) {
   ctx.fillStyle = 'rgba(240,240,232,0.92)';
   ctx.textAlign = 'center';
   ctx.font = '700 34px Kalam, Caveat, cursive';
-  ctx.fillText('Today', w / 2, 46);
+  ctx.fillText($t('Today'), w / 2, 46);
   ctx.font = '600 22px Kalam, Caveat, cursive';
   ctx.fillText(`day ${day}`, w / 2, 72);
   ctx.textAlign = 'left';
   ctx.font = '700 24px Kalam, Caveat, cursive';
-  ctx.fillText('Wanted:', 22, 112);
+  ctx.fillText($t('Wanted:'), 22, 112);
   ctx.font = '600 24px Kalam, Caveat, cursive';
   wanted.forEach((n, i) => ctx.fillText(`· ${n}`, 30, 142 + i * 30));
   ctx.font = '700 24px Kalam, Caveat, cursive';

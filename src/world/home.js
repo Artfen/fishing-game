@@ -47,7 +47,7 @@ function paintBadges(ctx, w, h, list) {
   ctx.fillStyle = '#3a2a1c';
   ctx.textAlign = 'center';
   ctx.font = '700 30px Kalam, Caveat, cursive';
-  ctx.fillText('Badges', w / 2, 36);
+  ctx.fillText($t('Badges'), w / 2, 36);
   const cols = 4, r = 38, gx = w / cols, gy = 106;
   list.forEach((b, i) => {
     const x = gx * (i % cols) + gx / 2, y = 92 + gy * Math.floor(i / cols);

@@ -10,14 +10,14 @@ import { $t } from './i18n.js';
 // always do.
 
 export const HOME_WORDS = {
-  sand: $t('open sand'), weed: $t('weed beds'), rock: 'rocks', deep: $t('deep water'), open: $t('open water'), cove: $t('sheltered coves'),
+  sand: $t('open sand'), weed: $t('weed beds'), rock: $t('rocks'), deep: $t('deep water'), open: $t('open water'), cove: $t('sheltered coves'),
   reef: $t('reefs and kelp'), surf: $t('surf off rocky points'), tide: $t('tide races'), channel: $t('the channel'), flats: $t('sand and mud flats'),
   quay: $t('the quay wall'), reeds: $t('reed edges'), blue: $t('the open ocean'), pool: $t('stream pools'), margin: $t('lake margins'), pads: $t('lily pads'),
-  snag: $t('snags and fallen trees'), dropoff: 'drop-offs', holm: $t('island shores'), shallows: 'shallows',
+  snag: $t('snags and fallen trees'), dropoff: $t('drop-offs'), holm: $t('island shores'), shallows: $t('shallows'),
   wall: $t('the wall of the drop-off'), cave: $t('caves in the rock'),
 };
 
-const COMPASS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
+const COMPASS = [$t('north'), $t('north-east'), $t('east'), $t('south-east'), $t('south'), $t('south-west'), $t('west'), $t('north-west')];
 // A bearing in words. (The world's north is -z, as on the map.)
 export const bearing = (dx, dz) => COMPASS[Math.round(((Math.atan2(dx, -dz) / (Math.PI * 2)) * 8 + 8)) % 8];
 

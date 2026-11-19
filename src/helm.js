@@ -80,14 +80,14 @@ export class HelmUI {
     };
     if (P.battery) button('battery', $t('Battery switch'), () => this.h.act('battery'));
     if (P.cord) button('cord', $t('Kill cord'), () => this.h.act('cord'));
-    if (P.starter === 'key') button('key', P.engines > 1 ? 'Keys' : 'Key', () => this.h.act('key'));
+    if (P.starter === 'key') button('key', P.engines > 1 ? $t('Keys') : $t('Key'), () => this.h.act('key'));
     if (P.diesel) button('glow', $t('Glow plugs'), () => this.h.act('glow'));
     if (P.starter === 'pull') button('start', $t('Pull the cord'), () => this.h.act('pull'), 'go');
     else if (P.engines > 1) {
       button('start0', $t('Start port'), () => this.h.act('start', 0), 'go');
       button('start1', $t('Start starboard'), () => this.h.act('start', 1), 'go');
-    } else button('start', P.starter === 'button' ? $t('Start button') : 'Start', () => this.h.act('start'), 'go');
-    button('stop', 'Stop', () => this.h.act('stop'), 'stop');
+    } else button('start', P.starter === 'button' ? $t('Start button') : $t('Start'), () => this.h.act('start'), 'go');
+    button('stop', $t('Stop'), () => this.h.act('stop'), 'stop');
     // (F2c) Her navigation lights, where she has them on her dash.
     if (this.h.navLights?.has(kind)) button('lights', $t('Navigation lights'), () => this.h.navLights.toggle());
     if (P.trim) {

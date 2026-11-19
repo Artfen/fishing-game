@@ -53,9 +53,9 @@ export function diagnose(fishing, eco, map, target = null) {
   }
   // How deep, at this hour.
   const band = L.depth(ctx), depth = fishing.baitDepth ?? 0, bottom = fishing.bottom ?? 1;
-  if ((L.bottom || L.flat) && !b.nearBottom) reasons.push({ key: 'depth', text: $t`The ${name} feeds on the bottom: your ${item.type === 'bait' ? 'bait' : 'lure'} is ${mDepth(bottom - depth)} above it.` });
+  if ((L.bottom || L.flat) && !b.nearBottom) reasons.push({ key: 'depth', text: $t`The ${name} feeds on the bottom: your ${item.type === 'bait' ? $t('bait') : $t('lure')} is ${mDepth(bottom - depth)} above it.` });
   else if (!L.bottom && !L.flat && !near(depth, band, L.depthTol * 0.8)) {
-    reasons.push({ key: 'depth', text: $t`Your ${item.type === 'bait' ? 'bait' : 'lure'} is ${mDepth(depth)} down; at this hour the ${name} swims ${band[0]}–${Math.round(Math.min(band[1], bottom))} m down. ${rod.kind === 'float' ? $t`Set the float ${depth < band[0] ? 'deeper' : 'shallower'} (W/S).` : depth < band[0] ? $t('Let it sink longer before you wind.') : $t('Wind sooner, or faster, to keep it higher.')}` });
+    reasons.push({ key: 'depth', text: $t`Your ${item.type === 'bait' ? $t('bait') : $t('lure')} is ${mDepth(depth)} down; at this hour the ${name} swims ${band[0]}–${Math.round(Math.min(band[1], bottom))} m down. ${rod.kind === 'float' ? $t`Set the float ${depth < band[0] ? $t('deeper') : $t('shallower')} (W/S).` : depth < band[0] ? $t('Let it sink longer before you wind.') : $t('Wind sooner, or faster, to keep it higher.')}` });
   }
   // How it moves.
   // (Judged against how it likes a lure best: a fish that wants a fast lure follows a slow one
@@ -69,13 +69,13 @@ export function diagnose(fishing, eco, map, target = null) {
   // How shy it is of line.
   if (L.lineShy && b.thick > L.lineShy) reasons.push({ key: 'line', text: $t`The ${name} is wary of thick line, and yours shows: a fluorocarbon leader or a finer line hides it.` });
   // The hour.
-  if ((eco.activity[sp.id] ?? 1) < 0.3) reasons.push({ key: 'hour', text: $t`A quiet hour for the ${name}: it’s most active ${H.allDay ? $t('all day') : `at ${H.active}`}.` });
+  if ((eco.activity[sp.id] ?? 1) < 0.3) reasons.push({ key: 'hour', text: $t`A quiet hour for the ${name}: it’s most active ${H.allDay ? $t('all day') : $t`at ${H.active}`}.` });
   // Drift: carried away from where it landed.
   const I = fishing.interest;
   if (I) {
     const dx = hook.x - I.at.x, dz = hook.z - I.at.z, d = Math.hypot(dx, dz);
     const moved = rod.kind === 'lure' || rod.kind === 'jig' || rod.kind === 'fly' ? 0 : d;
-    if (moved > 8) reasons.push({ key: 'drift', text: $t`The ${rod.kind === 'float' ? 'float' : 'rig'} has drifted ${Math.round(moved)} m ${bearing(dx, dz)} from where it landed${map.suitableAt(sp.id, hook.x, hook.z) ? '' : $t(', out of the water that suits it')}. Recast up-current of the spot.` });
+    if (moved > 8) reasons.push({ key: 'drift', text: $t`The ${rod.kind === 'float' ? $t('float') : $t('rig')} has drifted ${Math.round(moved)} m ${bearing(dx, dz)} from where it landed${map.suitableAt(sp.id, hook.x, hook.z) ? '' : $t(', out of the water that suits it')}. Recast up-current of the spot.` });
     // Fish came to look and left without taking.
     const came = I.looks + I.follows;
     if ((came >= 2 && I.left >= 2) || (I.follows >= 1 && fishing.status === 'follow' && reasons.some((r) => r.key === 'motion'))) {

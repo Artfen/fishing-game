@@ -218,7 +218,7 @@ function buildHaven(rnd, group, obstacles, spots) {
     ctx.fillText(sub, w / 2, h * 0.75, w - 20);
   };
   let ownerName = '';
-  const ownerTex = signPost(OWN_FINGER.x0 + 0.35, OWN_FINGER.z1 - 0.2, Math.PI / 2, 0.9, 0.45, (ctx, w, h) => plate(ownerName ? `${ownerName}` : 'Private', $t('Berths reserved'))(ctx, w, h));
+  const ownerTex = signPost(OWN_FINGER.x0 + 0.35, OWN_FINGER.z1 - 0.2, Math.PI / 2, 0.9, 0.45, (ctx, w, h) => plate(ownerName ? `${ownerName}` : $t('Private'), $t('Berths reserved'))(ctx, w, h));
   const V = VISITOR_FINGERS[0];
   signPost((HAVEN_PONTOON.x0 + HAVEN_PONTOON.x1) / 2 + 0.9, V.z0 - 0.3, 0, 1.0, 0.5, plate('VISITORS', $t('Welcome to Willowhaven')));
   const ownerSign = (name) => {

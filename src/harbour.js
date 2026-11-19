@@ -92,7 +92,7 @@ export function weatherLines(skyWord, abs = null) {
   const w = conditions.wind;
   lines.push(w.speed < 0.6 ? $t('Wind: flat calm.') : $t`Wind: ${windWords(w.speed).toLowerCase()} from the ${compass(w.from, true)}, ${kmh(out.speed)} km/h outside the bay${inside.speed < out.speed * 0.7 ? $t`, ${kmh(inside.speed)} km/h in its shelter` : ''}.`);
   const seaIn = waveHeightHere(0, -20), seaOut = waveHeightHere(60, 140);
-  lines.push($t`Sea: ${seaWords(seaOut).toLowerCase()} outside (about ${seaOut < 0.1 ? 'nothing' : `${seaOut.toFixed(1)} m`}), ${seaWords(seaIn).toLowerCase()} in the bay.`);
+  lines.push($t`Sea: ${seaWords(seaOut).toLowerCase()} outside (about ${seaOut < 0.1 ? $t('nothing') : `${seaOut.toFixed(1)} m`}), ${seaWords(seaIn).toLowerCase()} in the bay.`);
   const c = currentAt(146, 30, 0), cs = Math.hypot(c.x, c.z);
   lines.push(cs < 0.05 ? $t('The cove channel is slack.') : $t`The cove channel runs ${cs.toFixed(cs < 0.1 ? 2 : 1)} m/s to the ${compass(Math.atan2(c.x, -c.z), true)}.`);
   if (skyWord) lines.push(`Sky: ${skyWord.toLowerCase()}.`);
@@ -115,7 +115,7 @@ export function paintBoard(ctx, w, h, { photo = null, seen = {} } = {}) {
   ctx.fillStyle = '#efe4c9';
   ctx.font = '700 40px Kalam, Caveat, cursive';
   ctx.textAlign = 'center';
-  ctx.fillText('Willowhaven', w / 2, 46);
+  ctx.fillText($t('Willowhaven'), w / 2, 46);
   const notes = [
     { x: 30, y: 72, r: -0.04, title: $t('Wind & sea'), c: '#f4ecd6' },
     { x: 182, y: 70, r: 0.03, title: $t('What’s about'), c: '#fbf5e3' },

@@ -1234,8 +1234,8 @@ export const FRESH_ZONES = ['lake', 'stream', 'mere', 'river', 'tarn'];
 export const waterOf = (zone) => (FRESH_ZONES.includes(zone) ? 'fresh' : zone === 'estuary' || zone === 'tideway' ? 'brackish' : 'salt');
 
 export const ZONE_NAMES = {
-  bay: $t('Willow Bay'), cove: $t('Driftwood Cove'), open: $t('open water'), lake: 'Reedmere', stream: 'Fernbeck',
-  estuary: $t('the Wend estuary'), mere: 'Longmere', coast: $t('the outer coast'), deep: $t('the deep water'),
+  bay: $t('Willow Bay'), cove: $t('Driftwood Cove'), open: $t('open water'), lake: $t('Reedmere'), stream: $t('Fernbeck'),
+  estuary: $t('the Wend estuary'), mere: $t('Longmere'), coast: $t('the outer coast'), deep: $t('the deep water'),
   river: $t('the Coldwater'), tarn: $t('Hoar Tarn'), tideway: $t('the Coldwater’s tideway'),
   harbor: $t('Puerto Brasa harbour'), lee: $t('the lee of Brasa'), lava: $t('Las Coladas'), sebadal: $t('El Sebadal'), veril: $t('El Veril'), ocean: $t('the open ocean'),
   kelp: $t('the kelp'), sound: $t('Raven Sound'), race: $t('the Churn'), loch: $t('Loch Skarn'), skerry: $t('the Selkie Rocks'), outer: $t('the Atlantic coast'),

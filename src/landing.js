@@ -54,8 +54,8 @@ export function shoreMethodAt(pos, end, { walkHeight, depthAt, waterLevel, habit
 export const LAND_WAYS = {
   net: { tap: true, word: $t('net it'), act: $t('Net it') },
   hand: { tap: true, word: $t('tail it'), act: $t('Grab it') },
-  beach: { tap: false, word: $t('beach it'), act: 'Wind', wind: 2.2 },
-  lift: { tap: false, word: $t('lift it'), act: 'Lift', wind: 1.6 },
+  beach: { tap: false, word: $t('beach it'), act: $t('Wind'), wind: 2.2 },
+  lift: { tap: false, word: $t('lift it'), act: $t('Lift'), wind: 1.6 },
   // (E3d) The big game from a boat: drawn alongside on the leader, hand over hand (see below).
   leader: { tap: false, word: $t('take the leader'), act: $t('Take the leader'), wind: 3.2 },
 };

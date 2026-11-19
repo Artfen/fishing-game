@@ -12,6 +12,7 @@
 // hands-off course hold (Boat.holdCourse), firmer, for seventeen tonnes: in a fresh breeze on her
 // beam it holds her within about two degrees, three at worst, as a good autopilot does
 // (tests/trawler.test.mjs). turn: how fast the wheel turns the course it holds (rad/s).
+import { $t } from './i18n.js';
 export const PILOT = { kp: 5, kd: 8, most: 0.9, turn: 0.12 };
 // The alarms: how far ahead she looks (seconds of her speed, never less than lookMin metres), the
 // step it looks in, the water she wants under her keel beyond her draft (m), and for a boat closing,
@@ -78,7 +79,7 @@ export function closing(own, fx, fz, others) {
     // (Port, her left, is (fz, -fx) from her heading (fx, fz): at heading 0 her bow is along +z and
     // port along +x, as boat.js has her.)
     const across = rx * fz - rz * fx;
-    best = { name: o.name || 'a boat', d, t, cpa, side: across > 0 ? 'port' : 'starboard' };
+    best = { name: o.name || $t('a boat'), d, t, cpa, side: across > 0 ? 'port' : 'starboard' };
   }
   return best;
 }

@@ -61,6 +61,6 @@ export function tendLine(extra, out, spec, tended, dt) {
 // In words for the screen: "2.1 kN, a twentieth of what it holds".
 export function loadWords(T, spec) {
   const kN = T / 1000, share = T / spec.mbl;
-  const how = share >= 0.75 ? $t('close to parting') : share >= 0.5 ? 'bar-tight' : share >= 0.2 ? $t('working hard') : share > 0.02 ? $t('taking the strain') : 'slack';
+  const how = share >= 0.75 ? $t('close to parting') : share >= 0.5 ? $t('bar-tight') : share >= 0.2 ? $t('working hard') : share > 0.02 ? $t('taking the strain') : $t('slack');
   return `${kN < 10 ? kN.toFixed(1) : Math.round(kN)} kN, ${how}`;
 }

@@ -475,7 +475,7 @@ export class PackUI {
     const F = this.ui.filters, cat = this.ui.cat, box = $('pack-filters');
     const parts = [];
     const search = el('input', 'gx-search');
-    Object.assign(search, { type: 'search', placeholder: 'Search', value: F.q });
+    Object.assign(search, { type: 'search', placeholder: $t('Search'), value: F.q });
     search.setAttribute('aria-label', $t('Search equipment'));
     search.addEventListener('input', () => {
       F.q = search.value;
@@ -806,15 +806,15 @@ export class PackUI {
       add($t('Casting weight'), r.kind === 'fly' ? $t('the line carries the fly') : `${r.weight[0]}–${r.weight[1]} g`);
       add($t('Casts'), `${r.cast[0]}–${r.cast[1]} m`);
       add($t('Lines'), r.lines.map((l) => `${l.name} (${l.kg} kg)`).join(' · '));
-      add(rigRod(r) ? 'Rigs' : 'Leaders', r.terms.map((t) => TERMS[t].short).join(' · '));
+      add(rigRod(r) ? $t('Rigs') : $t('Leaders'), r.terms.map((t) => TERMS[t].short).join(' · '));
       check('warn', r.limits);
       const fitting = g.pack.items.filter((i) => fits(r, TACKLE[i])).map((i) => TACKLE[i].short.toLowerCase());
-      if (fitting.length) check('ok', $t`You carry ${fitting.length} ${fitting.length === 1 ? 'thing' : 'things'} it can fish: ${fitting.join(', ')}.`);
+      if (fitting.length) check('ok', $t`You carry ${fitting.length} ${fitting.length === 1 ? $t('thing') : $t('things')} it can fish: ${fitting.join(', ')}.`);
       else check('no', $t`Nothing in your backpack fits it: it needs ${r.accepts.map((a) => TYPE_NAMES[a].toLowerCase()).join(' or ')}.`);
       const hand = this.rodInHand;
       if (r.id !== hand.id) {
         compare = [['', hand.short, r.short], [$t('Casting weight'), hand.kind === 'fly' ? '—' : `${hand.weight[0]}–${hand.weight[1]} g`, r.kind === 'fly' ? '—' : `${r.weight[0]}–${r.weight[1]} g`],
-          ['Casts', `${hand.cast[0]}–${hand.cast[1]} m`, `${r.cast[0]}–${r.cast[1]} m`],
+          [$t('Casts'), `${hand.cast[0]}–${hand.cast[1]} m`, `${r.cast[0]}–${r.cast[1]} m`],
           [$t('Strongest line'), `${Math.max(...hand.lines.map((l) => l.kg))} kg`, `${Math.max(...r.lines.map((l) => l.kg))} kg`]];
       }
     } else if (ref.type === 'line') {
@@ -833,7 +833,7 @@ export class PackUI {
       }
     } else if (ref.type === 'term') {
       const t = TERMS[ref.id], cur = termOf(g, rod), item = this.itemOn(rod);
-      kicker.textContent = $t`${rigRod(rod) ? 'Rig' : 'Leader'} · on the ${rod.short.toLowerCase()}`;
+      kicker.textContent = $t`${rigRod(rod) ? $t('Rig') : $t('Leader')} · on the ${rod.short.toLowerCase()}`;
       desc = t.desc;
       if (t.weight) add($t('Adds to the cast'), `${t.weight} g`);
       if (t.hook) add($t('Hook'), `size ${t.hook}`);
@@ -871,8 +871,8 @@ export class PackUI {
           const block = checkSetup(rod, it, term).find((p) => p.level === 'block');
           if (block) check('no', block.text);
           else if (RIG_KINDS.has(rod.kind) && term.weight) check(fit.level, $t`With the ${term.short.toLowerCase()} (${term.weight} g), the rig weighs ${w} g: ${fit.words}.`);
-          else if (w >= w0 && w <= w1) check('ok', $t`This ${w} g ${it.type === 'jig' ? 'jig' : 'lure'} fits your rod’s ${w0}–${w1} g casting range.`);
-          else check(fit.level, $t`This ${w} g ${it.type === 'jig' ? 'jig' : it.type} is ${fit.words}.`);
+          else if (w >= w0 && w <= w1) check('ok', $t`This ${w} g ${it.type === 'jig' ? $t('jig') : $t('lure')} fits your rod’s ${w0}–${w1} g casting range.`);
+          else check(fit.level, $t`This ${w} g ${it.type === 'jig' ? $t('jig') : it.type} is ${fit.words}.`);
           check('info', $t`Casts ${castRange(rod, it, term).join('–')} m on the ${rod.short.toLowerCase()}.`);
         }
         this.lineAdvice(it, rod, check);
@@ -897,8 +897,8 @@ export class PackUI {
       const on = this.itemOn(rod);
       if (on && on.id !== it.id && fits(rod, it) && rod.kind !== 'fly') {
         const term = termOf(g, rod);
-        compare = [['', on.short, it.short], ['Weight', `${castWeight(rod, on, term)} g`, `${castWeight(rod, it, term)} g`], ['Casts', `${castRange(rod, on, term).join('–')} m`, `${castRange(rod, it, term).join('–')} m`]];
-        if (on.type === 'lure' && it.type === 'lure') compare.push(['Runs', on.dive ? `~${on.dive} m deep` : (ACTION_WORDS[on.action] || '').split(',')[0], it.dive ? `~${it.dive} m deep` : (ACTION_WORDS[it.action] || '').split(',')[0]]);
+        compare = [['', on.short, it.short], [$t('Weight'), `${castWeight(rod, on, term)} g`, `${castWeight(rod, it, term)} g`], [$t('Casts'), `${castRange(rod, on, term).join('–')} m`, `${castRange(rod, it, term).join('–')} m`]];
+        if (on.type === 'lure' && it.type === 'lure') compare.push([$t('Runs'), on.dive ? `~${on.dive} m deep` : (ACTION_WORDS[on.action] || '').split(',')[0], it.dive ? `~${it.dive} m deep` : (ACTION_WORDS[it.action] || '').split(',')[0]]);
       }
     } else if (ref.type === 'setup') {
       const s = this.setupOf(ref);
@@ -954,7 +954,7 @@ export class PackUI {
     const takers = FISH.filter((f) => (f.food?.[it.id] ?? 0) >= 0.8);
     check('info', $t`On ${line.name} (${line.kg} kg).`);
     if (takers.some((f) => f.life?.teeth) && !term.trace) {
-      const who = takers.some((f) => f.life?.teeth && this.state.fish[f.id]) ? 'Pike' : $t('Toothy fish');
+      const who = takers.some((f) => f.life?.teeth && this.state.fish[f.id]) ? $t('Pike') : $t('Toothy fish');
       check('warn', rod.terms.includes('wire') ? $t`${who} take it and bite through line: rig the wire trace (Lines & leaders).` : $t`${who} take it, and this rod has no wire trace.`);
     }
     const shy = takers.filter((f) => f.life?.lineShy && line.thick > f.life.lineShy && this.state.fish[f.id]);
@@ -997,7 +997,7 @@ export class PackUI {
       else primary($t`Spool it on the ${rod.short.toLowerCase()}`, () => this.setLine(rod.id, ref.id));
     } else if (ref.type === 'term') {
       const rod = RODS[ref.rod];
-      if (termOf(g, rod).id === ref.id) done(rigRod(rod) ? 'Rigged' : $t('Tied on'));
+      if (termOf(g, rod).id === ref.id) done(rigRod(rod) ? $t('Rigged') : $t('Tied on'));
       else primary(`${rigRod(rod) ? $t('Rig it on') : $t('Tie it on')} the ${rod.short.toLowerCase()}`, () => this.setTerm(rod.id, ref.id));
     } else if (ref.type === 'item') {
       const it = TACKLE[ref.id], carried = g.pack.items.includes(ref.id);
@@ -1033,7 +1033,7 @@ export class PackUI {
       if (!this.atBox || this.atCar) {
         done($t('Pack this setup'));
         why(this.atCar ? $t('Whole setups are packed at home or a tackle box: at the boot, swap the pieces one by one.') : $t('Whole setups are packed at a tackle box: at home, at a camp, or in a motorboat’s locker.'));
-      } else if (this.packed(s)) done('Packed');
+      } else if (this.packed(s)) done($t('Packed'));
       else primary($t('Pack this setup'), () => this.packSetup(s));
       if (ref.id[0] === 's') second($t('Forget it'), () => this.forgetSetup(Number(ref.id.slice(1))));
     }
@@ -1092,8 +1092,8 @@ export class PackUI {
         { part: 'rod', label: $t('Rod'), ref: { type: 'rod', id: rod.id }, name: rod.name, spec: rod.kind === 'fly' ? rod.length : `${rod.weight[0]}–${rod.weight[1]} g · ${rod.cast[0]}–${rod.cast[1]} m`, go: () => this.goto('rods', { type: 'rod', id: rod.id }, 'full') },
         { part: 'reel', label: $t('Reel'), ref: { type: 'reel', id: 'reel', rod: rod.id }, name: cap(reel.name), spec: $t('comes with the rod'), go: () => this.goto('rods', { type: 'rod', id: rod.id }, 'close') },
         { part: 'line', label: $t('Line'), ref: { type: 'line', id: line.id, rod: rod.id }, name: cap(line.name), spec: `${line.kg} kg`, go: () => this.goto('lines', { type: 'line', id: line.id, rod: rod.id }) },
-        { part: 'term', label: rigRod(rod) ? 'Rig' : 'Leader', ref: { type: 'term', id: term.id, rod: rod.id }, name: term.short, spec: this.spec({ type: 'term', id: term.id }), go: () => this.goto(rigRod(rod) ? 'rigs' : 'lines', { type: 'term', id: term.id, rod: rod.id }) },
-        { part: 'item', label: { bait: 'Bait', lure: 'Lure', fly: 'Fly', jig: 'Jig' }[rod.accepts[0]], ref: item ? { type: 'item', id: item.id } : null, name: item ? item.short : $t('Nothing tied on'), spec: item ? this.spec({ type: 'item', id: item.id }) : `pack ${TYPE_NAMES[rod.accepts[0]].toLowerCase()}`, go: () => this.goto(CAT_OF_TYPE[item ? item.type : rod.accepts[0]], item ? { type: 'item', id: item.id } : null) },
+        { part: 'term', label: rigRod(rod) ? $t('Rig') : $t('Leader'), ref: { type: 'term', id: term.id, rod: rod.id }, name: term.short, spec: this.spec({ type: 'term', id: term.id }), go: () => this.goto(rigRod(rod) ? 'rigs' : 'lines', { type: 'term', id: term.id, rod: rod.id }) },
+        { part: 'item', label: { bait: $t('Bait'), lure: $t('Lure'), fly: $t('Fly'), jig: $t('Jig') }[rod.accepts[0]], ref: item ? { type: 'item', id: item.id } : null, name: item ? item.short : $t('Nothing tied on'), spec: item ? this.spec({ type: 'item', id: item.id }) : `pack ${TYPE_NAMES[rod.accepts[0]].toLowerCase()}`, go: () => this.goto(CAT_OF_TYPE[item ? item.type : rod.accepts[0]], item ? { type: 'item', id: item.id } : null) },
       ];
       const chain = el('ol', `gx-chain${hand ? ' hand' : ''}${expanded ? '' : ' compact'}`);
       chain.setAttribute('aria-label', $t`${rod.name}, as rigged`);
@@ -1107,7 +1107,7 @@ export class PackUI {
         if (viewing) b.classList.add('viewing');
         if (changing) b.classList.add('changing');
         if (this.flashPart === p.part && hand) b.classList.add('flash');
-        b.setAttribute('aria-label', $t`${p.label}: ${p.name}. ${p.spec}.${changing ? ` Previewing ${this.nameOf(prop.ref)}.` : ''} Show it.`);
+        b.setAttribute('aria-label', $t`${p.label}: ${p.name}. ${p.spec}.${changing ? $t` Previewing ${this.nameOf(prop.ref)}.` : ''} Show it.`);
         const pic = el('span', 'gx-lpic');
         if (p.ref) pic.append(this.img(p.ref, 160, 120, p.part === 'rod' ? { closeUp: true } : {}));
         const txt = el('span', 'gx-ltxt');
@@ -1153,13 +1153,13 @@ export class PackUI {
 
   renderHead() {
     const g = this.gear;
-    $('pack-title').textContent = this.atBox ? `Backpack & ${this.boxName}` : 'Backpack';
+    $('pack-title').textContent = this.atBox ? $t`Backpack & ${this.boxName}` : $t('Backpack');
     $('pack-where').textContent = this.atBox
       ? $t`By the ${this.boxName}: swap rods and tackle, pack a setup, or save your own.`
       : $t('What you carry. Line, rig and what’s tied on change anywhere; rods and tackle swap at a camp or a boat’s locker.');
     const keep = this.state.keep || [];
     const load = Math.round(creelLoad(this.state) * 10) / 10;
-    const caps = [['Rods', g.pack.rods.length, PACK.rods], ['Tackle', g.pack.items.length, PACK.items], ['Creel', load, creelKg(this.state), ' kg']];
+    const caps = [[$t('Rods'), g.pack.rods.length, PACK.rods], [$t('Tackle'), g.pack.items.length, PACK.items], [$t('Creel'), load, creelKg(this.state), ' kg']];
     $('pack-caps').replaceChildren(...caps.map(([k, n, m, unit = '']) => {
       const li = el('li', n >= m ? 'full' : '');
       li.append(el('span', '', k), el('b', '', `${n}/${m}${unit}`));
@@ -1183,7 +1183,7 @@ export class PackUI {
     this.wear?.($('pack-wear'));
     const keep = this.state.keep || [];
     $('pack-fish').replaceChildren(...(keep.length
-      ? keep.map((f) => el('span', 'gx-fish', $t`${fishById[f.id]?.name || f.id} · ${f.size} cm${f.cooked ? ' · cooked' : ''}`))
+      ? keep.map((f) => el('span', 'gx-fish', $t`${fishById[f.id]?.name || f.id} · ${f.size} cm${f.cooked ? $t(' · cooked') : ''}`))
       : [el('span', 'gx-note', $t('Empty. Keep a fish from the catch card to cook it at camp.'))]));
     $('pack-fish-count').textContent = $t`${keep.length} fish · ${creelWords(this.state)}`;
   }

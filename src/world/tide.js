@@ -54,8 +54,8 @@ export function tideWords(abs) {
   // (At the turn, the next turn of the other kind.)
   const next = turns(abs, 2).find((x) => x.kind !== T.phase);
   const when = formatClock(next.at % 24);
-  const now = T.phase === 'high' ? $t('high water now') : T.phase === 'low' ? $t('low water now') : T.phase === 'flood' ? 'flooding' : 'ebbing';
-  return `${now} · ${next.kind} water ${when}`;
+  const now = T.phase === 'high' ? $t('high water now') : T.phase === 'low' ? $t('low water now') : T.phase === 'flood' ? $t('flooding') : $t('ebbing');
+  return next.kind === 'high' ? $t`${now} · high water ${when}` : $t`${now} · low water ${when}`;
 }
 // Springs or neaps, in words.
 export const sizeWords = (abs) => {

@@ -187,7 +187,7 @@ export function checklist(E, ctx = {}) {
   out.push({ id: 'neutral', text: $t('In neutral'), ok: !ctx.lever });
   if (P.starter === 'key') out.push({ id: 'key', text: $t('Key on'), ok: E.key });
   if (P.diesel) out.push({ id: 'glow', text: $t('Glow plugs warmed'), ok: E.glow >= 1 || E.warm > 0.5 });
-  out.push({ id: 'start', text: P.starter === 'pull' ? $t('Pull the cord') : P.engines > 1 ? $t('Start both engines') : 'Start', ok: allRunning(E) });
+  out.push({ id: 'start', text: P.starter === 'pull' ? $t('Pull the cord') : P.engines > 1 ? $t('Start both engines') : $t('Start'), ok: allRunning(E) });
   return out;
 }
 

@@ -1172,7 +1172,7 @@ export function sayTo(p, { hour = 12, storm = 0, wanted = [], caught = 0, landed
       const mine = landed.filter((l) => l.who === 'Hettie');
       const last = mine[mine.length - 1];
       const tgt = fishById[b.target] ? lower(fishById[b.target].name) : null;
-      if (last) return $t`“Had ${mine.length > 1 ? $t`${mine.length} so far` : 'one'}: the best a ${last.size} cm ${lower(last.name)}. ${b.spot === 'strand' ? $t('Fish the white water, where the waves break.') : b.spot === 'quayEnd' ? $t('Straight out off the end, let it sink a bit.') : $t('Patience. Let the bait sit.')}”`;
+      if (last) return $t`“Had ${mine.length > 1 ? $t`${mine.length} so far` : $t('one')}: the best a ${last.size} cm ${lower(last.name)}. ${b.spot === 'strand' ? $t('Fish the white water, where the waves break.') : b.spot === 'quayEnd' ? $t('Straight out off the end, let it sink a bit.') : $t('Patience. Let the bait sit.')}”`;
       return tgt ? $t`“I’m after ${tgt}. Nothing yet, but they’ll come.”` : $t('“Lovely day for it.”');
     }
     case 'kit':

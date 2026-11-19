@@ -11,8 +11,8 @@ import { $t } from './i18n.js';
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 
 export const PAGES = ['sonar', 'down', 'split'];
-export const PAGE_NAMES = { sonar: '2D sonar', down: $t('Down view'), split: 'Split' };
-export const ZOOMS = ['Off', '2×', $t('Bottom lock')];
+export const PAGE_NAMES = { sonar: '2D sonar', down: $t('Down view'), split: $t('Split') };
+export const ZOOMS = [$t('Off'), '2×', $t('Bottom lock')];
 
 // Palettes: the screen's colour ramp from no return to the strongest (each [r, g, b] stops),
 // the water's background, and the down view's tint.
