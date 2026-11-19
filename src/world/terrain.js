@@ -5,7 +5,7 @@ import { COLD_BOX, coldwaterHeight, inColdwater, waterLevel, neckSDF, coldInfo, 
 export { waterLevel } from './coldwater.js';
 import { SOUTH_Z, brasaHeight, brasaSDF, brasaZone, SOUTH_ZONES, BRASA_PLACES, PUERTO, ISLE, inSouth, QUAY_S, MOLE, DIQUE, SOUTH_RECT, PONTOON_S, FINGERS_S, PONTOON_STEPS, FUEL_S, inEstrecho } from './brasa.js';
 export { SOUTH_Z, inSouth } from './brasa.js';
-import { northLand, northShape, northGround, northZone, NORTH_ZONES, NORTH_RECT, NORTH_PLACES, inSound, inChurn, lochAt } from './north.js';
+import { northLand, northShape, northGround, northZone, NORTH_ZONES, NORTH_RECT, NORTH_PLACES, inSound, inChurn, lochAt, HALVIG_PIER, HALVIG_FUEL } from './north.js';
 
 // The whole archipelago is one signed-distance function: negative on land, positive on water.
 // World axes: +x east, -z north. Water level is y = 0.
@@ -237,6 +237,8 @@ export const FUEL_PUMPS = {
   home: { x: 136.6, z: -68.8, yaw: -Math.PI / 2, name: 'the fuel pump by the garage' },
   haven: { x: 13.6, z: -96.2, yaw: -Math.PI / 2, name: 'the harbour fuel pump' },
   brasa: FUEL_S,
+  // (The north's: Halvig's, at the root of its pier. See north.js.)
+  halvig: HALVIG_FUEL,
 };
 // Where a new game begins: in front of the cottage, the garage on your right, the car on the drive.
 export const HOME_START = { x: 123.5, z: -66, heading: Math.PI };
@@ -1126,6 +1128,8 @@ export const PIERS = [
   QUAY_S, DIQUE, MOLE, PONTOON_S, ...FINGERS_S,
   // Willowhaven's pontoon and its fingers.
   HAVEN_PONTOON, ...HAVEN_FINGERS,
+  // Halvig's stone pier, up the coast (see north.js). (Last, so the others keep their places.)
+  HALVIG_PIER,
 ];
 
 // Where the lake meets the land, walking out from its centre at an angle.

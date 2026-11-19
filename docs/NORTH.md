@@ -177,6 +177,38 @@ Churn, Loch Skarn and Bothy Bay in detail: detailed terrain patches, their colou
 a berth), the light on Raven Head, the broch, the bothy, the herring station, the Seal Cave, the
 Sula (a dive site with its buoy) and the stack's foot (a dive); a challenge on the board.
 
+*N3 done.* What was built:
+
+- **Halvig:** on a shelf of level ground cut above its bay, the shop (Halvig Stores), three crofts
+  (white harled walls, slate roofs, a chimney at each gable, their windows lit after dark) and a
+  red phone box; a stone pier forty metres out into the bay, seven to ten metres alongside its
+  head, walkable and solid to the boats (the last of `PIERS`, so the others keep their places);
+  the fuel pump at its root (`FUEL_PUMPS.halvig`: diesel and petrol at the island price, brought
+  out on the boat from the mainland).
+- **Raven Head:** a white lighthouse and its store on the high ground at Raven Isle's north end,
+  three flashes every fifteen seconds after dark.
+- **Tern Isle:** the broch (a ring of dry stone, broken off at different heights, its doorway to
+  the sea) on its high ground, and a ring of seven standing stones at its west end.
+- **Loch Skarn:** the bothy on a level cut above Bothy Bay's beach; the herring station's roofless
+  walls on the south shore, and its pier's stumps running out into the loch.
+- **The Seal Cave:** a dark mouth at the foot of Raven Isle's west cliffs.
+- **The Sula:** a steel trawler on the bottom off Tern Isle, listing, her wheelhouse and gantry
+  still on her, thirteen metres down under a yellow buoy. **Skarv Stack's foot:** its sea now
+  falls away to thirty-odd metres all round it (it stood in eight).
+- **The dives:** the Sula (10–18 m) and the stack's foot (8–34 m) in the dive log, with fish of
+  their own: a conger, pollack and wrasse in and over the Sula, catsharks on the sand beside her;
+  wrasse and pollack on the stack's walls, a conger and catsharks at its foot, mackerel round it.
+  For them, the home coast's cold-water fish now know the north's waters (`northFish.js`
+  `AT_NORTH`, as Las Brasas' `AT_BRASAS`), and the north's homes come after everything else, their
+  fish made last of all, each with a seed of its own: **every other fish is where it was** (a
+  fingerprint of all 5,031 is unchanged). *Under the Selkie Isles* on the board for the two.
+- **Places:** Halvig, Raven Head, the broch, the standing stones, the Loch Bothy, the herring
+  station, the Seal Cave and the Sula, each found there.
+- Tests: in `tests/north.test.mjs`. Two older tests changed for the new sites, as for the
+  archipelago's: `tests/divesites.test.mjs` counts ten yellow buoys (the Sula's added), and its
+  check that each kind of home comes after the last now wants the north's after everything, with
+  Gannet Deep's head still last of home's.
+
 **N4, life.** The new fish; home's cold-water fish in the north; the north's fish homes; the
 colder water; seals, otters, the minke; the seabird colonies and the eagle.
 

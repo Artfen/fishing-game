@@ -6753,7 +6753,7 @@ function openPump(id) {
   if (can) lines.push(`The jerry can: ${canWords(f)}.`);
   if (!here.length && !can) lines.push(id === 'home' ? 'The car isn’t here, and nor is the jerry can.' : 'None of your boats is alongside, and the car and the jerry can aren’t here.');
   const needs = [...here.filter((w) => fuelRoom(f, w) > 0.05), ...(can && f.can.litres < 9.95 ? ['can'] : [])];
-  const name = id === 'home' ? 'The fuel pump' : id === 'brasa' ? 'The fuel pump on the quay' : 'The harbour fuel pump';
+  const name = id === 'home' ? 'The fuel pump' : id === 'brasa' ? 'The fuel pump on the quay' : id === 'halvig' ? 'The fuel pump on Halvig pier' : 'The harbour fuel pump';
   if (!needs.length) {
     ask(name, `${lines.join(' ')}${here.length || can ? ' Everything here is full.' : ''}`, [{ text: 'OK' }]);
     return;
@@ -6761,7 +6761,8 @@ function openPump(id) {
   // (The pump at home is the farm's: theirs to give. The harbour's and the quay's are paid for.)
   const free = id === 'home';
   // (G2) The island's fuel is dearer: shipped in.
-  const at = id === 'brasa' ? 'brasa' : 'haven', each = fuelPrice(state.economy, at);
+  // (Halvig's too: an island's, shipped in.)
+  const at = id === 'brasa' || id === 'halvig' ? 'brasa' : 'haven', each = fuelPrice(state.economy, at);
   const room = (w) => (w === 'can' ? 10 - f.can.litres : fuelRoom(f, w));
   const what = (w) => (w === 'can' ? 'the jerry can' : fuelName(w));
   const opts = needs.map((w) => {
@@ -6776,7 +6777,7 @@ function openPump(id) {
   if (!free && dry.length && goodwillDue(state, state.economy, Math.min(...dry.map((w) => fuelLevel(f, w))))) {
     opts.push({ text: `Ask Wenna to see you home (${GOODWILL_L} L, on the harbour)`, run: () => goodwillFuel(dry[0]) });
   }
-  const price = free ? '' : ` Fuel is ${money(each)} a litre${at === 'brasa' ? ' here, shipped in from the mainland' : ''}; you’ve ${money(state.money)} in your purse.`;
+  const price = free ? '' : ` Fuel is ${money(each)} a litre${id === 'halvig' ? ' here, brought out on the boat from the mainland' : at === 'brasa' ? ' here, shipped in from the mainland' : ''}; you’ve ${money(state.money)} in your purse.`;
   ask(name, `${lines.join(' ')}${price}`, [{ text: 'Not now', cls: 'quiet' }, ...opts]);
 }
 

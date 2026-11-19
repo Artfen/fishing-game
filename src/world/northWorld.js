@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { clamp, smoothstep, fbm, mergeParts, mat, jitterGeo } from '../util.js';
 import { northAt, heightAt } from './terrain.js';
 import { withCaustics } from './caustics.js';
-import { TERN, RAVEN, inSound, inBothyBay, lochAt } from './north.js';
+import { TERN, RAVEN, inSound, inBothyBay, lochAt, HALVIG_PIER, HALVIG_FUEL, HALVIG_SHOP, CROFTS, PHONE_BOX, RAVEN_LIGHT, BROCH, STONES, NORTH_BOTHY, HERRING, SEAL_CAVE, SULA } from './north.js';
+import { fuelPumpParts } from '../props.js';
 
 // The north's look (docs/NORTH.md): the colours of its ground and seabed, and (N2, N3) what
 // stands on it. Cold and northern: grass and heather on the fells, grey crags and scree, cliffs
@@ -178,10 +179,213 @@ export function* northSteps(scene, rnd) {
     if (rowans.length) group.add(instanced(geos.rowan, rowans, plantMat, rnd, { tint: 0.12 }));
     if (marram.length) group.add(instanced(geos.marram, marram, plantMat, rnd, { tint: 0.1, shadows: false }));
   }
+  const P = buildPlaces(group, obstacles, rnd);
   scene.add(group);
   return {
     group, obstacles, spots, boxes,
     setQuality() {},
-    update() {},
+    update(dt, t, env) {
+      const night = clamp((env.lantern ?? env.night ?? 0) * 1.2, 0, 1);
+      // Raven Head: three flashes every fifteen seconds after dark (a glimmer of the lamp by day).
+      const ph = t % 15, on = ph < 0.35 || (ph > 1.2 && ph < 1.55) || (ph > 2.4 && ph < 2.75);
+      P.lamp.material.opacity = on ? 0.25 + 0.75 * night : 0.12 + 0.1 * night;
+      P.windows.material.emissiveIntensity = 0.9 * night;
+    },
   };
+}
+
+/* ---------------- Halvig, the light, and the things to find (N3) ---------------- */
+
+// A matrix placing a part in a frame at (x, y, z) turned by yaw (local +z along the yaw).
+function placed(x, y, z, yaw, lx, ly, lz, rx = 0, ry = 0, rz = 0, sx = 1, sy = sx, sz = sx) {
+  const c = Math.cos(yaw), s = Math.sin(yaw);
+  return mat(x + lx * c + lz * s, y + ly, z - lx * s + lz * c, rx, yaw + ry, rz, sx, sy, sz);
+}
+// A gable roof (a triangular prism) over a w × d box, eaves at 0, ridge along local x.
+function gable(w, d, rise) {
+  const hw = w / 2 + 0.3, hd = d / 2 + 0.35;
+  const g = new THREE.BufferGeometry();
+  const Pt = [[-hw, 0, -hd], [hw, 0, -hd], [hw, rise, 0], [-hw, rise, 0], [-hw, rise, 0], [hw, rise, 0], [hw, 0, hd], [-hw, 0, hd]];
+  const v = [];
+  const quad = (a, b, c, d) => v.push(...Pt[a], ...Pt[b], ...Pt[c], ...Pt[a], ...Pt[c], ...Pt[d]);
+  quad(0, 3, 2, 1);
+  quad(4, 7, 6, 5);
+  g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+  g.computeVertexNormals();
+  return g;
+}
+function gableEnds(w, d, rise) {
+  const hw = w / 2, hd = d / 2;
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute([-hw, 0, -hd, -hw, 0, hd, -hw, rise, 0, hw, 0, hd, hw, 0, -hd, hw, rise, 0], 3));
+  g.computeVertexNormals();
+  return g;
+}
+const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
+
+// A croft house (and the shop, a croft with a bigger window and a board over its door): white
+// harled walls, a slate roof, a chimney at each gable, a door and windows on its front.
+function cottage(walls, roofs, glass, B, ground, rnd, { shop = false, wall = '#ece8de' } = {}) {
+  const { x, z, yaw, w, d } = B, y = ground(x, z), H = 3.1, rise = 2.3;
+  walls.push({ geo: box(w, H + 0.3, d), matrix: placed(x, y - 0.3, z, yaw, 0, H / 2, 0), color: wall });
+  walls.push({ geo: gableEnds(w, d, rise), matrix: placed(x, y + H, z, yaw, 0, 0, 0), color: wall });
+  roofs.push({ geo: gable(w, d, rise), matrix: placed(x, y + H, z, yaw, 0, 0, 0), color: '#4a4f56' });
+  for (const sx of [-1, 1]) roofs.push({ geo: box(0.8, 1.4, 0.7), matrix: placed(x, y + H + rise - 0.3, z, yaw, sx * (w / 2 - 0.35), 0.6, 0), color: '#d9d4c8' });
+  // (The front faces +z in its own frame.)
+  walls.push({ geo: box(0.95, 2, 0.12), matrix: placed(x, y, z, yaw, shop ? -1.2 : 0, 1, d / 2 + 0.03), color: shop ? '#2f5d4c' : pickOf(['#7a2e2a', '#2f4f6a', '#3d5a3a'], rnd) });
+  for (const lx of shop ? [1.6, -3.1] : [-w / 2 + 1.3, w / 2 - 1.3]) glass.push({ geo: box(shop && lx > 0 ? 2.2 : 0.95, 1.05, 0.1), matrix: placed(x, y, z, yaw, lx, 1.7, d / 2 + 0.03), color: '#8fa3ad' });
+  if (shop) walls.push({ geo: box(3.6, 0.55, 0.1), matrix: placed(x, y, z, yaw, -0.2, 2.75, d / 2 + 0.06), color: '#2f5d4c' });
+}
+const pickOf = (list, rnd) => list[Math.floor(rnd() * list.length)];
+
+export function buildPlaces(group, obstacles, rnd) {
+  const ground = (x, z) => heightAt(x, z);
+  const stone = [], white = [], roofs = [], glass = [], iron = [], wood = [], dark = [];
+  // Halvig's pier: dressed stone from the bottom up, its deck a little lighter, bollards along it.
+  {
+    const Q = HALVIG_PIER, cx = (Q.x0 + Q.x1) / 2, cz = (Q.z0 + Q.z1) / 2, L = Q.x1 - Q.x0, W = Q.z1 - Q.z0;
+    stone.push({ geo: box(L, Q.deck + 13, W), matrix: mat(cx, Q.deck - (Q.deck + 13) / 2, cz), color: '#7d7a72' });
+    stone.push({ geo: box(L + 0.1, 0.25, W + 0.1), matrix: mat(cx, Q.deck - 0.1, cz), color: '#99958b' });
+    for (let u = 4; u < L; u += 8) {
+      for (const side of [Q.z0 + 0.5, Q.z1 - 0.5]) {
+        dark.push({ geo: new THREE.CylinderGeometry(0.2, 0.24, 0.6, 8), matrix: mat(Q.x0 + u, Q.deck + 0.3, side), color: '#25272a' });
+        obstacles.push({ x: Q.x0 + u, z: side, r: 0.25, top: Q.deck + 0.6 });
+      }
+    }
+    // An iron ladder down its head.
+    for (const dz of [-0.35, 0.35]) iron.push({ geo: box(0.06, 4, 0.06), matrix: mat(Q.x1 + 0.05, Q.deck - 2, cz + dz), color: '#3a3d42' });
+  }
+  // The pump at the pier's root, and the shop, the crofts and the phone box on the shelf.
+  const F = HALVIG_FUEL;
+  dark.push(...fuelPumpParts(F.x, ground(F.x, F.z), F.z, F.yaw));
+  obstacles.push({ x: F.x, z: F.z, r: 0.42, kind: 'harbour', name: 'the fuel pump' });
+  cottage(white, roofs, glass, HALVIG_SHOP, ground, rnd, { shop: true });
+  for (const C of CROFTS) cottage(white, roofs, glass, C, ground, rnd, { wall: pickOf(['#ece8de', '#e4dfd2', '#efece4'], rnd) });
+  for (const B of [HALVIG_SHOP, ...CROFTS]) {
+    const c = Math.cos(B.yaw), sn = Math.sin(B.yaw);
+    for (const u of [-B.w / 4, B.w / 4]) obstacles.push({ x: B.x + u * c, z: B.z - u * sn, r: Math.max(B.w / 4, B.d / 2) + 0.2, kind: 'building', name: B === HALVIG_SHOP ? 'Halvig Stores' : 'a croft' });
+  }
+  {
+    const B = PHONE_BOX, y = ground(B.x, B.z);
+    white.push({ geo: box(0.95, 2.45, 0.95), matrix: placed(B.x, y, B.z, B.yaw, 0, 1.22, 0), color: '#b8231f' });
+    white.push({ geo: box(1.05, 0.25, 1.05), matrix: placed(B.x, y, B.z, B.yaw, 0, 2.55, 0), color: '#a51f1b' });
+    glass.push({ geo: box(0.7, 1.4, 0.98), matrix: placed(B.x, y, B.z, B.yaw, 0, 1.35, 0), color: '#c9d6d8' });
+    obstacles.push({ x: B.x, z: B.z, r: 0.6, kind: 'building', name: 'the phone box' });
+  }
+  // The light on Raven Head: a white tower, its gallery and lantern, and the lamp (flashing: see
+  // update).
+  let lamp;
+  {
+    const { x, z } = RAVEN_LIGHT, y = ground(x, z);
+    white.push({ geo: new THREE.CylinderGeometry(1.7, 2.2, 11, 16), matrix: mat(x, y + 5.5, z), color: '#f2efe8' });
+    dark.push({ geo: new THREE.CylinderGeometry(2.4, 2.4, 0.3, 16), matrix: mat(x, y + 11.1, z), color: '#2a2c2f' });
+    glass.push({ geo: new THREE.CylinderGeometry(1.3, 1.3, 1.8, 12), matrix: mat(x, y + 12.2, z), color: '#e8e2c4' });
+    dark.push({ geo: new THREE.ConeGeometry(1.5, 1.2, 12), matrix: mat(x, y + 13.7, z), color: '#2a2c2f' });
+    white.push({ geo: box(5, 3, 4), matrix: mat(x - 5.5, y + 1.5, z + 2), color: '#ece8de' });
+    roofs.push({ geo: gable(5, 4, 1.4), matrix: mat(x - 5.5, y + 3, z + 2), color: '#4a4f56' });
+    lamp = new THREE.Mesh(new THREE.SphereGeometry(0.75, 12, 10), new THREE.MeshBasicMaterial({ color: '#fff4d6', transparent: true, opacity: 0.2 }));
+    lamp.position.set(x, y + 12.2, z);
+    group.add(lamp);
+    obstacles.push({ x, z, r: 2.4, kind: 'building', name: 'the lighthouse' }, { x: x - 5.5, z: z + 2, r: 2.6, kind: 'building', name: 'the keeper’s store' });
+  }
+  // The broch: a ring of dry stone, its double wall broken off at different heights, a doorway
+  // on its seaward side.
+  {
+    const { x, z, r } = BROCH, y = ground(x, z), N = 26;
+    for (let i = 0; i < N; i++) {
+      const a = (i / N) * Math.PI * 2, door = Math.abs(Math.atan2(Math.sin(a - 0.4), Math.cos(a - 0.4))) < 0.15;
+      const h = door ? 0 : 3.2 + 3.4 * (0.5 + 0.5 * fbm(i * 0.4, 7.7, 2)) - (i % 7 === 3 ? 1.6 : 0);
+      if (h > 0) stone.push({ geo: box(2.25, h, 3), matrix: mat(x + Math.cos(a) * (r - 1.5), y + h / 2 - 0.3, z + Math.sin(a) * (r - 1.5), 0, -a + Math.PI / 2, 0), color: pickOf(['#8a8376', '#7f7a6e', '#948d80'], rnd), jitter: 0.06 });
+      if (h > 0) obstacles.push({ x: x + Math.cos(a) * (r - 1.5), z: z + Math.sin(a) * (r - 1.5), r: 1.4, kind: 'building', name: 'the broch' });
+    }
+    // Tumbled stone round its foot.
+    for (let i = 0; i < 26; i++) {
+      const a = rnd() * 6.28, d = r + 0.5 + rnd() * 3;
+      stone.push({ geo: box(0.6 + rnd() * 0.6, 0.4, 0.5 + rnd() * 0.5), matrix: mat(x + Math.cos(a) * d, ground(x + Math.cos(a) * d, z + Math.sin(a) * d) + 0.1, z + Math.sin(a) * d, rnd() * 0.4, rnd() * 6, 0), color: '#857e72' });
+    }
+  }
+  // The standing stones.
+  {
+    const { x, z, r, n } = STONES;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + rnd() * 0.2, sx = x + Math.cos(a) * r, sz = z + Math.sin(a) * r, h = 2.6 + rnd() * 1.6;
+      stone.push({ geo: box(1.1 + rnd() * 0.4, h, 0.45 + rnd() * 0.2), matrix: mat(sx, ground(sx, sz) + h / 2 - 0.3, sz, (rnd() - 0.5) * 0.12, -a, (rnd() - 0.5) * 0.12), color: pickOf(['#8e8c86', '#7d7b75', '#9a978f'], rnd), jitter: 0.08 });
+      obstacles.push({ x: sx, z: sz, r: 0.7, kind: 'stone', name: 'a standing stone' });
+    }
+  }
+  // The bothy above Bothy Bay: rough stone, a slate roof, a door and a little window.
+  {
+    const { x, z, yaw } = NORTH_BOTHY, y = ground(x, z), w = 6, d = 4.2;
+    stone.push({ geo: box(w, 2.6, d), matrix: placed(x, y - 0.2, z, yaw, 0, 1.1, 0), color: '#86827a', jitter: 0.04 });
+    stone.push({ geo: gableEnds(w, d, 1.8), matrix: placed(x, y + 2.4, z, yaw, 0, 0, 0), color: '#86827a' });
+    roofs.push({ geo: gable(w, d, 1.8), matrix: placed(x, y + 2.4, z, yaw, 0, 0, 0), color: '#454a50' });
+    roofs.push({ geo: box(0.7, 1.2, 0.6), matrix: placed(x, y + 3.6, z, yaw, w / 2 - 0.4, 0.3, 0), color: '#86827a' });
+    // (Its front faces the bay: +z is the shore's way.)
+    dark.push({ geo: box(0.9, 1.9, 0.1), matrix: placed(x, y, z, yaw, -1, 0.95, d / 2 + 0.03), color: '#2c2a27' });
+    glass.push({ geo: box(0.7, 0.6, 0.1), matrix: placed(x, y, z, yaw, 1.4, 1.5, d / 2 + 0.03), color: '#8fa3ad' });
+    for (const u of [-1.6, 1.6]) obstacles.push({ x: x + u * Math.cos(yaw), z: z - u * Math.sin(yaw), r: 2.2, kind: 'building', name: 'the bothy' });
+  }
+  // The herring station: roofless walls of its curing sheds, and its pier's stumps running out
+  // into the loch.
+  {
+    const { x, z, yaw } = HERRING, c = Math.cos(yaw), sn = Math.sin(yaw);
+    const at = (u, v) => ({ x: x + u * c + v * sn, z: z - u * sn + v * c });
+    for (const [u0, v0, w, d] of [[-9, -6, 12, 7], [5, -5, 8, 6]]) {
+      for (const [a, b, len, along] of [[u0, v0, w, 'u'], [u0, v0 + d, w, 'u'], [u0, v0, d, 'v'], [u0 + w, v0, d, 'v']]) {
+        for (let k = 0; k < len; k += 2) {
+          if (rnd() < 0.18) continue;
+          const p = along === 'u' ? at(a + k + 1, b) : at(a, b + k + 1), h = 0.8 + rnd() * 2.6;
+          stone.push({ geo: box(along === 'u' ? 2 : 0.6, h, along === 'u' ? 0.6 : 2), matrix: mat(p.x, ground(p.x, p.z) + h / 2 - 0.2, p.z, 0, yaw, 0), color: '#857f74', jitter: 0.05 });
+          obstacles.push({ x: p.x, z: p.z, r: 0.9, kind: 'building', name: 'the herring station' });
+        }
+      }
+    }
+    // (The loch lies north of it: its pier ran out to -z.)
+    for (let k = 0; k < 9; k++) {
+      for (const v of [-1.2, 1.2]) {
+        const p = { x: x + v * c + 4, z: z - 12 - k * 3 }, bed = ground(p.x, p.z), top = 0.4 + rnd() * 1.1;
+        wood.push({ geo: new THREE.CylinderGeometry(0.16, 0.2, top - bed, 6), matrix: mat(p.x, (top + bed) / 2, p.z, (rnd() - 0.5) * 0.15, 0, (rnd() - 0.5) * 0.15), color: '#3d342b' });
+      }
+    }
+  }
+  // The Seal Cave: its dark mouth at the foot of the cliffs, an overhang of rock above it.
+  {
+    const { x, z } = SEAL_CAVE, mouth = new THREE.Mesh(new THREE.CircleGeometry(4.2, 16, 0, Math.PI), new THREE.MeshBasicMaterial({ color: '#0d0f10' }));
+    mouth.position.set(x + 2.5, -0.6, z);
+    mouth.rotation.y = -Math.PI / 2;
+    mouth.scale.set(1.2, 1.15, 1);
+    group.add(mouth);
+    stone.push({ geo: jitterGeo(new THREE.DodecahedronGeometry(4, 0), 0.6, rnd), matrix: mat(x + 2, 5.6, z, 0, rnd() * 6, 0, 1.6, 0.7, 1.4), color: '#5f5e5a' });
+  }
+  // The Sula: a steel trawler on the bottom in the kelp, listing, her wheelhouse still on her.
+  {
+    const { x, z, yaw, len } = SULA, bed = ground(x, z), list = 0.26;
+    const on = (u, h, v, w, H, D, color, rx = 0, rz = 0) => iron.push({ geo: box(w, H, D), matrix: placed(x, bed, z, yaw, u, h, v, rx, 0, list + rz), color });
+    on(0, 1.6, 0, 6.2, 3.2, len, '#5b3426');
+    on(0, 3.25, 0, 6.4, 0.2, len - 1, '#4a4038');
+    on(0, 1.4, len / 2 + 2.6, 3.6, 2.8, 5.2, '#5b3426', 0.35);
+    on(0.6, 5, 4, 3.4, 3.2, 4, '#7a6b5e');
+    on(0.6, 6.7, 4, 3.6, 0.2, 4.4, '#4a4038');
+    on(0, 5.4, -len / 2 + 2.2, 0.3, 4.5, 0.3, '#3a3a38');
+    on(0, 7.4, -len / 2 + 2.2, 5, 0.3, 0.3, '#3a3a38');
+    on(-1.5, 4, -6, 2.2, 1.6, 2.2, '#3f4b4a');
+    for (let k = -3; k <= 3; k++) on(3.2, 1.5, k * 3.2, 0.12, 2.6, 0.5, '#6e4a36');
+  }
+  const lamb = (o = {}) => new THREE.MeshLambertMaterial({ vertexColors: true, ...o });
+  const add = (parts, material, shadows = true) => {
+    if (!parts.length) return null;
+    const m = new THREE.Mesh(mergeParts(parts, rnd), material);
+    m.castShadow = shadows;
+    m.receiveShadow = true;
+    group.add(m);
+    return m;
+  };
+  add(stone, withCaustics(lamb()));
+  add(white, lamb());
+  add(roofs, lamb());
+  add(dark, lamb());
+  add(wood, withCaustics(lamb()));
+  add(iron, withCaustics(lamb()), false);
+  const windows = add(glass, lamb({ emissive: new THREE.Color('#ffcf7a'), emissiveIntensity: 0 }), false);
+  return { lamp, windows };
 }

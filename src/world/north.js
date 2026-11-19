@@ -74,6 +74,34 @@ export const BOTHY_BAY = { x: -1500, z: -5735, r: 85 };
 // Halvig's bay on Raven Isle's east shore (the hamlet and its pier: N3).
 export const HALVIG = { x: -2795, z: -6170, r: 70 };
 
+/* ---------------- what's on them (N3) ---------------- */
+
+// Halvig: a hamlet on Raven Isle's east shore, on a shelf of level ground above its bay, a stone
+// pier running out into the bay (eight to ten metres alongside its head), the fuel pump at its
+// root, the shop, three crofts and a red phone box. (yaw: the way a front faces; 0 = +z.)
+export const HALVIG_SHELF = { x0: -2904, x1: -2866, z0: -6240, z1: -6100, level: 2.6 };
+export const HALVIG_PIER = { x0: -2870, x1: -2830, z0: -6176, z1: -6167, deck: 2.4, land: { x: -2876, z: -6171.5 } };
+export const HALVIG_FUEL = { x: -2867, z: -6168.2, yaw: Math.PI, name: 'the fuel pump on Halvig pier', deck: 2.4 };
+export const HALVIG_SHOP = { x: -2890, z: -6150, yaw: Math.PI / 2, w: 9, d: 6 };
+export const CROFTS = [
+  { x: -2891, z: -6204, yaw: Math.PI / 2, w: 8, d: 5.5 },
+  { x: -2893, z: -6124, yaw: Math.PI / 2, w: 7.5, d: 5.5 },
+  { x: -2890, z: -6229, yaw: Math.PI / 2, w: 7, d: 5 },
+];
+export const PHONE_BOX = { x: -2874, z: -6188, yaw: Math.PI / 2 };
+// The light on Raven Head, the island's north end; the broch and the standing stones on Tern Isle;
+// the bothy above Bothy Bay; the herring station's ruins on Loch Skarn's south shore; the Seal
+// Cave in Raven Isle's west cliffs; the Sula, a trawler wrecked in the kelp off Tern Isle.
+export const RAVEN_LIGHT = { x: -3318, z: -6950 };
+export const BROCH = { x: -3715, z: -5188, r: 8.5 };
+export const STONES = { x: -3880, z: -5320, r: 7, n: 7 };
+export const NORTH_BOTHY = { x: -1500, z: -5836, yaw: 0, level: 2.6 };
+export const HERRING = { x: -1085, z: -5566, yaw: 0.25, level: 3 };
+export const SEAL_CAVE = { x: -3713, z: -6300, yaw: -Math.PI / 2 };
+export const SULA = { x: -3450, z: -5100, yaw: 0.9, len: 24 };
+// Level ground cut for them: [x, z, radius, level].
+const PADS = [[NORTH_BOTHY.x, NORTH_BOTHY.z, 7, NORTH_BOTHY.level], [HERRING.x, HERRING.z, 16, HERRING.level]];
+
 /* ---------------- distance fields ---------------- */
 
 const hyp = Math.hypot;
@@ -219,6 +247,9 @@ export function northGround(x, z, S, base) {
     if (bay < BOTHY_BAY.r + 70) h = lerp(h, Math.max(h, lerp(-2, -12, smoothstep(BOTHY_BAY.z - 75, BOTHY_BAY.z + 85, z)) + fbm(x * 0.03, z * 0.03, 2)), smoothstep(BOTHY_BAY.r + 70, BOTHY_BAY.r, bay) * smoothstep(-50, 0, S.loch));
     const c = inChurn(x, z);
     if (c > 0) h = lerp(h, Math.max(h, -10 + fbm(x * 0.05, z * 0.05, 2) * 3), c);
+    // Skarv Stack stands in deep water: its foot drops away all round to thirty-odd metres.
+    const ds = hyp(x - SKARV.x, z - SKARV.z);
+    if (ds < 320) h = Math.min(h, lerp(h, -34 + fbm(x * 0.03, z * 0.03, 2) * 4, smoothstep(320, 70, ds)) - 4 * smoothstep(SKARV.r + 30, SKARV.r + 4, ds));
     return h;
   }
   const inland = -d;
@@ -232,11 +263,11 @@ export function northGround(x, z, S, base) {
     const ds = hyp(x - SKARV.x, z - SKARV.z);
     if (ds < SKARV.r + 8) return lerp(2, SKARV.h * (0.9 + 0.1 * n), smoothstep(SKARV.r + 1, SKARV.r - 5, ds)) + 6 * smoothstep(SKARV.r - 6, 0, ds);
     const I = S.I, k = clamp(isleK(I, x, z), 0, 1), west = weatherSide(x, z, S);
-    if (I === TERN) return -0.4 + 2 * smoothstep(0, 10, inland) + (I.h - 2) * smoothstep(8, 160, inland) * (0.8 + 0.25 * n);
+    if (I === TERN) return pads(x, z, -0.4 + 2 * smoothstep(0, 10, inland) + (I.h - 2) * smoothstep(8, 160, inland) * (0.8 + 0.25 * n));
     // Raven Isle: a high back, cliffs on its west, a long slope to the sound on its east.
     const dome = I.h * Math.pow(1 - k * k, 0.75) * (0.85 + 0.25 * n) + 8 * fbm(x * 0.02, z * 0.02, 2);
     const edge = 0.8 + inland * lerp(0.32, 3.8, west);
-    return Math.max(-0.4 + 1.6 * smoothstep(0, 6, inland), Math.min(dome, edge));
+    return pads(x, z, Math.max(-0.4 + 1.6 * smoothstep(0, 6, inland), Math.min(dome, edge)));
   }
   const hills = farHills(x, z);
   const soft = base + hills * smoothstep(0, 60, inland);
@@ -246,7 +277,21 @@ export function northGround(x, z, S, base) {
   // (Loch Skarn's sides fall steeply into it: a fjord's.)
   const fjord = smoothstep(160, 40, S.loch + inland) * (1 - smoothstep(0.88, 1, S.t));
   const steep = Math.max(cliff, fjord * 0.8);
-  return lerp(soft, Math.max(-0.4 + 1.2 * smoothstep(0, 4, inland), top * smoothstep(0.5, lerp(14, 40, 1 - cliff), inland)), steep);
+  return pads(x, z, lerp(soft, Math.max(-0.4 + 1.2 * smoothstep(0, 4, inland), top * smoothstep(0.5, lerp(14, 40, 1 - cliff), inland)), steep));
+}
+// The level ground cut for what stands there (Halvig's shelf, the bothy, the herring station; the
+// broch's and the light's own ground, levelled where they stand).
+function pads(x, z, h) {
+  const S = HALVIG_SHELF;
+  if (x > S.x0 - 14 && x < S.x1 + 6 && z > S.z0 - 14 && z < S.z1 + 14 && h > 0.5) {
+    const out = Math.max(S.x0 - x, x - S.x1, S.z0 - z, z - S.z1, 0);
+    h = lerp(S.level, h, smoothstep(0, 12, out));
+  }
+  for (const [px, pz, r, level] of PADS) {
+    const d = hyp(x - px, z - pz);
+    if (d < r + 8) h = lerp(level, h, smoothstep(r, r + 8, d));
+  }
+  return h;
 }
 
 /* ---------------- zones, current and habitat ---------------- */
@@ -314,9 +359,18 @@ export const NORTH_PLACES = [
   { id: 'raven', name: 'Raven Isle', sub: 'the big island, its cliffs and its colony', north: true, x: RAVEN.x, z: RAVEN.z, r: 560, note: 'The biggest of the isles: grey cliffs on its Atlantic side where the seabirds nest, grass and heather down to the sound on the other, and the hamlet of Halvig on its shore.' },
   { id: 'tern', name: 'Tern Isle', sub: 'a low island of white sand', north: true, x: TERN.x, z: TERN.z, r: 380, note: 'A low island of machair and white shell sand, the terns nesting on it in summer. Its east side is a long beach to land the tender on; clear water over sand off it.' },
   { id: 'selkierocks', name: 'The Selkie Rocks', sub: 'skerries where the seals haul out', north: true, x: -3045, z: -4920, r: 160, note: 'Low rocks in the approach to the isles, awash at high water. The grey seals haul out on them at low tide, and watch every boat go by.' },
-  { id: 'skarv', name: 'Skarv Stack', sub: 'a stack off Raven Isle, white with seabirds', north: true, x: SKARV.x, z: SKARV.z, r: 200, note: 'A sixty-metre stack off Raven Isle’s north-west, standing in deep water. Gannets on its top, guillemots and kittiwakes packed on its ledges; the noise and the smell carry a long way downwind.' },
+  { id: 'skarv', dive: true, name: 'Skarv Stack', sub: 'a stack off Raven Isle, white with seabirds', north: true, x: SKARV.x, z: SKARV.z, r: 200, note: 'A sixty-metre stack off Raven Isle’s north-west, standing in deep water. Gannets on its top, guillemots and kittiwakes packed on its ledges; the noise and the smell carry a long way downwind.' },
   { id: 'ravensound', name: 'Raven Sound', sub: 'sheltered water between Raven Isle and the mainland', area: true, north: true, x: -2520, z: -6250, size: 22, r: 0, note: 'The channel between Raven Isle and the mainland: sheltered from the west, sand and kelp under fifteen to thirty metres of clear water, the tide running through it.' },
   { id: 'churn', name: 'The Churn', sub: 'a tide race at the sound’s north end', north: true, x: CHURN.x - 200, z: CHURN.z + 30, r: 0, note: 'Where Raven Sound narrows at its north end, the tide pours over a rock sill: standing waves and boils on the ebb, flat calm at slack water. Pollack and saithe hunt in it, and the birds work over it.' },
   { id: 'loch', name: 'Loch Skarn', sub: 'a sea loch running into the hills', area: true, north: true, x: -1500, z: -5640, size: 22, r: 0, note: 'A sea loch running a mile and a half into the mainland under the fells: steep sides, a sill at its mouth, and ninety metres of still, dark water inside. Skate, ling and conger in the deep.' },
+  // (N3) What's on them.
+  { id: 'halvig', name: 'Halvig', sub: 'a hamlet on Raven Isle, with a stone pier, fuel and a shop', dock: true, harbour: true, north: true, x: -2885, z: -6170, r: 90, note: 'Four houses and a shop on a shelf of level ground above a little bay on Raven Isle’s sheltered side, and a stone pier with eight to ten metres alongside its head. Diesel and petrol from the pump at the pier’s root, stores and ice from the shop, and a red phone box.' },
+  { id: 'ravenhead', name: 'Raven Head', sub: 'the light on Raven Isle’s north end', north: true, x: RAVEN_LIGHT.x, z: RAVEN_LIGHT.z, r: 120, note: 'A white lighthouse on the high ground at Raven Isle’s north end, sixty metres above the sea. Its light shows three flashes every fifteen seconds after dark; below it the Churn runs and the stack stands off to the west.' },
+  { id: 'broch', name: 'The Broch', sub: 'an iron-age tower on Tern Isle', north: true, x: BROCH.x, z: BROCH.z, r: 45, note: 'The stump of a round tower of dry stone, two thousand years old, on Tern Isle’s high ground: its double wall still stands higher than a man, with a stair in the thickness of it and a doorway facing the sea.' },
+  { id: 'stones', name: 'The Standing Stones', sub: 'a ring of stones on Tern Isle', north: true, x: STONES.x, z: STONES.z, r: 35, note: 'Seven tall grey stones standing in a ring on the machair at Tern Isle’s west end, older than the broch. Nobody knows who raised them; the terns don’t care.' },
+  { id: 'lochbothy', name: 'The Loch Bothy', sub: 'a stone hut above Bothy Bay', north: true, x: NORTH_BOTHY.x, z: NORTH_BOTHY.z, r: 40, note: 'An old shepherd’s hut above the beach in Bothy Bay, kept weathertight and left open: a stove, a bench, a sleeping platform, and a book to write your name in.' },
+  { id: 'herring', name: 'The Herring Station', sub: 'ruins on Loch Skarn’s shore', north: true, x: HERRING.x, z: HERRING.z, r: 60, note: 'The roofless walls of a curing station from the days when the loch was full of herring, and the stumps of its timber pier running out into the water. Ling and conger live among the stones that fell off it.' },
+  { id: 'sealcave', name: 'The Seal Cave', sub: 'a sea cave in Raven Isle’s west cliffs', north: true, x: SEAL_CAVE.x, z: SEAL_CAVE.z, r: 60, note: 'A cave at the foot of the cliffs on Raven Isle’s Atlantic side, big enough to take a tender into on a calm day. The grey seals pup in it in autumn; listen for them singing.' },
+  { id: 'sula', dive: true, name: 'The Sula', sub: 'a trawler wrecked in the kelp off Tern Isle', north: true, x: SULA.x, z: SULA.z, r: 70, note: 'A steel trawler that ran onto the rocks off Tern Isle in a winter gale and sank in the kelp, ten to eighteen metres down, under a yellow buoy. Her wheelhouse still stands; a conger and a ling live in her hull, and pollack hang over her.' },
   { id: 'bothybay', name: 'Bothy Bay', sub: 'an anchorage in Loch Skarn', north: true, x: BOTHY_BAY.x, z: BOTHY_BAY.z, r: 120, note: 'A bay on Loch Skarn’s north shore, sheltered from every wind: mud and sand at six to ten metres, the best holding in the isles. A bothy stands above the beach.' },
 ];

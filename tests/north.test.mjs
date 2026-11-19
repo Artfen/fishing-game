@@ -172,7 +172,7 @@ test('drawn in tiles on the coarse sheet\'s grid, covering the north and nothing
 // N2: the isles in detail.
 test('the isles in detail: patches on the grid, over the isles, on the north\'s tiles', async () => {
   const { TERRAIN_PATCHES, NORTH_TILES } = await import('../src/world/world.js');
-  const ids = ['ness', 'raven-s', 'raven-n', 'tern', 'selkie', 'skarv', 'bothy'];
+  const ids = ['ness', 'raven-s', 'raven-n', 'tern', 'selkie', 'skarv', 'bothybay'];
   for (const id of ids) {
     const P = TERRAIN_PATCHES.find((p) => p.id === id);
     assert.ok(P?.later, `${id}, built when you come near`);
@@ -221,4 +221,77 @@ test('on the isles: boulders on the shores, heather on the slopes, rowans in the
   for (const r of rowans) assert.ok(heightAt(r.x, r.z) > 2 && N.lochAt(r.x, r.z).d < 270, 'a rowan in the loch\'s glens, on land');
   const total = meshes.reduce((n, m) => n + m.count, 0);
   assert.ok(total > 3000 && total < 12000, `${total} things in all`);
+});
+
+// N3: Halvig and the things to find.
+test('Halvig: a stone pier with water enough alongside, the fuel pump at its root, the shop and crofts on level ground', () => {
+  const { PIERS, FUEL_PUMPS } = T;
+  const Q = N.HALVIG_PIER;
+  assert.equal(PIERS[PIERS.length - 1], Q, 'its pier walkable, last so the others keep their places');
+  assert.ok(-heightAt(Q.x1 - 2, (Q.z0 + Q.z1) / 2) > 7, 'seven metres and more at its head');
+  assert.ok(Math.abs(heightAt(Q.x0 + 1, (Q.z0 + Q.z1) / 2) - Q.deck) < 0.6, 'its root at the shelf');
+  assert.equal(FUEL_PUMPS.halvig, N.HALVIG_FUEL);
+  for (const B of [N.HALVIG_SHOP, ...N.CROFTS, N.PHONE_BOX, N.HALVIG_FUEL]) assert.ok(Math.abs(heightAt(B.x, B.z) - N.HALVIG_SHELF.level) < 0.2, 'on the shelf');
+  for (const B of [N.HALVIG_SHOP, ...N.CROFTS]) {
+    const c = Math.cos(B.yaw), s = Math.sin(B.yaw);
+    for (const [u, v] of [[-B.w / 2, -B.d / 2], [B.w / 2, -B.d / 2], [-B.w / 2, B.d / 2], [B.w / 2, B.d / 2]]) {
+      assert.ok(Math.abs(heightAt(B.x + u * c + v * s, B.z - u * s + v * c) - N.HALVIG_SHELF.level) < 0.3, 'level under every corner');
+    }
+  }
+});
+
+test('the north\'s dives: the Sula in the kelp and the foot of Skarv Stack, at their depths, with fish of their own, and nothing else moved', async () => {
+  const D = await import('../src/world/divesites.js');
+  assert.deepEqual(D.NORTH_SITES.map((S) => S.id), ['sula', 'skarv']);
+  assert.equal(D.HOME_SITES.length, 5, 'home\'s five as they were');
+  const sula = -heightAt(N.SULA.x, N.SULA.z), foot = -heightAt(N.SKARV.x + N.SKARV.r + 40, N.SKARV.z);
+  assert.ok(sula > 10 && sula < 18, `the Sula ${sula.toFixed(1)} m down`);
+  assert.ok(foot > 28, `the stack's foot ${foot.toFixed(1)} m`);
+  const { Ecosystem } = await import('../src/world/ecosystem.js');
+  const { createHabitat } = await import('../src/world/habitat.js');
+  const eco = new Ecosystem(createHabitat());
+  for (const S of D.NORTH_SITES) {
+    const own = eco.agents.filter((a) => a.home.site === S.id);
+    assert.ok(own.length >= 10 && new Set(own.map((a) => a.sp.id)).size >= 3, `${S.id}: ${own.length}`);
+  }
+  assert.ok(eco.agents.filter((a) => a.home.site === 'sula').some((a) => a.sp.id === 'conger'), 'a conger in the Sula');
+  // Every other fish where it was before the north had any (a fingerprint taken then).
+  let h = 2166136261;
+  const mix = (s) => { for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } };
+  const rest = eco.agents.filter((a) => !a.home.north);
+  for (const a of rest) mix(`${a.sp.id},${a.x.toFixed(2)},${a.z.toFixed(2)},${a.y.toFixed(2)};`);
+  assert.deepEqual([rest.length, h], [5031, 409352983]);
+  // And the board's challenge for them.
+  const { CHALLENGES } = await import('../src/daybook.js');
+  const C = CHALLENGES.find((c) => c.id === 'northdives');
+  assert.deepEqual(C.check({ dive: { sites: { sula: { dives: 1 } } } }), { n: 1, of: 2 });
+});
+
+test('what\'s built: the light flashing after dark, Halvig\'s houses solid, the broch, the stones, the bothy, the herring station, the Sula on the bottom', async () => {
+  const THREE = await import('three');
+  const { buildNorth } = await import('../src/world/northWorld.js');
+  const { seeded } = await import('../src/util.js');
+  const W = buildNorth(new THREE.Scene(), seeded(20261118));
+  const lamp = W.group.children.find((o) => o.isMesh && o.geometry.type === 'SphereGeometry');
+  assert.ok(Math.hypot(lamp.position.x - N.RAVEN_LIGHT.x, lamp.position.z - N.RAVEN_LIGHT.z) < 1 && lamp.position.y > 60, 'the lamp high on Raven Head');
+  const seen = [];
+  for (let t = 0; t < 15; t += 0.1) {
+    W.update(0.1, t, { lantern: 1 });
+    seen.push(lamp.material.opacity > 0.6 ? 1 : 0);
+  }
+  const flashes = seen.filter((v, i) => v && !seen[i - 1]).length;
+  assert.equal(flashes, 3, 'three flashes every fifteen seconds');
+  W.update(0.1, 0.1, { lantern: 0 });
+  assert.ok(lamp.material.opacity < 0.5, 'only a glimmer by day');
+  const names = new Set(W.obstacles.map((o) => o.name));
+  for (const n of ['Halvig Stores', 'a croft', 'the fuel pump', 'the phone box', 'the lighthouse', 'the broch', 'a standing stone', 'the bothy', 'the herring station']) assert.ok(names.has(n), n);
+  // The Sula's iron, under the water at her place.
+  let iron = 0;
+  W.group.traverse((o) => {
+    if (!o.isMesh || o.isInstancedMesh) return;
+    o.geometry.computeBoundingBox();
+    const b = o.geometry.boundingBox;
+    if (b.min.x < N.SULA.x + 5 && b.max.x > N.SULA.x - 5 && b.min.z < N.SULA.z + 5 && b.max.z > N.SULA.z - 5 && b.min.y < -8) iron++;
+  });
+  assert.ok(iron >= 1, 'her hull on the bottom');
 });

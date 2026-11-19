@@ -132,9 +132,13 @@ test('each site has fish of its own, and nothing anywhere else moved for them', 
   // Their homes come after everyone else's (but for the crossing's, out on the open sea, after
   // even theirs).
   // (And the small fish's, for micro-fishing, after even the crossing's.)
-  // (And Gannet Deep's head, G7, newest of all, after even the small fish's: last of all.)
-  const homes = eco.habitat.spots.filter((s) => s.tag !== 'canyon');
-  assert.equal(eco.habitat.spots[eco.habitat.spots.length - 1].tag, 'canyon', 'Gannet Deep’s head last of all');
+  // (And Gannet Deep's head, G7, newest of all, after even the small fish's: last of home's.)
+  // (The north's, up the coast, docs/NORTH.md, after even that: last of all, so nothing moves.)
+  const all0 = eco.habitat.spots, firstNorth = all0.findIndex((s) => s.north);
+  assert.ok(firstNorth > 0 && all0.slice(firstNorth).every((s) => s.north), 'the north’s homes last of all');
+  const spots0 = all0.filter((s) => !s.north);
+  const homes = spots0.filter((s) => s.tag !== 'canyon');
+  assert.equal(spots0[spots0.length - 1].tag, 'canyon', 'Gannet Deep’s head last of home’s');
   const all = homes.filter((s) => !s.small);
   const spots = all.filter((s) => !s.crossing), first = spots.findIndex((s) => s.site);
   assert.ok(first > 0 && spots.slice(first).every((s) => s.site), 'the dive sites’ homes come last');
@@ -215,7 +219,7 @@ test('the seabed is never bare: shells, starfish and the rest, the same each tim
 test('what the sites look like is built, and only drawn near each', () => {
   const scene = new THREE.Scene();
   const W = buildDiveSites(scene, seeded(20261026));
-  assert.equal(W.buoys.length, 9, 'a yellow buoy over each site but the Kittiwake (and El Bajón, which has the island’s own, and El Banco, out in the open sea)');
+  assert.equal(W.buoys.length, 10, 'a yellow buoy over each site but the Kittiwake (and El Bajón, which has the island’s own, and El Banco and Skarv Stack, out in the open sea)');
   assert.equal(W.towers.length, 2, 'the Hound and its Pup');
   const tris = () => {
     let n = 0;

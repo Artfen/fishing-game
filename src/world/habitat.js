@@ -9,7 +9,7 @@ import {
   SOUTH_Z, SOUTH_MAP, brasaHeight, brasaZone, brasaHabitat, brasaSDF, upCurrent, inEstrecho, onBanco, GAVIOTA, HONDA, ROQUETES, VAPOR, BANCO, PUERTO, QUAY_S, MOLE, DIQUE, PLAYA, ARCO, ARCHES, FARO, COLADAS, SEBADAL, BAJON, onBajon,
 } from './brasa.js';
 import { siteById, PINNACLES } from './divesites.js';
-import { northLand, northHabitat } from './north.js';
+import { northLand, northHabitat, SULA, SKARV } from './north.js';
 import { ENDS } from '../crossing.js';
 import { fbm, seeded, smoothstep, clamp } from '../util.js';
 
@@ -271,7 +271,32 @@ export function createHabitat() {
   // moves for it.
   const cz = CANYON.z0 + 70, cx = canyonAxis(cz);
   spots.push({ type: 'blue', x: cx, z: cz, depth: habitat.depth(cx, cz), zone: zoneAt(cx, cz), r: 60, tag: 'canyon', hosts: ['tuna', 'bonito'] });
+  // The north, up the coast (docs/NORTH.md): after everything, so no home anywhere else moves.
+  northDiveSpots(habitat, spots);
   return habitat;
+}
+
+// The north's dive sites' fish (see divesites.js), the home coast's cold-water fish there:
+//  · The Sula: a conger and pollack in her hull, wrasse in the kelp over her, catsharks on the sand
+//    beside her.
+//  · Skarv Stack's foot: wrasse and pollack on its walls, a conger and catsharks in the cracks at its
+//    foot, mackerel round it.
+function northDiveSpots(habitat, spots) {
+  const put = (id, type, x, z, r, hosts, down) => {
+    const depth = habitat.depth(x, z);
+    if (depth < 1) return;
+    spots.push({ type, x, z, depth, zone: zoneAt(x, z), r, tag: id, north: true, site: id, hosts, ...(down ? { down } : {}) });
+  };
+  const c = Math.cos(SULA.yaw), sn = Math.sin(SULA.yaw), along = (u, v) => [SULA.x + u * c + v * sn, SULA.z - u * sn + v * c];
+  put('sula', 'rock', ...along(0, 2), 6, ['conger', 'pollack'], 6);
+  put('sula', 'reef', ...along(0, -8), 7, ['wrasse', 'pollack'], 6);
+  put('sula', 'reef', ...along(4, 8), 6, ['wrasse'], 5);
+  put('sula', 'sand', ...along(-10, 0), 8, ['catshark'], 4);
+  put('sula', 'rock', ...along(-2, 10), 6, ['pollack', 'conger'], 6);
+  for (const [a, hosts] of [[0.3, ['wrasse', 'pollack']], [2.4, ['wrasse', 'pollack']], [4.2, ['conger', 'catshark']]]) {
+    put('skarv', a > 4 ? 'rock' : 'reef', SKARV.x + Math.cos(a) * (SKARV.r + 12), SKARV.z + Math.sin(a) * (SKARV.r + 12), 8, hosts, a > 4 ? 22 : 14);
+  }
+  put('skarv', 'tide', SKARV.x + 40, SKARV.z + 30, 14, ['mackerel'], 10);
 }
 
 /* ---------------- beyond the bay ---------------- */

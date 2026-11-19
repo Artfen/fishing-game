@@ -214,7 +214,7 @@ export class Ecosystem {
     // The dive sites' own fish (see divesites.js), after everything else, so nobody moves: a school
     // or a group of each kind each of their homes hosts, each with a seed of its own.
     this.habitat.spots.forEach((home, h) => {
-      if (!home.site) return;
+      if (!home.site || home.north) return; // (the north's: after even the small fish, below)
       for (const id of home.hosts || []) {
         const i = FISH.findIndex((f) => f.id === id), sp = FISH[i];
         if (!sp || sp.retired || !sp.life.homes.includes(home.type) || !sp.life.zones.includes(home.zone)) continue;
@@ -277,6 +277,22 @@ export class Ecosystem {
         const i = FISH.findIndex((f) => f.id === id), sp = FISH[i];
         if (!sp || sp.retired || !sp.life.homes.includes(home.type) || !sp.life.zones.includes(home.zone)) continue;
         rnd = seeded(31337 + i * 1013 + h * 7);
+        const L = sp.life;
+        if (L.school) this.addSchool(sp, home, rnd);
+        else {
+          const n = L.group[0] + Math.floor(rnd() * (L.group[1] - L.group[0] + 1));
+          for (let k = 0; k < n; k++) this.addAgent(sp, home, rnd);
+        }
+      }
+    });
+    // After even them, the north's (docs/NORTH.md), up the coast: its dive sites' fish, each home
+    // with a seed of its own, so every fish above keeps its place and its id.
+    this.habitat.spots.forEach((home, h) => {
+      if (!home.north || !home.site) return;
+      for (const id of home.hosts || []) {
+        const i = FISH.findIndex((f) => f.id === id), sp = FISH[i];
+        if (!sp || sp.retired || !sp.life.homes.includes(home.type) || !sp.life.zones.includes(home.zone)) continue;
+        rnd = seeded(60606 + i * 1013 + h * 7);
         const L = sp.life;
         if (L.school) this.addSchool(sp, home, rnd);
         else {

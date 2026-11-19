@@ -295,7 +295,7 @@ export const TERRAIN_PATCHES = [
   { id: 'tern', x0: -4180, x1: -3340, z0: -5600, z1: -4920, cell: 4, jitter: 0.45, shadows: true, later: true },
   { id: 'selkie', x0: -3180, x1: -2900, z0: -5060, z1: -4780, cell: 4, jitter: 0.4, shadows: true, later: true },
   { id: 'skarv', x0: -4040, x1: -3860, z0: -7160, z1: -6960, cell: 2.5, jitter: 0.35, shadows: true, later: true },
-  { id: 'bothy', x0: -1680, x1: -1320, z0: -5880, z1: -5560, cell: 4, jitter: 0.45, shadows: true, later: true },
+  { id: 'bothybay', x0: -1680, x1: -1320, z0: -5880, z1: -5560, cell: 4, jitter: 0.45, shadows: true, later: true },
 ];
 const FAR_RECT = { x0: -1800, x1: 1500, z0: -2200, z1: 1800 };
 

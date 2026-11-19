@@ -1,5 +1,6 @@
 import { heightAt, WRECK, WRECK_BELL, DIVE_MARKS, PLACES } from './terrain.js';
 import { BAJON, VAPOR, BANCO } from './brasa.js';
+import { SULA, SKARV } from './north.js';
 import { fbm, seeded, clamp } from '../util.js';
 
 // The dive sites of the home coast: five places worth going down at, each different, each with a
@@ -101,9 +102,21 @@ export const DIVE_SITES = [
     id: 'banco', south: true, arch: true, x: BANCO.x, z: BANCO.z, r: 70, buoy: null, depth: [20, 40],
     first: 'El Banco: the top of a mountain under the sea, cragged rock coming up out of the deep blue all round. Groupers in its cracks, red porgy on its ledges, and a school of amberjack circling you to look. Watch your depth and your air: its walls go down into the dark.',
   },
+  // The north, up the coast (docs/NORTH.md): the Sula in the kelp off Tern Isle, and the foot of
+  // Skarv Stack, its walls going down into deep water.
+  {
+    id: 'sula', north: true, x: SULA.x, z: SULA.z, r: 34, buoy: { x: SULA.x + 9, z: SULA.z - 8 }, depth: [10, 18],
+    first: 'The Sula: her bow looms out of the kelp, still upright, her wheelhouse standing with its windows gone. The kelp waves over her rails; a conger watches from a hole in her side, pollack hang above her. Cold, clear and green.',
+  },
+  {
+    id: 'skarv', north: true, x: SKARV.x, z: SKARV.z, r: 70, buoy: null, depth: [8, 34],
+    first: 'Skarv Stack from below: a wall of rock going down out of the kelp into the green dark, every ledge crowded with anemones and dead men’s fingers. Guillemots fly past you underwater, and something big moves at the edge of what you can see.',
+  },
 ].map((S) => ({ ...S, name: place(S.id).name, sub: place(S.id).sub, note: place(S.id).note }));
 // The home coast's five (the challenge on the board is for these), and Las Brasas'.
-export const HOME_SITES = DIVE_SITES.filter((S) => !S.south);
+export const HOME_SITES = DIVE_SITES.filter((S) => !S.south && !S.north);
+// (And the north's, up the coast.)
+export const NORTH_SITES = DIVE_SITES.filter((S) => S.north);
 export const SOUTH_SITES = DIVE_SITES.filter((S) => S.south);
 // (Brasa's own five, and the archipelago's round it: docs/ARCHIPELAGO.md.)
 export const ISLAND_SITES = SOUTH_SITES.filter((S) => !S.arch);
