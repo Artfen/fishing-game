@@ -659,6 +659,8 @@ body.pad :focus { outline: 3px solid var(--lantern); outline-offset: 3px; }
 body.pad #touch, body.pad #cancel-btn { display: none !important; }
 body:not(.pad) .pad-only { display: none !important; }
 body.pad .keys-only { display: none !important; }
+/* (Playing on a controller: no mouse pointer, until the mouse moves. See main.js hidePointer.) */
+body.no-pointer, body.no-pointer * { cursor: none !important; }
 
 /* Rod and tackle in hand, under the clock. Click to open the backpack. */
 #gear {
@@ -1548,6 +1550,9 @@ body.touch #rest-veil { padding-bottom: calc(170px + env(safe-area-inset-bottom,
 .st-label { font: 700 15px var(--font-ui); }
 .st-desc { font: 13px/1.35 var(--font-ui); color: var(--ink-soft); }
 .st-note { margin: 8px 2px; font: 14px/1.4 var(--font-hand); color: var(--ink-soft); }
+/* (Setting up a controller's buttons: the one asked for now, big.) */
+.st-padlearn { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 18px; padding: 12px; margin: 6px 0; border-left: 3px solid var(--stamp); background: rgba(181, 83, 47, 0.08); border-radius: 4px; }
+.st-padlearn .st-label { font-size: 18px; }
 .st-warn { padding: 8px 12px; border-left: 3px solid var(--stamp); background: rgba(181, 83, 47, 0.08); border-radius: 4px; color: var(--ink); }
 .st-slider { display: flex; align-items: center; gap: 10px; min-width: 220px; }
 .st-slider input { flex: 1; accent-color: #5c4028; }

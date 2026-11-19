@@ -4,7 +4,7 @@ import { GROUPS, LEVELS, CHOICES, PRESETS } from './quality.js';
 import { DIFFICULTY, DIFFICULTY_IDS } from './fight.js';
 import { BEHAVIOUR, BEHAVIOUR_IDS } from './behaviour.js';
 import { SEA_PRESETS, SEA_IDS, compass } from './world/conditions.js';
-import { buttonFor } from './gamepad.js';
+import { buttonFor, padName, PAD_STYLES, learnWords, LEARN, cleanLayout } from './gamepad.js';
 import { NEEDS_MODES, NEEDS_IDS } from './comfort.js';
 import { STRENGTH_IDS } from './haptics.js';
 import { START_MODES, START_IDS } from './engine.js';
@@ -42,7 +42,7 @@ export const DEFAULT_SETTINGS = {
   // sailTrim: the sailing boat's mainsheet by hand, or helped (it trims itself when left alone).
   // needs: how much the angler feels the weather and the day (see comfort.js): off, shown, gentle.
   // map: the whole chart from the start ('all'), or blank paper until you've been there ('explore').
-  controls: { sensitivity: 1, invertX: false, invertY: false, reducedMotion: false, boatCam: 'swell', cast: 'assisted', hints: 'gentle', keys: null, vibration: 'normal', throttle: 'notches', start: 'go', technique: 'assisted', sailTrim: 'hand', needs: 'gentle', map: 'all' },
+  controls: { sensitivity: 1, invertX: false, invertY: false, reducedMotion: false, boatCam: 'swell', cast: 'assisted', hints: 'gentle', keys: null, vibration: 'normal', padNames: 'auto', padLayouts: {}, throttle: 'notches', start: 'go', technique: 'assisted', sailTrim: 'hand', needs: 'gentle', map: 'all' },
   // name: what friends see over you when playing together ('' until you've chosen one).
   // share: whether what you find (places, dive sites, a wreck's details, first fish) goes to them.
   // paid: whether friends in the session are paid the same as you for the fish you sell.
@@ -74,6 +74,17 @@ export const PAD_HELP = [
   ['The catch card', [['catch', 'cast', 'let it go'], ['catch', 'keep', 'keep it'], ['catch', 'photo', 'photograph it']]],
   ['Driving', [['drive', 'throttle', 'go'], ['drive', 'brake', 'brake, then reverse'], ['drive', 'left', 'steer'], ['drive', 'interact', 'get out'], ['drive', 'tackle', 'where to?']]],
 ];
+
+// (The learned layouts kept: each checked, its name a sensible length, the last eight.)
+function cleanLayouts(v) {
+  const out = {};
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return out;
+  for (const [id, L] of Object.entries(v).slice(-8)) {
+    const c = cleanLayout(L);
+    if (c && id && id.length <= 200) out[id] = c;
+  }
+  return out;
+}
 
 const num = (v, d, lo, hi) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d);
 const oneOf = (v, list, d) => (list.includes(v) ? v : d);
@@ -136,6 +147,10 @@ export function cleanSettings(raw, legacy = {}) {
     technique: oneOf(c.technique, TECHNIQUE_IDS, 'assisted'),
     // (Vibration was once only on or off.)
     vibration: oneOf(c.vibration, STRENGTH_IDS, c.rumble === false ? 'off' : 'normal'),
+    // (The controller's buttons: the names shown, and those learned for a controller the browser
+    // doesn't know, by its name. A few at most.)
+    padNames: oneOf(c.padNames, PAD_STYLES, 'auto'),
+    padLayouts: cleanLayouts(c.padLayouts),
   };
   const p = isObj(r.player) ? r.player : {};
   const player = { name: cleanName(p.name), share: p.share !== false, paid: p.paid !== false };
@@ -436,6 +451,38 @@ export class SettingsUI {
 
   /* ---------- controls ---------- */
 
+  // Setting up a controller's buttons (see gamepad.js, learn), for one the browser doesn't know:
+  // each button asked for in turn, pressed on it; the mouse or keyboard skips one or stops.
+  padSetup() {
+    const P = this.hooks.pad?.();
+    const btn = (text, run, cls = 'pk-btn') => {
+      const b = el('button', cls, text);
+      b.type = 'button';
+      b.addEventListener('click', run);
+      return b;
+    };
+    if (!P) return [this.row('Set up the buttons', 'For a controller whose buttons come out mixed up: press a button on it first, then come back here.', el('span', 'st-fixed', 'no controller'))];
+    if (P.step != null) {
+      const box = el('div', 'st-padlearn');
+      box.setAttribute('role', 'status');
+      box.setAttribute('aria-live', 'polite');
+      const words = el('div', 'st-text');
+      words.append(el('span', 'st-label', learnWords(P.step)), el('span', 'st-desc', `${P.step + 1} of ${LEARN.length} · on the controller, then let go`));
+      const g = el('div', 'st-choice');
+      g.append(btn('Skip', () => this.hooks.padSkip?.(), 'pk-btn quiet'), btn('Stop', () => this.hooks.padStop?.(), 'pk-btn quiet'));
+      box.append(words, g);
+      return [box];
+    }
+    const name = String(P.name || 'this controller').replace(/\s*\(.*\)\s*$/, '').slice(0, 60);
+    const desc = P.learned ? `Set up for this one (${name}). Set it up again, or go back to the layout the browser reports.`
+      : P.standard ? `The browser knows this one’s layout (${name}). If its buttons still come out mixed up, press each as it’s asked for and the game learns which is which.`
+        : `The browser doesn’t know this one’s layout (${name}), so its buttons may be mixed up: press each as it’s asked for (half a minute) and the game learns which is which.`;
+    const g = el('div', 'st-choice');
+    g.append(btn(P.learned ? 'Set up again' : 'Set up…', () => this.hooks.padLearn?.()));
+    if (P.learned) g.append(btn('As reported', () => this.hooks.padForget?.(), 'pk-btn quiet'));
+    return [this.row('Set up the buttons', desc, g)];
+  }
+
   row(label, desc, control) {
     const r = el('div', 'st-row');
     const t = el('div', 'st-text');
@@ -708,17 +755,20 @@ export class SettingsUI {
     for (const line of [
       'The throttle: the motor skiff, the tender, the bass boat, the cabin boat, the yacht, the trawler, the centre console and the jet ski have a lever with notches (astern, neutral, dead slow, slow, half, full), and the sailing boat’s outboard a smaller one. Forward and back move it a notch at a time and it stays where you leave it; you can also click or drag the lever on screen (bottom right), or tap a notch. Neutral (or the big Stop under the lever) stops the motor, and the boat coasts on. The motor takes a moment to build up and ease off, and pauses in neutral between ahead and astern.',
       'Fishing under way: you can cast at up to trolling speed, and the boat carries the cast along as it flies. A moving boat tows your line behind it (trolling). With a line out the throttle goes no higher than slow ahead (+ and − move it, or the D-pad on a controller); when a fish takes, the motor goes to neutral.',
-      'The kayak’s electric motor: lower it (or raise it again) with its key, L3, or the Motor button by the lever. Lowered, the lever drives it, quietly and slowly, hands free for the rod; raised, you paddle. Its battery charges at a jetty and overnight, and when it runs flat you simply paddle.',
-      'The cabin boat: anchored or tied up, the prompt takes you into the cabin (from the helm, or straight from the quay). Inside, forward and back move between the doorway, the galley and the bunk; the prompt cooks or sleeps; cancel (Esc or B) takes you back on deck.',
-      'Mooring: a second prompt (on the anchor key, X on a controller, or a tap) says what holding her still means where you are. Out on the water it drops the anchor: it goes down to the seabed, and she drifts back on her rope and lies head to the anchor, riding the waves; again, and you haul it in. Too shallow or too deep (deeper than its 30 m rope) and it says so. Beside a jetty or quay it ties her up alongside instead (lines and fenders); tied up, it casts off, pushing her clear if there’s room. Stepping ashore at a jetty makes her fast for you.',
+      `The kayak’s electric motor: lower it (or raise it again) with its key, ${padName('L3')}, or the Motor button by the lever. Lowered, the lever drives it, quietly and slowly, hands free for the rod; raised, you paddle. Its battery charges at a jetty and overnight, and when it runs flat you simply paddle.`,
+      `The cabin boat: anchored or tied up, the prompt takes you into the cabin (from the helm, or straight from the quay). Inside, forward and back move between the doorway, the galley and the bunk; the prompt cooks or sleeps; cancel (Esc or ${padName('B')}) takes you back on deck.`,
+      `Mooring: a second prompt (on the anchor key, ${padName('X')} on a controller, or a tap) says what holding her still means where you are. Out on the water it drops the anchor: it goes down to the seabed, and she drifts back on her rope and lies head to the anchor, riding the waves; again, and you haul it in. Too shallow or too deep (deeper than its 30 m rope) and it says so. Beside a jetty or quay it ties her up alongside instead (lines and fenders); tied up, it casts off, pushing her clear if there’s room. Stepping ashore at a jetty makes her fast for you.`,
       'Towing: alongside another boat, the prompt offers to step across or take her in tow. She follows on a line from your stern; the mooring prompt (or the same prompt beside her) lets her go. A small boat can’t tow a much bigger one.',
       'The camera turns all the way round you or your boat. Drag upwards (or push the right stick up) and the view sinks past the waterline to look beneath it, at the hull or the fish below; drag down again and you’re back in the air. The view key still steps through first person, a fixed underwater view and your bait.',
     ]) out.push(el('p', 'st-note', line));
     out.push(list);
     // A controller: what its buttons do (they can't be changed), and whether it buzzes.
     out.push(el('h3', null, 'Controller'));
-    out.push(el('p', 'st-note', 'An Xbox controller (or any the browser recognises) works as soon as you press a button on it; the hints follow whichever you used last. In menus: the D-pad or left stick moves, A chooses, B goes back, LB and RB change tabs, the right stick scrolls.'));
-    out.push(this.row('Controller vibration', 'Feel the game through your hands: the engine through the hull, a sea slamming under the bow, a knock, the starter, the bite, the hook going in, a fish running and the drag giving line (in the reel trigger too, where the browser can reach it). Best on an Xbox controller in Chrome or Edge.',
+    out.push(el('p', 'st-note', `An Xbox, PlayStation or Nintendo controller (or any the browser recognises) works as soon as you press a button on it; the hints follow whichever you used last, and name its buttons as they're printed on it. In menus: the D-pad or left stick moves, ${padName('A')} chooses, ${padName('B')} goes back, ${padName('LB')} and ${padName('RB')} change tabs, the right stick scrolls.`));
+    out.push(this.row('Button names', 'Automatic: as printed on the controller you’re using, from the name it gives the browser. Choose one if the hints name the wrong buttons: a PlayStation controller through Steam or DS4Windows passes itself off as an Xbox one.',
+      this.choice([['auto', 'Automatic'], ['xbox', 'Xbox'], ['playstation', 'PlayStation'], ['nintendo', 'Nintendo']], C.padNames, (v) => this.set('controls', 'padNames', v))));
+    out.push(...this.padSetup());
+    out.push(this.row('Controller vibration', 'Feel the game through your hands: the engine through the hull, a sea slamming under the bow, a knock, the starter, the bite, the hook going in, a fish running and the drag giving line (in the reel trigger too, where the browser can reach it). Best in Chrome or Edge, on an Xbox or PlayStation controller.',
       this.choice([['off', 'Off'], ['light', 'Light'], ['normal', 'Normal'], ['strong', 'Strong']], C.vibration, (v) => { this.set('controls', 'vibration', v); this.hooks.feltVibration?.(v); })));
     const pads = el('div', 'st-keys');
     for (const [group, rows] of PAD_HELP) {
