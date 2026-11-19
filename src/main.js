@@ -79,6 +79,7 @@ import { newToday, notePlace, noteMove, noteBoat, noteDive, noteSeen, noteSky, n
 import { SeaGlow, nightGlow } from './world/seaglow.js';
 import { Fishing } from './fishing.js';
 import { FISH, drawFishSketch, drawLanternSketch, fishById, weightOf } from './fish.js';
+import { morphOf, MORPH_WORDS } from './fishlook.js';
 import { RODS, TACKLE, ROD_IDS, PACK, cleanGear, currentRig, carriedItems, fits, termOf, lineInUse } from './tackle.js';
 import { LIVE, isLiveBait, addLive, takeLive, liveCount, stepBucket, freshen, waterWords, capOf, STALE } from './livebait.js';
 import { PackUI } from './pack.js';
@@ -1604,6 +1605,7 @@ function logCatch(sp, size, agent, rigUsed, how = null) {
     zone: zoneAt(agent.x, agent.z),
     place: placeName(agent.x, agent.z),
     water: waterOf(zoneAt(agent.x, agent.z)),
+    ...(morphOf(agent.look) ? { morph: morphOf(agent.look) } : {}),
     kind: how?.kind || rigUsed?.rod?.kind || 'float',
     rod: how?.rod || rigUsed?.rod?.id || 'float',
     item: rigUsed?.item?.id || null,
@@ -1663,6 +1665,9 @@ function recordCatch(sp, size, agent, rigUsed, how = null) {
   // (Its heaviest too: a short, deep fish can outweigh a longer, leaner one. See girthOf.)
   const kgNow = agent?.weight ?? weightOf(sp, size), heavier = !isNew && kgNow > (rec.heaviest || 0) && !!rec.heaviest;
   rec.heaviest = Math.max(rec.heaviest || 0, Math.round(kgNow * 100) / 100);
+  // (A colour morph: kept with its kind, for the journal. See fishlook.js.)
+  const morph = morphOf(agent?.look);
+  if (morph) rec.morphs = [...new Set([...(rec.morphs || []), morph])];
   // (Caught aboard one of your boats: in her papers, and her best fish in her log.)
   const V = !onFoot && boat ? state.yard.vessels?.[boat.id] : null;
   if (V && !how) {
@@ -1732,7 +1737,8 @@ function showCatch(sp, size, agent, rigUsed) {
   kgEl.id = 'cc-kg';
   $('cc-size').replaceChildren(`${size} cm${sp.creature ? ' mantle' : ''} · `, kgEl, build);
   weighIn(kgEl, kg, wtText, verdict, isNew);
-  $('cc-note').textContent = isNew ? sp.note : agent.caught > 0 ? 'This one has met your hook before.' : sp.creature ? pick(['It flushes pale and dark, and squirts a last jet of ink.', 'Its great eyes look you over.', 'It wraps an arm round your finger, then lets go.']) : pick(REPEAT_LINES);
+  const morph = morphOf(agent?.look);
+  $('cc-note').textContent = morph ? MORPH_WORDS[morph].card(sp.name.toLowerCase()) : isNew ? sp.note : agent.caught > 0 ? 'This one has met your hook before.' : sp.creature ? pick(['It flushes pale and dark, and squirts a last jet of ink.', 'Its great eyes look you over.', 'It wraps an arm round your finger, then lets go.']) : pick(REPEAT_LINES);
   // (A venomous fish, a weever: unhooked with pliers and a cloth, never a bare hand.)
   if (sp.venom) hud.flash('Careful: venomous spines. Pliers and a wet cloth to unhook it, and keep your fingers clear of that black fin.', t, 4.5);
   $('cc-rig').textContent = (rigUsed?.item ? `Caught on ${rigUsed.item.on}, with the ${rigUsed.rod.short.toLowerCase()}` : '') + (state.trip?.sp === sp.id ? ' · the fish your trip is for' : '');

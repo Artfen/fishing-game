@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { lerp, smoothstep, seeded } from './util.js';
 import { hasAnatomy, anatomyGeometry, anatomyMaterials } from './anatomy.js';
+import { lookRuleValues, lookUniforms, lookVertexHead, lookVertexBody, lookFragmentHead, lookFragmentBody, lookOf } from './fishlook.js';
 import { registerFor, titleName } from './register.js';
 import { isDay, isEvening, isTwilight, clamp01 } from './habits.js';
 import { ATLANTIC, DEPTHS } from './atlantic.js';
@@ -1018,7 +1019,7 @@ export function buildFishGeometry(f, detail = true) {
 // The tail sways with a travelling wave. Instanced fish read their swim phase and
 // effort from an attribute; a single fish reads it from material.userData.swim.
 export function fishMaterial(f, instanced) {
-  if (hasAnatomy(f.id)) return anatomyMaterials(f.id, instanced);
+  if (hasAnatomy(f.id)) return anatomyMaterials(f.id, instanced, (part) => lookRuleValues(f, part));
   const m = new THREE.MeshStandardMaterial({
     vertexColors: true, roughness: f.creature ? 0.55 : 0.38, metalness: f.creature ? 0.02 : 0.18, flatShading: true, side: THREE.DoubleSide,
   });
@@ -1042,7 +1043,11 @@ export function fishMaterial(f, instanced) {
   m.userData.swim = { value: new THREE.Vector2(0, 0.3) };
   m.userData.bend = { value: 0 }; // (a single fish's whole-body bend: see anatomy.js)
   m.userData.glow = { value: f.sketch.glow ? 1 : 0 };
+  // (Its own look: see fishlook.js. One material for the whole fish, fins and all: its body's rules.)
+  m.userData.look = { value: [0, 0, 0, 0] };
+  const looks = lookRuleValues(f, 0);
   m.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, lookUniforms(looks, m.userData.look));
     shader.uniforms.uGlowColor = { value: glow };
     shader.uniforms.uGlow = m.userData.glow;
     shader.uniforms.uSwimU = m.userData.swim;
@@ -1051,16 +1056,19 @@ export function fishMaterial(f, instanced) {
       .replace('#include <common>', `#include <common>
         attribute float aGlow;
         varying float vGlow;
-        ${instanced ? 'attribute vec3 aSwim;' : 'uniform vec2 uSwimU;\nuniform float uBendU;'}`)
+        ${instanced ? 'attribute vec3 aSwim;' : 'uniform vec2 uSwimU;\nuniform float uBendU;'}
+        ${lookVertexHead(instanced)}`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
+        ${lookVertexBody(instanced)}
         vec3 sw = ${instanced ? 'aSwim' : 'vec3(uSwimU, uBendU)'};
         ${bendCode}
         vGlow = aGlow;`);
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform vec3 uGlowColor;\nuniform float uGlow;\nvarying float vGlow;')
+      .replace('#include <common>', `#include <common>\nuniform vec3 uGlowColor;\nuniform float uGlow;\nvarying float vGlow;\n${lookFragmentHead}`)
+      .replace('#include <color_fragment>', `#include <color_fragment>\n${lookFragmentBody}`)
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += uGlowColor * vGlow * uGlow + diffuseColor.rgb * 0.16;');
   };
-  m.customProgramCacheKey = () => `fish-${instanced ? 'instanced' : 'single'}-${mode}`;
+  m.customProgramCacheKey = () => `fish-${instanced ? 'instanced' : 'single'}-${mode}-L`;
   return m;
 }
 
@@ -1158,6 +1166,15 @@ function buildSquidGeometry(f) {
 }
 
 // A single fish, used while one is hooked, landed and held up for a look.
+// A single fish drawn alone (landed, held, a friend's on the line): its own look (fishlook.js).
+const NO_LOOK = [0, 0, 0, 0];
+export function setLook(mesh, look = NO_LOOK) {
+  for (const m of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+    const L = m?.userData?.look?.value;
+    if (L) for (let i = 0; i < 4; i++) L[i] = look?.[i] ?? 0;
+  }
+}
+
 export function buildFishMesh(f) {
   const mesh = new THREE.Mesh(buildFishGeometry(f), fishMaterial(f, false));
   mesh.castShadow = true;

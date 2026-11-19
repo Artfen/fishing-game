@@ -4,6 +4,7 @@ import { SOUTH_ANATOMY } from './anatomySouth.js';
 import { BIG_ANATOMY } from './anatomyBig.js';
 import { SEA_ANATOMY } from './anatomySea.js';
 import { NORTH_ANATOMY } from './anatomyNorth.js';
+import { lookVertexHead, lookVertexBody, lookFragmentHead, lookFragmentBody, lookUniforms } from './fishlook.js';
 
 // Anatomical models of aquatic animals, one recipe per species, built in code (no external
 // assets). Three body plans share the machinery where the animals really are alike:
@@ -1145,33 +1146,41 @@ const SWIM = {
       transformed.y += cos(sw.x * 0.7 + position.z * 7.0) * arm * 0.01;`,
 };
 
-function patch(m, mode, instanced, sheen, key, swim, bend = { value: 0 }) {
+// (looks: its kind's rules for this part, and the fish's own look for a single fish drawn alone
+// (instanced, each fish's comes with it): see fishlook.js.)
+function patch(m, mode, instanced, sheen, key, swim, bend = { value: 0 }, looks = null) {
   m.userData.swim = swim;
   m.userData.bend = bend;
+  if (looks) m.userData.look = looks.look;
   m.onBeforeCompile = (shader) => {
     shader.uniforms.uSwimU = m.userData.swim;
     shader.uniforms.uBendU = m.userData.bend;
     shader.uniforms.uSheen = { value: sheen };
+    if (looks) Object.assign(shader.uniforms, lookUniforms(looks.rules, looks.look));
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', `#include <common>
-        ${instanced ? 'attribute vec3 aSwim;' : 'uniform vec2 uSwimU;\nuniform float uBendU;'}`)
+        ${instanced ? 'attribute vec3 aSwim;' : 'uniform vec2 uSwimU;\nuniform float uBendU;'}
+        ${looks ? lookVertexHead(instanced) : ''}`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
+        ${looks ? lookVertexBody(instanced) : ''}
         vec3 sw = ${instanced ? 'aSwim' : 'vec3(uSwimU, uBendU)'};
         ${SWIM[mode]}`);
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform float uSheen;')
+      .replace('#include <common>', `#include <common>\nuniform float uSheen;\n${looks ? lookFragmentHead : ''}`)
+      .replace('#include <color_fragment>', `#include <color_fragment>\n${looks ? lookFragmentBody : ''}`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         // A soft sheen at glancing angles, and a little self-light so fish read underwater.
         float rim = pow(1.0 - clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0), 3.0);
         totalEmissiveRadiance += diffuseColor.rgb * (0.06 + rim * uSheen);`);
   };
-  m.customProgramCacheKey = () => `anatomy-${key}-${mode}-${instanced ? 'i' : 's'}`;
+  m.customProgramCacheKey = () => `anatomy-${key}-${mode}-${instanced ? 'i' : 's'}${looks ? '-L' : ''}`;
   return m;
 }
 
 const SKINS = new Map();
-// The three materials (body, fins, eyes) for a species.
-export function anatomyMaterials(id, instanced) {
+// The three materials (body, fins, eyes) for a species. (rules(part): its kind's looks for each
+// part, from fishlook.js; for a single fish drawn alone, its own look is set on userData.look.)
+export function anatomyMaterials(id, instanced, rules = null) {
   const A = ANATOMY[id];
   if (!SKINS.has(id)) SKINS.set(id, paintSkin(A));
   const map = SKINS.get(id);
@@ -1192,8 +1201,9 @@ export function anatomyMaterials(id, instanced) {
   });
   const eyes = new THREE.MeshStandardMaterial({ map: eyeTexture(A.eye?.iris || '#c9b37a', A.eye?.pupil), roughness: 0.08, metalness: 0.15 });
   // One swim phase for all three, so fins and eyes move with the body.
-  const swim = { value: new THREE.Vector2(0, 0.3) }, bend = { value: 0 };
-  return [patch(body, A.mode, instanced, A.sheen ?? 0.35, `${id}-b`, swim, bend), patch(fins, A.mode, instanced, 0.1, 'f', swim, bend), patch(eyes, A.mode, instanced, 0.2, 'e', swim, bend)];
+  const swim = { value: new THREE.Vector2(0, 0.3) }, bend = { value: 0 }, look = { value: [0, 0, 0, 0] };
+  const L = (part) => (rules ? { rules: rules(part), look } : null);
+  return [patch(body, A.mode, instanced, A.sheen ?? 0.35, `${id}-b`, swim, bend, L(0)), patch(fins, A.mode, instanced, 0.1, 'f', swim, bend, L(1)), patch(eyes, A.mode, instanced, 0.2, 'e', swim, bend, L(2))];
 }
 
 const GEOS = new Map();

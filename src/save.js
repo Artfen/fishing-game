@@ -10,6 +10,7 @@ import { cleanFavours } from './requests.js';
 import { cleanContracts } from './contracts.js';
 import { cleanStory } from './story.js';
 import { cleanSettings } from './settings.js';
+import { MORPHS } from './fishlook.js';
 import { cleanCamps } from './campsite.js';
 import { cleanEquip, cleanCar, cleanOuting, defaultEquip } from './outing.js';
 import { cleanGuide } from './firstTrip.js';
@@ -314,7 +315,9 @@ export function sanitizeLogEntry(e) {
     ...(typeof e.boat === 'string' && /^[a-z]{2,12}$/.test(e.boat) ? { boat: e.boat } : {}),
     ...(typeof e.helper === 'string' && e.helper.trim() && ['helm', 'net', 'leader'].includes(e.helped) ? { helper: e.helper.trim().slice(0, 24), helped: e.helped } : {}),
     // From save version 4: what it weighed (estimated from its length), the sky, the line and rig.
-    weight: num(e.weight, 0, 0, 1000),
+    weight: num(e.weight, 0, 0, 2000),
+    // (A colour morph, if it was one: see fishlook.js.)
+    ...(e.morph && MORPHS.includes(e.morph) ? { morph: e.morph } : {}),
     sky: oneOf(e.sky, ['', ...SKY_STATES], ''),
     line: str(e.line, '', 60),
     term: str(e.term, '', 20),
@@ -335,6 +338,7 @@ export function sanitize(raw) {
       if (!fishById[id] || !isObj(r)) continue;
       s.fish[id] = {
         count: int(r.count, 1, 0, 1e6), best: num(r.best, 0, 0, 700), ...(Number.isFinite(r.heaviest) && r.heaviest > 0 ? { heaviest: num(r.heaviest, 0, 0, 2000) } : {}),
+        ...(Array.isArray(r.morphs) && r.morphs.some((m) => m && MORPHS.includes(m)) ? { morphs: [...new Set(r.morphs.filter((m) => m && MORPHS.includes(m)))] } : {}),
         firstDay: int(r.firstDay, 1, 1, 1e6), firstHour: num(r.firstHour, 12, 0, 24),
         firstZone: oneOf(r.firstZone, ZONES, 'bay'), firstRain: !!r.firstRain,
       };

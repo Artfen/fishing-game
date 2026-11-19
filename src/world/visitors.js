@@ -14,7 +14,7 @@ import { RODS, LINE_COLORS } from '../tackle.js';
 import { buildFloat } from '../tackleModels.js';
 import { buildRod } from '../props.js';
 import { FightShow } from '../fightshow.js';
-import { fishById, buildFishMesh, scaleOf, girthOf } from '../fish.js';
+import { fishById, buildFishMesh, scaleOf, girthOf, setLook } from '../fish.js';
 import { Diver } from '../diver.js';
 import { kindOf } from '../boatid.js';
 import { floorAt as planFloor, heightOf as planHeight } from '../deckplan.js';
@@ -364,6 +364,7 @@ export class VisitorView {
       const A = P.hk != null ? this.agentOf?.(P.hk) : null, s = scaleOf(sp, size);
       const g = A && A.sp === sp && A.size === size ? A.girth ?? 1 : girthOf(sp, size);
       m.scale.set(s * g, s * g, s);
+      setLook(m, A && A.sp === sp && A.size === size ? A.look : null);
       const shake = mv === 'shake' ? Math.sin(t * 28) * 0.5 : 0;
       m.position.set(x, leap.airborne ? leap.y : lv - 0.06, z);
       m.rotation.set(-leap.pitch, away + Math.PI / 2 + leap.yaw + shake, leap.roll, 'YXZ');

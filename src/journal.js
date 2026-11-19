@@ -1,5 +1,6 @@
 import { goalsOf } from './goals.js';
 import { FISH, fishById, drawFishSketch, drawLanternSketch, weightOf } from './fish.js';
+import { MORPH_WORDS } from './fishlook.js';
 import { hasAnatomy } from './anatomy.js';
 import { studio } from './gearView.js';
 import { TACKLE, RODS, KIND_NAMES } from './tackle.js';
@@ -497,6 +498,8 @@ export class Journal {
     }
     if (rec) {
       text.append(el('p', 'j-meta', `${rec.count} caught · best ${rec.best} cm${rec.heaviest ? ` · heaviest ${weightText(rec.heaviest)}` : ` (${weightText(weightOf(f, rec.best))})`} · ${f.where}`));
+      // (The rare ones you've had in your hands: see fishlook.js.)
+      if (rec.morphs?.length) text.append(el('p', 'j-meta', `Unusual ones you've caught: ${rec.morphs.map((m) => MORPH_WORDS[m]?.name || m).join(', ')}`));
       text.append(el('p', 'j-meta', `First caught ${ZONE_WORDS[rec.firstZone] || ''} at ${formatClock(rec.firstHour)}${rec.firstRain ? ', in the rain' : ''}`));
       // What has worked: written down as you learn it.
       const on = this.state.caughtOn?.[f.id];
