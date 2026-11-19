@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { Input, defaultBindings } from './input.js';
 import { SettingsUI, WEATHER_MODES } from './settings.js';
 import { loadGame, saveGame, newGame, saveStatus, parseSave, importSave, exportText, stopSaving, SAVE_KEY, adoptJournal, slots } from './save.js';
-import { Cloud } from './cloud.js';
+import { Cloud, explainCloud } from './cloud.js';
 import { Together, cleanName, suggestName, NAME_MAX, CALLS, PAID_MAX } from './together.js';
 import { setupOffline, offline, applyUpdate, checkForUpdate } from './offline.js';
 import { RELEASE, BUILD, BUILT } from './version.js';
@@ -12804,6 +12804,33 @@ function renderCloud() {
       await cloud.signOut();
       renderCloud();
     }, 'quiet'));
+    // (docs/ONLINE.md) Your cloud data: a copy of it, or gone (your save and your account).
+    kids.push(btn('Download my cloud save', async () => {
+      try {
+        const text = await cloud.exportCloud();
+        if (!text) return hud.toast('There’s no save in the cloud yet: it goes up a little after you play.', 5);
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+        a.download = `slow-tide-cloud-save-${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.append(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+      } catch (err) {
+        hud.toast(`Couldn’t fetch it: ${explainCloud(err)}.`, 6);
+      }
+    }, 'quiet'));
+    kids.push(btn('Delete my cloud data…', () => ask('Delete your cloud data?', 'Your save in the cloud and your account (the sign-in record with your email address) are deleted for good. Your game in this browser is kept as it is, and you carry on as a guest. Download a copy first if you might want the cloud one.', [
+      { text: 'Keep it', cls: 'quiet' },
+      { text: 'Delete it', cls: 'danger', run: async () => {
+        try {
+          await cloud.deleteCloud();
+        } catch (err) {
+          hud.toast(`Couldn’t delete it just now: ${explainCloud(err)}. Nothing was changed.`, 7);
+        }
+        renderCloud();
+      } },
+    ]), 'quiet'));
   } else {
     kids.push(make('p', 'Sign in with your email to keep your progress safe and carry it to other devices. There’s no password: you get a sign-in link. Your progress here comes with you, and you can always keep playing as a guest.'));
     const form = make('form', null, 'j-cloud-form');
@@ -12821,6 +12848,12 @@ function renderCloud() {
     kids.push(form);
   }
   if (cloud.message) kids.push(make('p', cloud.message, 'j-cloud-msg'));
+  // (What's kept, where and for how long: the privacy page. docs/ONLINE.md)
+  const priv = make('p', null, 'j-cloud-privacy');
+  const link = make('a', 'What’s stored, where, and your rights: the privacy page');
+  Object.assign(link, { href: 'privacy.html', target: '_blank', rel: 'noopener' });
+  priv.append(link);
+  kids.push(priv);
   box.replaceChildren(...kids);
 }
 cloud.onChange = () => {
@@ -12980,6 +13013,7 @@ if (onDesktop()) {
   });
 }
 $('title-download').addEventListener('click', (e) => e.stopPropagation());
+$('title-privacy').addEventListener('click', (e) => e.stopPropagation());
 
 // A small "are you sure?" with any buttons we need.
 // A question with buttons; { input } adds a text box (its value goes to the button's run).

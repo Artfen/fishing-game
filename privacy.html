@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Privacy · Slow Tide</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="What Slow Tide keeps, where, for how long, and your rights: no accounts needed, no cookies, no analytics.">
+<meta name="theme-color" content="#0f1b2b">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml">
+<!--
+  The privacy page (docs/ONLINE.md), written from what the game's code actually stores and sends.
+  BEFORE IT GOES LIVE, whoever runs this copy of the game fills in the four highlighted blanks
+  (class="fill"): who runs it, a contact address, the Supabase project's region, and the host's log
+  retention. tests/privacy.test.mjs checks the page still lists everything the code keeps.
+-->
+<style>
+@font-face { font-family: 'Caveat'; src: url('assets/fonts/caveat-latin.woff2') format('woff2'); font-weight: 400 700; font-display: swap; }
+@font-face { font-family: 'Kalam'; src: url('assets/fonts/kalam-400-latin.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Nunito'; src: url('assets/fonts/nunito-latin.woff2') format('woff2'); font-weight: 200 1000; font-display: swap; }
+:root {
+  --sea-night: #0f1b2b;
+  --sea-deep: #1b4f78;
+  --hud-ink: #fff9ef;
+  --lantern: #ffc977;
+  --seaglass: #93dccd;
+  --paper: #f3e8cf;
+  --paper-shade: #e6d4ae;
+  --ink: #35291f;
+  --ink-soft: #6e5c49;
+  --ink-faint: rgba(53, 41, 31, 0.32);
+  --stamp: #b5532f;
+  --font-display: 'Caveat', 'Bradley Hand', 'Segoe Print', cursive;
+  --font-hand: 'Kalam', 'Bradley Hand', 'Segoe Print', cursive;
+  --font-ui: 'Nunito', ui-rounded, 'SF Pro Rounded', system-ui, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--sea-night) linear-gradient(to bottom, #20476a 0, #163450 280px, var(--sea-night) 760px) no-repeat;
+  color: var(--hud-ink);
+  font: 16px/1.55 var(--font-ui);
+}
+a { color: var(--seaglass); text-underline-offset: 2px; }
+a:hover { color: var(--hud-ink); }
+:focus-visible { outline: 2px solid var(--lantern); outline-offset: 3px; }
+.wrap { max-width: 880px; margin: 0 auto; padding: 40px max(16px, env(safe-area-inset-right, 0px)) 56px max(16px, env(safe-area-inset-left, 0px)); }
+header { text-align: center; margin-bottom: 28px; }
+header img { width: 72px; height: 72px; border-radius: 18px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35); }
+h1 { margin: 10px 0 4px; font: 700 clamp(44px, 9vw, 64px)/1 var(--font-display); letter-spacing: 0.01em; }
+.sub { margin: 0 auto; max-width: 560px; color: rgba(255, 249, 239, 0.8); }
+.best { margin: 26px auto 6px; text-align: center; }
+.best[hidden] { display: none; }
+.big {
+  display: inline-flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 14px 28px; border-radius: 14px; text-decoration: none;
+  background: var(--lantern); color: #2b1d0e; font: 800 19px/1.2 var(--font-ui);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+}
+.big small { font: 600 13px/1.3 var(--font-ui); opacity: 0.75; }
+.big:hover { background: #ffd795; color: #2b1d0e; }
+.best p { margin: 10px 0 0; font-size: 14px; color: rgba(255, 249, 239, 0.7); }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin: 28px 0 10px; }
+.card {
+  display: flex; flex-direction: column; gap: 6px; min-width: 0;
+  padding: 16px; border-radius: 12px; background: var(--paper); color: var(--ink);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+}
+.card.mine { outline: 3px solid var(--lantern); outline-offset: 2px; }
+.card h2 { margin: 0; font: 700 26px/1.1 var(--font-display); }
+.card p { margin: 0; font-size: 14px; color: var(--ink-soft); }
+.card .get {
+  margin-top: auto; align-self: flex-start; padding: 8px 14px; border-radius: 9px;
+  background: var(--ink); color: var(--paper); font-weight: 800; font-size: 14px; text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.card .get:hover { background: #4a3a2c; color: var(--paper); }
+.card code { font-size: 12px; overflow-wrap: anywhere; }
+.all { text-align: center; font-size: 14px; color: rgba(255, 249, 239, 0.7); margin: 0 0 30px; }
+section.page {
+  margin: 22px 0; padding: 20px 22px; border-radius: 12px;
+  background: var(--paper); color: var(--ink);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+}
+section.page h2 { margin: 0 0 6px; font: 700 30px/1.1 var(--font-display); }
+section.page h3 { margin: 16px 0 4px; font: 700 15px/1.3 var(--font-ui); }
+section.page p, section.page li { font-size: 15px; }
+section.page p { margin: 6px 0; }
+section.page ul { margin: 6px 0; padding-left: 20px; }
+section.page a { color: var(--stamp); }
+section.page a:hover { color: var(--ink); }
+section.page code { font-size: 13px; background: rgba(53, 41, 31, 0.08); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+.hand { font-family: var(--font-hand); }
+.browser { text-align: center; }
+.browser .big { background: var(--seaglass); color: #0d2a2a; }
+.browser .big:hover { background: #b2e8dc; color: #0d2a2a; }
+footer { margin-top: 30px; text-align: center; font-size: 13px; color: rgba(255, 249, 239, 0.55); }
+@media (max-width: 520px) {
+  .wrap { padding-top: 28px; }
+  section.page { padding: 16px; }
+}
+.fill { background: #ffe9a8; color: #5a3b00; padding: 0 4px; border-radius: 3px; font-style: normal; font-weight: 700; }
+section.page table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 14px; }
+section.page th, section.page td { text-align: left; vertical-align: top; padding: 6px 8px; border-top: 1px solid rgba(53, 41, 31, 0.15); }
+section.page th { font-weight: 800; white-space: nowrap; }
+@media (max-width: 520px) { section.page th { white-space: normal; } }
+.toc { text-align: center; font-size: 14px; color: rgba(255, 249, 239, 0.75); }
+.toc a { margin: 0 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img src="assets/icons/icon-192.png" alt="" width="72" height="72">
+    <h1>Privacy</h1>
+    <p class="sub">Slow Tide needs no account. It shows no ads, uses no cookies and no analytics, and doesn’t track you. Your game stays on your own device unless you choose cloud saves or playing together. This page says exactly what is kept, where, and for how long.</p>
+    <p class="toc"><a href="#device">On your device</a> · <a href="#cloud">Cloud saves</a> · <a href="#together">Playing together</a> · <a href="#site">The site and downloads</a> · <a href="#rights">Your rights</a></p>
+  </header>
+
+  <section class="page" id="who">
+    <h2>Who runs this</h2>
+    <p>This copy of Slow Tide is run by <em class="fill">[name of the person or business running this copy of the game]</em>, who decides what happens to the data described here (the “controller”, in data protection law). Questions, requests or complaints: <em class="fill">[contact email address for privacy]</em>.</p>
+    <p class="hand">Last updated 19 November 2026.</p>
+  </section>
+
+  <section class="page" id="device">
+    <h2>On your device</h2>
+    <p>Everything the game needs to keep is kept in your browser’s own storage on your device (or, in the desktop app, in its data folder). None of it is sent anywhere by itself.</p>
+    <table>
+      <tr><th>Your game</th><td>The save (<code>slow-tide-save</code>), a copy from the start of each session (<code>slow-tide-save-backup</code>), and any save kept aside: one that couldn’t be read (<code>slow-tide-save-unreadable</code>), the game before a new one (<code>slow-tide-save-before-new-game</code>), or a very old one (<code>slow-tide-save-v1</code>). Your other games, if you keep more than one (<code>slow-tide-slots</code>, <code>slow-tide-slot-2</code>, <code>slow-tide-slot-3</code>). It holds what you’ve caught and found, your boats and gear, your journal, your settings and the name you chose.</td></tr>
+      <tr><th>Photographs</th><td>The pictures you take with the game’s camera, in the browser’s database (<code>slow-tide-photos</code>).</td></tr>
+      <tr><th>The game itself</th><td>A copy of the game’s files, so it plays offline (a <code>slow-tide-…</code> cache for each version), the pages it fetched while you played (<code>slow-tide-runtime</code>), and a note that it’s ready (<code>slow-tide-offline-ready</code>).</td></tr>
+      <tr><th>Cloud sign-in</th><td>Only if you sign in for cloud saves: your sign-in session and your email address (<code>slow-tide-cloud</code>).</td></tr>
+      <tr><th>Playing together</th><td>Only if you play together: the session’s code, whether you started it, and when, to rejoin it after a reload within ten minutes (<code>slow-tide-session</code>).</td></tr>
+      <tr><th>Friend codes</th><td>A fingerprint of each friend’s gift code you’ve used (not the code itself), in your save, so each is used once.</td></tr>
+      <tr><th>The desktop app</th><td>The same, kept by the app; and copies of your saves as files in its saves folder (<code>slow-tide-save.json</code> and one for each other game), its update setting (<code>settings.json</code>) and a short log of its last update check (<code>updates.log</code>).</td></tr>
+    </table>
+    <p>To remove it: start a new game or delete a game (Your games, on the title screen), delete photographs from the journal, or clear this site’s data in your browser’s settings (which removes all of it). Uninstalling the desktop app leaves its data folder; delete that folder to remove it.</p>
+  </section>
+
+  <section class="page" id="cloud">
+    <h2>Cloud saves (optional)</h2>
+    <p>Only if you sign in, from the journal’s Your progress, to keep your game safe and carry it between devices.</p>
+    <table>
+      <tr><th>What</th><td>Your email address (to send you sign-in links, and to know your account), and your saved game: the same as in your browser (your first game; other games stay on your device). With it, when it was saved and a number that changes with each save.</td></tr>
+      <tr><th>Where</th><td>In the game’s Supabase project (Supabase stores it for us), in <em class="fill">[the Supabase project’s region, for example the EU (Frankfurt)]</em>. Sign-in emails are sent by Supabase.</td></tr>
+      <tr><th>Who can see it</th><td>Only you, signed in (the database lets each player read only their own), and the people running the game, through Supabase’s dashboard.</td></tr>
+      <tr><th>How long</th><td>Until you delete it. In the journal, signed in: <b>Download my cloud save</b> gives you a copy; <b>Delete my cloud data</b> deletes your save and your account, email address and all, at once.</td></tr>
+      <tr><th>Why</th><td>Because you asked for it: to keep your game and bring it to your other devices.</td></tr>
+    </table>
+  </section>
+
+  <section class="page" id="together">
+    <h2>Playing together (optional)</h2>
+    <p>Only when you start or join a session with a code.</p>
+    <table>
+      <tr><th>What</th><td>The name you choose; where you are and what you’re in or doing; your catches and, if you choose to share them, your finds and what you sell; the quick calls you send; and, from whoever started the session, the time and weather of their game.</td></tr>
+      <tr><th>To whom</th><td>The others in that session (up to eight), through Supabase’s real-time service, while the session lasts. Anyone with the four-digit code can join it.</td></tr>
+      <tr><th>Kept</th><td>Nothing: it isn’t written to any database, and it ends when you leave.</td></tr>
+    </table>
+  </section>
+
+  <section class="page" id="site">
+    <h2>The site, downloads and updates</h2>
+    <p>The game’s pages and files come from its web host, <em class="fill">[the host: Vercel, or wherever this copy is published]</em>. Like any web server, it keeps a log of requests (your address on the internet, the time, what was asked for) to run and protect the service, for <em class="fill">[how long the host keeps its logs]</em>. The game loads nothing from any other site: its fonts, pictures and sounds come with it.</p>
+    <p>The desktop app’s installers download from the game’s releases on GitHub, which, like any download site, sees your address on the internet. When the app starts it asks the same releases whether there’s a new version (unless you’ve switched that off, in the journal); it sends nothing else, and nothing about your game.</p>
+  </section>
+
+  <section class="page" id="rights">
+    <h2>Your rights</h2>
+    <p>Under data protection law (the GDPR, and the UK GDPR) you can ask to see the data held about you, have it corrected, have it deleted, have its use limited, object to its use, and have a copy to take elsewhere. For cloud saves you can do most of that yourself, in the journal: download your save, or delete your save and your account. For anything else, write to <em class="fill">[contact email address for privacy]</em>. You can also complain to the data protection authority where you live.</p>
+    <p>If you’re under 16, ask a parent or guardian before signing in for cloud saves.</p>
+    <p>If this page changes, the date at the top changes with it.</p>
+  </section>
+
+  <footer><a href="./">Play Slow Tide</a> · <a href="download.html">Slow Tide for your computer</a></footer>
+</div>
+</body>
+</html>

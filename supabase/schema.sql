@@ -44,3 +44,21 @@ $$;
 drop trigger if exists slow_tide_touch on public.slow_tide_saves;
 create trigger slow_tide_touch before update on public.slow_tide_saves
   for each row execute function public.slow_tide_touch();
+
+-- A player deleting their own cloud data from the game (the journal, Your progress: see
+-- docs/ONLINE.md): their save and their sign-in record, which holds their email address. Runs with
+-- the owner's rights so it can remove the auth user, but only ever the caller's own (auth.uid()).
+create or replace function public.delete_my_account() returns void
+language plpgsql security definer set search_path = '' as $$
+begin
+  if auth.uid() is null then
+    raise exception 'not signed in';
+  end if;
+  delete from public.slow_tide_saves where user_id = auth.uid();
+  delete from auth.users where id = auth.uid();
+end;
+$$;
+
+revoke all on function public.delete_my_account() from public;
+revoke all on function public.delete_my_account() from anon;
+grant execute on function public.delete_my_account() to authenticated;

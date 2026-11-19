@@ -50,6 +50,8 @@ node tools/build-sw.mjs && zip -r slow-tide.zip index.html style.css manifest.we
 
 **Privacy:** the game loads nothing from other sites, uses no cookies and no analytics. Progress is kept in the player's own browser (local storage) and never leaves their device. If you switch on cloud saves and a player chooses to sign in, their save (and email address) is also stored in your own Supabase project, where only they can read it. If a player starts or joins a session to [play together](#playing-together-optional), their chosen name, where they are and what they catch go through your Supabase project's Realtime service to the others in that session while it lasts; none of it is stored.
 
+**The privacy page** (`privacy.html`, linked from the title screen, the journal and the download page) says all of that in full, from the code: every key the game keeps on the device, what cloud saves and playing together send, the host's logs, GitHub for the downloads and the update check, and the player's rights (`docs/ONLINE.md`; a test fails if the code starts keeping something the page doesn't mention). **Before it goes live, fill in its four highlighted blanks**: who runs the game, a contact address for privacy, the Supabase project's region, and how long your host keeps its logs.
+
 ## How to play
 
 With a keyboard and mouse (every key below can be changed in **Settings → Controls & comfort**; keys are shown as printed on your keyboard, so W A S D is Z Q S D on AZERTY):
@@ -1182,6 +1184,8 @@ How it behaves:
 - **Two devices at once** don't overwrite each other: each save carries a revision number, and if another device saved in between, the game takes in its catches and tries again.
 - **New game** or **Load a saved copy** while signed in also replaces the cloud save, and the confirmation says so.
 - **Signing out** leaves your progress in the browser. Deleting a user in Supabase (**Authentication → Users**) deletes their save too.
+- **Players' own data**: signed in, the journal offers **Download my cloud save** (the cloud copy, as a file) and **Delete my cloud data…** (the save and the account, email address and all, through the `delete_my_account()` function in `supabase/schema.sql`: run the file again on a project set up before it, which is safe). Without the function, only the save is deleted and the game tells the player to ask you about the rest.
+- **When Supabase isn't answering** (a free project pauses after a week without use; a plan's limits reached), the game says so in plain words, keeps everything in the browser, and syncs when it's back. Restore a paused project from the Supabase dashboard. What the free tier carries, worked out (cloud saves easily; playing together for some hours a month): `docs/ONLINE.md`.
 
 Not on Vercel? Put the URL and anon key in `src/cloud-config.js` instead. The anon key is designed to be public; never put any other key there.
 
@@ -1438,7 +1442,8 @@ Alongside: seasons (spawning runs, the tuna's summer in Biscay, the meagre's spr
 | `src/world/visitors.js` | Friends you're playing with, drawn where they are: a figure of their own on foot, or their boat with them at the helm, each look made from their name |
 | `src/cloud-config.js` | Where to put the Supabase address and anon key if you don't host on Vercel |
 | `api/cloud-config.js` | Vercel function that hands the game `SUPABASE_URL` and `SUPABASE_ANON_KEY` (the public key only) |
-| `supabase/schema.sql` | The cloud save table and its row level security rules |
+| `supabase/schema.sql` | The cloud save table and its row level security rules, and `delete_my_account()` for a player deleting their own cloud data |
+| `privacy.html` | The privacy page: what's kept on the device, what the online services send, the player's rights (four blanks for whoever runs the game) |
 | `src/audio.js` | All sound, synthesised live: water, wind, rain, the stream, the campfire, birds, frogs, crickets, footsteps, the bite alarm, and the generative music; with recordings laid under it for texture (the shore, the harbours, the rain, a gull's call) |
 | `src/soundFiles.js` | The recorded sounds: each file, its source, recordist and licence (public domain or CC0), and how it was cut; `tools/sounds.mjs` makes `assets/sounds/` from it |
 | `src/earshot.js` | Where a sound comes from: how loud, which side and how dull a sound at a place in the world is to you (distance, the way you face, walls), and the water's edge along a quay |

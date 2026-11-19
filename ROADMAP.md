@@ -64,7 +64,10 @@ polish rather than new places or boats.
    desktop build for Steam (a packaged app) with achievements, Steam cloud saves and Steam Deck
    support, and a free browser demo to bring people in. Co-op and cloud saves run on Supabase's
    free tier, which won't survive real popularity; and the online features need a privacy policy
-   (GDPR).
+   (GDPR). *Part done* (`docs/ONLINE.md`): the privacy page (four blanks for whoever runs the game),
+   players downloading and deleting their own cloud data, a paused or full Supabase said in plain
+   words, and the free tier worked out (cloud saves fine; playing together a few hours a month on
+   it). The demo, selling the download and Steam wait on decisions about money and accounts.
 9. **Real machines and real players.** Confirm 60 fps on a MacBook Air and a cheap Windows laptop
    (so far it's only been tested in software rendering on a slow server), and watch 10–20 people
    play it to see where they get confused or stop.
