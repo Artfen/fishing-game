@@ -89,7 +89,8 @@ test('the shaders built while the game loads, and anything built later as it is 
   const main = fs.readFileSync(path.join(root, 'src/main.js'), 'utf8');
   assert.match(main, /const lampPool = new LampPool\(scene\);/);
   assert.match(main, /lampPool\.update\(camera\);/);
-  assert.match(main, /renderer\.compileAsync\(root, camera, scene\)/);
+  assert.match(main, /renderer\.compile\(root, camera, scene\)/);
+  assert.match(main, /renderer\.properties\.get\(m\)\?\.currentProgram/, "a freed material let go, not an error");
   // The loading screen stays until they're built (or 25 s), then the game starts.
   assert.match(main, /warmShaders\(\)\.finally\(\(\) => \{\s*\$\('loading'\)\?\.remove\(\);/);
   assert.match(main, /world\.onBuilt = \(o\) => warmShaders\(o\);/);

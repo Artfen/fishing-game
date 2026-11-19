@@ -11126,9 +11126,16 @@ const oceanText = () => {
 // see budgetRatio), for the last preset applied; again whenever the window changes size.
 let pixelsFor = null;
 function fitPixels() {
-  const q = pixelsFor;
+  const q = pixelsFor, was = renderer.getPixelRatio();
   if (q) renderer.setPixelRatio(Math.max(0.5, budgetRatio(Math.max(q.minRatio, Math.min(window.devicePixelRatio, q.pixelRatio)), innerWidth, innerHeight) * q.scale));
   renderer.setSize(innerWidth, innerHeight, false);
+  // (A new size can mean a new ratio: what's drawn to it follows.)
+  const pr = renderer.getPixelRatio();
+  if (pr !== was) {
+    world.setPixelRatio(pr);
+    glow.setPixelRatio(pr);
+    underwater.setPixelRatio(pr);
+  }
 }
 function applyQuality() {
   const G = settings.graphics;
@@ -11138,6 +11145,7 @@ function applyQuality() {
   // (Ultra and Cinematic draw more pixels than an ordinary screen has, and smooth them down.)
   pixelsFor = q;
   fitPixels();
+  const pr = renderer.getPixelRatio();
   env.setShadows(q.shadows, q.shadowSize);
   quality.shadowSpan = q.shadowSpan;
   env.air = q.air;
@@ -11473,11 +11481,24 @@ let shotCam = null; // (see slowTide.shotCam)
 // Build the shaders for root (the whole scene, or something new in it) now, lit as the scene is,
 // in the background where the browser can. Resolves when they're ready, or after max seconds.
 // (warmShaders.built: how many programs it has built, for tests and the soak.)
+// (renderer.compileAsync, but a material freed while it waits (a far sea let go) is let go too,
+// not an error: three.js's own looked for a program it no longer had.)
 function warmShaders(root = scene, max = 25) {
   try {
-    const before = renderer.info.programs?.length || 0;
-    const ready = renderer.compileAsync(root, camera, scene).then(() => { warmShaders.built = (warmShaders.built || 0) + (renderer.info.programs?.length || 0) - before; });
-    return Promise.race([ready, new Promise((r) => setTimeout(r, max * 1000))]).catch(() => {});
+    const before = renderer.info.programs?.length || 0, t0 = performance.now();
+    const mats = renderer.compile(root, camera, scene);
+    return new Promise((resolve) => {
+      const check = () => {
+        for (const m of mats) {
+          const p = renderer.properties.get(m)?.currentProgram;
+          if (!p || p.isReady()) mats.delete(m);
+        }
+        if (mats.size && performance.now() - t0 < max * 1000) return setTimeout(check, 10);
+        warmShaders.built = (warmShaders.built || 0) + (renderer.info.programs?.length || 0) - before;
+        resolve();
+      };
+      check();
+    }).catch(() => {});
   } catch {
     return Promise.resolve();
   }
