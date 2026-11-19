@@ -952,6 +952,19 @@ const pads = new Gamepads(input, {
   rodStick: () => fishing.expert && fishing.lineOut && !modal,
 });
 input.padLabel = (a) => pads.label(a);
+// The mouse pointer: gone while you play on a controller, so there's nothing on the screen but
+// the game; back the moment the mouse moves (a nudge of the desk doesn't count), the controller's
+// hints staying until you click or type. (style.css: body.no-pointer.)
+let pointerHidden = false;
+function hidePointer(on) {
+  if (on === pointerHidden) return;
+  pointerHidden = on;
+  document.body.classList.toggle('no-pointer', on);
+}
+pads.onActive = () => hidePointer(true);
+addEventListener('mousemove', (e) => {
+  if (pointerHidden && Math.abs(e.movementX) + Math.abs(e.movementY) > 4) hidePointer(false);
+}, { passive: true });
 // What you feel through the controller (see haptics.js): the engine, the sea, the fish.
 const haptics = new Haptics((strong, weak, lt, rt, ms) => pads.feel(strong, weak, lt, rt, ms));
 haptics.setStrength(settings.controls.vibration);
@@ -962,6 +975,7 @@ const MOVE = () => (scheme() === 'pad' ? kbd('L-stick') : `${K('forward')}${K('l
 const LOOK = () => (scheme() === 'pad' ? `${kbd('R-stick')} look around (push up to sink under the water)` : 'drag to look around (drag up to sink under the water)');
 input.onMethod((m) => {
   document.body.classList.toggle('pad', m === 'pad');
+  hidePointer(m === 'pad');
   hud.cache = {};
   labelKeys();
   showControls();
@@ -14725,7 +14739,12 @@ function tick(now, manual = false) {
   fishing.side = 0;
   carIn.throttle = 0;
   carIn.steer = 0;
-  if (started && (!modal || mapAboard())) {
+  // (Her autopilot steering her, with a menu open (the map, the pack, the journal): her engine
+  // left at its notch and her course to the autopilot; the stick and keys are the menu's, not
+  // the helm's. Without it, the map aboard still lets you steer with it up, and other menus stop
+  // her engine while you read.)
+  const autoHelm = !!(pilot.on && pilot.id === boat.id && !onFoot && !cabinIn && !driving && !dive && leverKind());
+  if (started && (!modal || (mapAboard() && !autoHelm))) {
     const ti = input.throttle, si = input.steer;
     if (walkLine && !fishing.lineOut) walkLine = false;
     if (sitting && (Math.abs(ti) > 0.3 || Math.abs(si) > 0.3)) standUp();
@@ -14850,7 +14869,9 @@ function tick(now, manual = false) {
     steer = cw.si;
     if (following) stopFollowing();
   }
-  if (boat.motor && (onFoot || (modal && !mapAboard()) || cabinIn)) throttle = 0;
+  // (Not while you travel or sleep: you leave her, or she's anchored, the autopilot off.)
+  if (modal && autoHelm && modal !== 'travel' && modal !== 'sleep') throttle = boat.lever;
+  else if (boat.motor && (onFoot || (modal && !mapAboard()) || cabinIn)) throttle = 0;
   // What's allowed with a line out or a fish on (a lever left higher comes back).
   if (leverKind()) {
     watchHookup();

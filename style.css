@@ -659,6 +659,8 @@ body.pad :focus { outline: 3px solid var(--lantern); outline-offset: 3px; }
 body.pad #touch, body.pad #cancel-btn { display: none !important; }
 body:not(.pad) .pad-only { display: none !important; }
 body.pad .keys-only { display: none !important; }
+/* (Playing on a controller: no mouse pointer, until the mouse moves. See main.js hidePointer.) */
+body.no-pointer, body.no-pointer * { cursor: none !important; }
 
 /* Rod and tackle in hand, under the clock. Click to open the backpack. */
 #gear {

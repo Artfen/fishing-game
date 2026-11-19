@@ -143,3 +143,46 @@ test('touching the controller again after the keyboard hands the hints back to i
   assert.equal(input.method, 'pad');
   assert.deepEqual(log.slice(-1), ['press:anchor']);
 });
+
+test('every touch of the controller tells the game it is in use (the mouse pointer hides); left resting, nothing', () => {
+  const { pads, pad, press } = rig('play');
+  let n = 0;
+  pads.onActive = () => n++;
+  pads.connect(pad);
+  pads.poll(1 / 60);
+  assert.equal(n, 0, 'resting: nothing');
+  press('A', true);
+  assert.equal(n, 1);
+  press('A', false);
+  pad.axes = [0, 0, 0.8, 0];
+  pads.poll(1 / 60);
+  assert.equal(n, 2, 'the right stick, looking round');
+  // (A stick barely off centre, inside the dead zone, isn't a touch.)
+  pad.axes = [0.05, 0.05, 0, 0];
+  pads.poll(1 / 60);
+  assert.equal(n, 2);
+});
+
+test('a menu open at the helm: the stick and B are the menu\'s, never her throttle; B held closing it doesn\'t knock her into neutral', () => {
+  const { pads, input, log, now, pad, press } = rig('helmpilot');
+  globalThis.document ??= { querySelectorAll: () => [], activeElement: null };
+  pads.connect(pad);
+  pad.axes = [0, -1, 0, 0];
+  pads.poll(1 / 60);
+  assert.ok(input.virtual.throttle > 0.99, 'at the helm the stick works her lever');
+  // The map (or the pack) opens: the stick lets go of the helm, and stays off it.
+  now.ctx = 'menu';
+  pads.poll(1 / 60);
+  assert.equal(input.virtual.throttle, 0);
+  pad.axes = [0, 1, 0, 0];
+  pads.poll(1 / 60);
+  assert.equal(input.virtual.throttle, 0);
+  pad.axes = [0, 0, 0, 0];
+  // B closes it (Escape), and isn't the helm's neutral, then or as she comes back to the helm.
+  press('B', true);
+  now.ctx = 'helmpilot';
+  pads.poll(1 / 60);
+  press('B', false);
+  assert.ok(log.includes('press:cancel'));
+  assert.ok(!log.some((l) => l.includes('neutral')), log.join(' '));
+});

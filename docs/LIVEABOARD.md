@@ -180,6 +180,9 @@ The trawler takes that pattern into her own frame, with floors at different heig
   who'd rather not.
 - **Leaving the wheel** under way needs the autopilot on, or the lever in neutral. The cabin's
   "held still" rule (`canEnterCabin`) doesn't apply to her: you can walk below at eight knots.
+- **A menu open** (the map, the pack, the journal, Settings) with the autopilot on: she keeps on
+  at her notch, on its course, and the keys and stick are the menu's, not her helm's. Without it,
+  the map still lets you steer with it up, and the other menus stop her engine while you read.
 - **The controls** are those for walking ashore, on keyboard, controller and touch, with prompts
   from `interaction()` as everywhere.
 - **Crew** walk the same plan. Their pose already says which boat and where in her (`cr`, `cx`,

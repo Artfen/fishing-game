@@ -1880,3 +1880,16 @@ Ranked by player impact, then risk and effort. ✅ done, ⏳ in progress.
 | After | 0.85 and 0.93; the yacht's wheel covers less of her dashboard than before (from your eyes, 1.6 controls' worth of her switches, throttle and screen behind it, where it was 2.7; her horn button by the wheel's boss 77% behind it, 88% before); the RIB's and the console boat's dashboards with nothing behind their wheels, as before |
 | Validation | New `tests/wheels.test.mjs` (2): the yacht's and the bass boat's wheels on to your eyes more than 0.8, their tops leaning away from you, your hands on the rim and its foot ahead of you (main fails it: the bass boat's 0.04); from your eyes at the RIB's and the console boat's helms, no switch of their dashboards behind the wheel. `tests/dashboard.test.mjs`, `tests/bassboat.test.mjs`, `tests/yacht.test.mjs` pass as they stand. A browser check: first person at each helm and from beside it, before and after |
 | Remaining risks | The RIB's and the console boat's wheels are still seen nearly edge on: they want their helms laid out again, the wheel and the switch panel together |
+
+### Under way: menus on autopilot, and no mouse pointer on a controller
+
+| Field | |
+| --- | --- |
+| System | `src/main.js` (`autoHelm` in the frame's input: her own autopilot steering her, at her helm; `hidePointer`), `src/gamepad.js` (`onActive`: any touch of the controller), `style.css` (`body.no-pointer`) |
+| Previous issue | From play: on autopilot, opening the pack or the journal cut her engine (as if knocked into neutral) for as long as it was open, since every menu but the map stopped the engine; the map let the keys work her helm under it. And on a controller the mouse pointer sat in the middle of the screen |
+| Change | With her autopilot steering her, any menu leaves her engine at its notch and her course to the autopilot; the keys and stick are the menu's alone (nothing steps her lever). Travelling away from her, or sleeping (only at anchor, the autopilot off), stops it as before; so does every menu without the autopilot. On a controller the pointer is hidden the moment it's touched, and back the moment the mouse really moves (a nudge of the desk doesn't count) |
+| Player benefit | Check the map, sort the pack or read the journal on a long passage while she steams on; nothing on the screen but the game when you play on a controller |
+| Before | The trawler at 7.8 knots on autopilot: the pack open eight seconds, down to 5.5 knots and falling, the journal the same |
+| After | The pack, the map and the journal open eight seconds each: her notch held (0.56) and still gaining, 7.2 → 7.8 knots; the autopilot off, the pack still stops her (7.8 → 6.3). Browser-checked: the pointer hidden on the controller, kept hidden through a 3-pixel nudge, back on a real move |
+| Validation | New `tests/underway.test.mjs` (2); `tests/gamepad.test.mjs` (+2): every touch of the controller reported, a resting stick not; a menu open at the helm, the stick and B never reach her throttle, and B held closing it doesn't knock her into neutral |
+| Remaining risks | The cabin boat's cabin (the galley and bunk view) still stops her engine with the autopilot on, as it always has |

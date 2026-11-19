@@ -196,6 +196,8 @@ export class Gamepads {
     if (this.rt < 0.06) this.rt = 0;
     const pressed = NAMES.map((n, i) => (i === BTN.LT || i === BTN.RT ? trigger(b[i]) > 0.35 : !!b[i]?.pressed));
     const any = pressed.some(Boolean) || L.x || L.y || R.x || R.y;
+    // (In use just now: the game hides the mouse pointer. See main.js hidePointer.)
+    if (any) this.onActive?.();
     if (any && this.input.method !== 'pad') {
       this.input.use('pad');
       this.fresh = true;
