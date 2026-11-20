@@ -302,12 +302,14 @@ export class FieldGuide {
       const t0 = performance.now();
       while (this.queue.length && performance.now() - t0 < 12) {
         const j = this.queue.shift();
-        const url = this.stage.thumb({ type: 'fish', id: j.id }, j.w, j.h);
-        for (const im of document.querySelectorAll(`#journal img[data-thumb="${CSS.escape(j.key)}"]`)) {
-          im.src = url;
-          im.classList.remove('loading');
-          im.removeAttribute('data-thumb');
-        }
+        // (Drawn now, its picture encoded off the main thread: see gearView.js thumbAsync.)
+        this.stage.thumbAsync({ type: 'fish', id: j.id }, j.w, j.h).then((url) => {
+          for (const im of document.querySelectorAll(`#journal img[data-thumb="${CSS.escape(j.key)}"]`)) {
+            im.src = url;
+            im.classList.remove('loading');
+            im.removeAttribute('data-thumb');
+          }
+        });
       }
       if (this.queue.length && !$('journal').hidden) requestAnimationFrame(step);
       else this.pumping = false;
@@ -639,7 +641,7 @@ export class FieldGuide {
   tackleImg(ref) {
     const i = el('img', 'g-timg');
     i.alt = '';
-    i.src = this.stage.thumb(ref, 120, 90, ref.type === 'rod' ? { closeUp: true } : {});
+    this.stage.thumbAsync(ref, 120, 90, ref.type === 'rod' ? { closeUp: true } : {}).then((url) => { i.src = url; });
     return i;
   }
 

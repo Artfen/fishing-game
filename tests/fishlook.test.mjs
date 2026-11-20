@@ -128,3 +128,26 @@ test('a morph caught: in your log, in your record of its kind, and kept through 
   assert.match(main, /if \(morph\) rec\.morphs = /);
   assert.match(main, /MORPH_WORDS\[morph\]\.card\(/);
 });
+
+// (Stutter) One shader program for every species' body of a kind, not one each: a new species
+// coming into view (or into the backpack, the field guide, the catch card) compiles nothing new.
+// And the studio's warm-up covers one fish of every kind there is.
+test('species of a kind share one shader program; the warm-up has one fish of every kind', async () => {
+  const { anatomyMaterials, ANATOMY } = await import('../src/anatomy.js');
+  const byMode = new Map();
+  for (const id of Object.keys(ANATOMY)) {
+    const A = ANATOMY[id], key = anatomyMaterials(id, false)[0].customProgramCacheKey();
+    assert.ok(!key.includes(id), `${id}: its body's program isn't its own (${key})`);
+    const sig = `${A.mode}`;
+    if (!byMode.has(sig)) byMode.set(sig, new Set());
+    byMode.get(sig).add(key);
+  }
+  for (const [mode, keys] of byMode) assert.equal(keys.size, 1, `mode ${mode}: one body program, not ${keys.size}`);
+  const { fishVariants } = await import('../src/gearView.js');
+  const V = fishVariants(), ids = new Set(V.map((r) => r.id));
+  assert.ok(V.length >= byMode.size, 'at least one fish for each way of swimming');
+  // (The studio draws the fish and the like you can catch: fishById; the whales and dolphins are
+  // in the sea, not in it.)
+  const fishModes = new Set(Object.keys(ANATOMY).filter((id) => fishById[id]).map((id) => `${ANATOMY[id].mode}`));
+  for (const mode of fishModes) assert.ok([...ids].some((id) => ANATOMY[id] && `${ANATOMY[id].mode}` === mode), `a fish that swims as mode ${mode} is warmed`);
+});

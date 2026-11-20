@@ -1203,7 +1203,10 @@ export function anatomyMaterials(id, instanced, rules = null) {
   // One swim phase for all three, so fins and eyes move with the body.
   const swim = { value: new THREE.Vector2(0, 0.3) }, bend = { value: 0 }, look = { value: [0, 0, 0, 0] };
   const L = (part) => (rules ? { rules: rules(part), look } : null);
-  return [patch(body, A.mode, instanced, A.sheen ?? 0.35, `${id}-b`, swim, bend, L(0)), patch(fins, A.mode, instanced, 0.1, 'f', swim, bend, L(1)), patch(eyes, A.mode, instanced, 0.2, 'e', swim, bend, L(2))];
+  // (Stutter: one shader program for every species' body of a kind, not one each: what tells one
+  // species from another, its skin, sheen and look, is in its textures and uniforms, and three.js
+  // keys the program to whether there's a bump map or two sides itself.)
+  return [patch(body, A.mode, instanced, A.sheen ?? 0.35, 'b', swim, bend, L(0)), patch(fins, A.mode, instanced, 0.1, 'f', swim, bend, L(1)), patch(eyes, A.mode, instanced, 0.2, 'e', swim, bend, L(2))];
 }
 
 const GEOS = new Map();

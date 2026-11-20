@@ -158,7 +158,87 @@ export class GearStage {
     return r.domElement;
   }
 
+  // (Stutter) A thumbnail, handed over when it's ready: drawn now (a few milliseconds, once the
+  // studio's warm), its picture taken at once, and encoded off the main thread (toBlob) rather
+  // than as a PNG here and now (toDataURL: a long stall, many in a row as a panel fills). The
+  // same picture asked for twice is drawn once. Resolves to a URL for an <img>.
+  thumbAsync(ref, w, h, opts = {}) {
+    const key = `${refKey(ref)}|${w}x${h}|${opts.closeUp ? 'c' : ''}`;
+    if (this.thumbs.has(key)) return Promise.resolve(this.thumbs.get(key));
+    this.pending ||= new Map();
+    if (this.pending.has(key)) return this.pending.get(key);
+    if (!this.init()) return Promise.resolve(this.thumb(ref, w, h, opts));
+    const thick = ref.type === 'rod' && !opts.closeUp ? opts.thick ?? 3 : 1;
+    const { object, view } = build(ref, { closeUp: opts.closeUp, thick });
+    if (ref.type === 'rod' && !opts.closeUp) view.pitch = 0.05;
+    const cam = this.frame(object, view, w, h, opts);
+    const canvas = this.shoot(w, h, cam);
+    this.holder.clear();
+    release(object);
+    const done = new Promise((resolve) => {
+      const keep = (url) => {
+        this.thumbs.set(key, url);
+        this.pending.delete(key);
+        resolve(url);
+      };
+      if (typeof canvas.toBlob !== 'function') return keep(canvas.toDataURL('image/png'));
+      canvas.toBlob((blob) => keep(blob ? URL.createObjectURL(blob) : fallbackThumb(ref, w, h)), 'image/png');
+    });
+    this.pending.set(key, done);
+    return done;
+  }
+
+  // (Stutter) A piece drawn straight into a visible 2D canvas (the catch card's fish): no picture
+  // encoded or decoded on the way, and nothing kept.
+  drawInto(canvas, ref) {
+    const w = canvas.width, h = canvas.height, ctx = canvas.getContext('2d');
+    if (!this.init()) {
+      const img = new Image();
+      img.onload = () => ctx.drawImage(img, 0, 0, w, h);
+      img.src = fallbackThumb(ref, w, h);
+      return;
+    }
+    const { object, view } = build(ref, {});
+    const cam = this.frame(object, view, w, h, {});
+    const shot = this.shoot(w, h, cam);
+    this.holder.clear();
+    release(object);
+    // (Its picture taken as a bitmap, which the browser makes without stopping the game to wait
+    // for the graphics card, then drawn in; straight across where there's no such thing.)
+    if (typeof createImageBitmap === 'function') {
+      createImageBitmap(shot).then((bmp) => {
+        ctx.clearRect(0, 0, w, h);
+        ctx.drawImage(bmp, 0, 0, w, h);
+        bmp.close?.();
+      }).catch(() => {});
+    } else {
+      ctx.clearRect(0, 0, w, h);
+      ctx.drawImage(shot, 0, 0, w, h);
+    }
+  }
+
+  // (Stutter) Made ready in the background, before it's first wanted: the renderer, its lighting
+  // and the shader programs its pieces are drawn with, compiled where the browser can compile
+  // them without waiting (renderer.compileAsync). refs: a few pieces whose materials stand for
+  // the rest (a fish, a rod, a lure, a bait). Resolves when they're ready.
+  async warm(refs) {
+    if (this.warmed || !this.init()) return;
+    this.warmed = true;
+    for (const ref of refs) {
+      try {
+        const { object, view } = build(ref, {});
+        const cam = this.frame(object, view, 64, 48, {});
+        await (this.renderer.compileAsync ? this.renderer.compileAsync(this.scene, cam) : this.renderer.compile(this.scene, cam));
+        this.holder.clear();
+        release(object);
+      } catch {
+        this.holder?.clear();
+      }
+    }
+  }
+
   // A cached thumbnail (data URL) for a reference; opts.closeUp for a rod's handle and reel.
+  // (Drawn and encoded here and now: thumbAsync is the one for a panel.)
   thumb(ref, w, h, opts = {}) {
     const key = `${refKey(ref)}|${w}x${h}|${opts.closeUp ? 'c' : ''}`;
     if (this.thumbs.has(key)) return this.thumbs.get(key);
@@ -212,6 +292,18 @@ export class GearStage {
   get memory() {
     return this.renderer ? { ...this.renderer.info.memory } : null;
   }
+}
+
+// (Stutter) One fish for each kind of shader the species are drawn with (anatomy.js and fish.js:
+// how it swims, its build, its fins), so warming those warms them all.
+export function fishVariants() {
+  const seen = new Map();
+  for (const f of Object.values(fishById)) {
+    const A = ANATOMY[f.id];
+    const sig = A ? `a|${A.mode}|${A.plan}|${!!A.smoothFins}|${!!A.scaleRows}|${(A.finOpacity ?? 0.88) < 1}` : `f|${f.creature === 'squid' ? 2 : f.sketch?.flat ? 1 : 0}`;
+    if (!seen.has(sig)) seen.set(sig, { type: 'fish', id: f.id });
+  }
+  return [...seen.values()];
 }
 
 // One studio for the whole game (the backpack, the field guide and the catch card share it).

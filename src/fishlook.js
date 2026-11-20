@@ -115,7 +115,7 @@ export const morphOf = (look) => MORPHS[Math.round(look?.[2] || 0)] || '';
 export const lookVertexHead = (instanced) => `${instanced ? 'attribute vec4 aLook;' : 'uniform vec4 uLook;'}
   varying vec4 vLook;
   varying vec3 vObj;`;
-export const lookVertexBody = (instanced) => $t`vLook = ${instanced ? 'aLook' : 'uLook'};
+export const lookVertexBody = (instanced) => `vLook = ${instanced ? 'aLook' : 'uLook'};
   vObj = position;`;
 // The fragment shader's declarations: its kind's rules (see LOOKS, setLookRules) and which part of
 // it this is (0 its body, 1 its fins, 2 its eyes).

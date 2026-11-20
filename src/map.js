@@ -480,18 +480,22 @@ export class MapSheet {
 
   // The land and water, drawn once: shoreline in ink, hills in contours, water by depth.
   bake() {
+    this.bakeSome(Infinity);
+  }
+
+  // (Stutter) The chart's heights read a few rows at a time, budget milliseconds a go, so it can be
+  // made ready in the background before the map's first opened (main.js prepareMap); opened
+  // before it's done, the rest is read there and then (bake). True once the chart's ready.
+  bakeSome(budget) {
+    if (this.base) return true;
     const PX = this.S.px ?? 2.5; // (2.5 m a pixel, but for the open sea's chart)
     const BW = Math.round(this.S.w / PX), BH = Math.round(this.S.h / PX);
-    const c = document.createElement('canvas');
-    c.width = BW;
-    c.height = BH;
-    const ctx = c.getContext('2d');
-    const img = ctx.createImageData(BW, BH);
-    const d = img.data;
-    const H = this.height;
-    const hs = new Float32Array(BW * BH), fr = new Float32Array(BW * BH);
-    for (let j = 0; j < BH; j++) {
-      const z = this.S.z + ((j + 0.5) / BH) * this.S.h;
+    let B = this.baking;
+    if (!B || B.key !== this.key) B = this.baking = { key: this.key, hs: new Float32Array(BW * BH), fr: new Float32Array(BW * BH), j: 0 };
+    const hs = B.hs, fr = B.fr, t0 = performance.now();
+    for (; B.j < BH; B.j++) {
+      if (performance.now() - t0 > budget) return false;
+      const j = B.j, z = this.S.z + ((j + 0.5) / BH) * this.S.h;
       for (let i = 0; i < BW; i++) {
         const x = this.S.x + ((i + 0.5) / BW) * this.S.w;
         const s = this.sample(x, z);
@@ -499,6 +503,13 @@ export class MapSheet {
         fr[j * BW + i] = s[1];
       }
     }
+    this.baking = null;
+    const c = document.createElement('canvas');
+    c.width = BW;
+    c.height = BH;
+    const ctx = c.getContext('2d');
+    const img = ctx.createImageData(BW, BH);
+    const d = img.data;
     // (Contours every 8 m on the low ground, every 40 m up the fell.)
     const band = (h) => (h < 40 ? Math.floor(h / 8) : 4 + Math.floor((h - 40) / 40));
     for (let j = 1; j < BH - 1; j++) {
@@ -536,7 +547,7 @@ export class MapSheet {
     // as land, so their water goes on top).
     if (this.key !== 'home') {
       this.base = c;
-      return;
+      return true;
     }
     const kx = BW / this.S.w, kz = BH / this.S.h, at = (x, z) => [(x - this.S.x) * kx, (z - this.S.z) * kz];
     ctx.save();
@@ -565,6 +576,7 @@ export class MapSheet {
     ctx.beginPath(); ctx.ellipse(0, 0, TARN.rx * kx, TARN.rz * kz, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     ctx.restore();
     this.base = c;
+    return true;
   }
 
   // Height and freshness at (x, z) from the baked texture (bilinear); beyond it (up the
