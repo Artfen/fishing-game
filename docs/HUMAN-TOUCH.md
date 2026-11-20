@@ -153,6 +153,30 @@ the existing layout set-up only if asked for.
    grapnel (a fitting) that holds only in shallow water (to 5 m, 10 m of line), said plainly
    when it won't.
 
+#### H3 as built
+
+- **Her voice** (`src/enginevoice.js`, used by `src/audio.js` for your engine and for one heard
+  across the water): the jet ski keeps her character (a higher drone than an outboard) but loses
+  the rasp. The filter peaks at 1.3 kHz rather than 2.9 kHz and without a resonant peak; the second
+  oscillator is a triangle, not a square; the putter (the amplitude flutter at the firing rate)
+  is there at idle and gone by half throttle; the pitch wanders a few cents, slowly; a band of
+  noise under it, rising with speed, is the water and the intake. Measured in the browser at full
+  throttle against main: spectral centroid 503 → 396 Hz, energy above 2 kHz 4.2% → 1.3%, loudness
+  halved (RMS 0.036 → 0.018, half the skiff's), envelope flutter 0.63 → 0.25. The outboards and
+  diesels are unchanged, number for number (`tests/jetski.test.mjs`).
+- **A friend's jet ski** sounds like one (it was voiced as an outboard).
+- **Engines** have a volume of their own (Settings → Sound): yours, its starter, and other boats'.
+  A game from before starts it where its "Fishing and boat sounds" was, so nothing gets louder.
+- **No full anchor.** On a jet ski the anchor button:
+  - in the shallows (her bow in less than her draft and 0.6 m), at low speed, **beaches her**: she
+    lies where she is, the waves lifting her, until the button again or the throttle pushes her
+    off. Not on rock ("you'd hole her"). Kept in the save; friends see her held, with no rope.
+  - with a **folding grapnel** fitted (the Marine Works, £25, the jet ski's alone), throws it over
+    in water to 5 m on 10 m of line; it holds half as hard as an anchor, and says so when it
+    drags. Deeper: "Too deep for her grapnel (7.5 m): its line is 10 m…".
+  - otherwise says plainly that she carries no anchor, and what to do instead.
+  Her first-time tip, the helm's hint line and the diving prompt say the same.
+
 ### H4: characters (issue 2)
 
 One figure for you on foot, you in a boat and your friends (the townsfolk after), with better

@@ -913,6 +913,9 @@ export class Boat {
     this.motorSpec = null;
     this.anchorHold = 1;    // how hard her anchor holds (a heavier one: more; see holdAnchor)
     this.anchorRode = 'rope'; // (B6) what it's on: 'rope', or 'chain' (the heavier anchor's: anchoring.js)
+    this.anchorRope = undefined; // (H3) its length, if not a boat's 50 m: the jet ski's grapnel's 10 m
+    this.grapnel = false;   // (H3) the jet ski with her folding grapnel fitted (mooring.js jetCheck)
+    this.beached = null;    // (H3) the jet ski run up on the beach: she lies there (see update)
     // Out on the crossing (see crossing.js): the sail shortened in a blow (1 full … less, reefed),
     // and the fastest a motor boat can be driven in the ocean's long swell (m/s).
     this.reef = 1;
@@ -5100,7 +5103,7 @@ export class Boat {
       } else An.phase = 'set';
       An.free = null;
       An.fast = 0;
-      An.out = rodeFor(An.depth);
+      An.out = rodeFor(An.depth, this.anchorRope);
       this.anchorPt.set(An.x, An.floor, An.z);
       return;
     }
@@ -5110,7 +5113,7 @@ export class Boat {
     // (Boat.bottomAt, set by the game: (x, z) -> { kind, under }, sonarRead.js bottomOf. Without
     // it, sand.)
     const bottom = Boat.bottomAt?.(x, z) || null;
-    this.anchor = { x, z, floor, depth, out: rodeFor(depth), y: instant ? floor : this.heave + sheer(this.hull, 1) - this.hull.draft, phase: instant ? 'set' : 'drop', tension: 0, bottom, bed: anchorBottom(bottom, x, z), dug: instant ? 99 : 0, wasSet: instant, heldAt: instant ? 99 : 0 };
+    this.anchor = { x, z, floor, depth, out: rodeFor(depth, this.anchorRope), y: instant ? floor : this.heave + sheer(this.hull, 1) - this.hull.draft, phase: instant ? 'set' : 'drop', tension: 0, bottom, bed: anchorBottom(bottom, x, z), dug: instant ? 99 : 0, wasSet: instant, heldAt: instant ? 99 : 0 };
     this.anchorPt.set(x, floor, z);
   }
 
@@ -5332,6 +5335,15 @@ export class Boat {
     phys.m = phys.m0 + (this.payload || 0) + (this.waterKg || 0);
     const b = phys, H = this.hull, m = b.m;
     if (dt <= 0) return;
+    // (H3) Beached (the jet ski, run up into the shallows: mooring.js anchorCheck): she lies where
+    // she is, the waves lifting her, until the throttle's opened or she's shoved off.
+    if (this.beached) {
+      if (throttle || this.shove) this.beached = null;
+      else {
+        this.rest(dt, t, lanternLevel);
+        return;
+      }
+    }
     const still = Math.hypot(b.v[0], b.v[2]) < 0.15 && Math.abs(b.w[1]) < 0.05 && !throttle && !steer && !this.shove && !this.air && this.vel.x === this._vx && this.vel.z === this._vz;
     this._stillT = still ? (this._stillT || 0) + dt : 0;
     const rests = far === 'moored' ? (!!this.tie || this.anchor?.phase === 'set') && this._stillT > SETTLED : !!far;

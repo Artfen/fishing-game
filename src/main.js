@@ -170,10 +170,11 @@ import { bottomOf } from './sonarRead.js';
 import { setupTouch } from './touch.js';
 import { Gamepads, buttonFor, topDialog, focusables, padName, setPadStyle, styleFor } from './gamepad.js';
 import { drawPad, guideRows } from './padguide.js';
+import { voiceOfHull } from './enginevoice.js';
 import { OnScreenKeyboard } from './osk.js';
 import { levers, nearest, step, setIndex, within, capIndex, leverWords, slide, valueAt, positionOf, displayIndex, positionAtIndex, leverPositionWords, GEAR_IN } from './throttle.js';
 import { LeverUI } from './lever.js';
-import { anchorCheck, berthFor, berthAt, castOffCheck, canTow, towStep, towLineFor, TOW } from './mooring.js';
+import { anchorCheck, berthFor, berthAt, castOffCheck, canTow, towStep, towLineFor, TOW, GRAPNEL, noAnchor } from './mooring.js';
 import { Rope } from './rope.js';
 import { BOAT_PER_S, TANKS, addFuel, isPetrol, PASSAGE_FUEL, passageFuel, level as fuelLevel, room as fuelRoom, burnCar, burnBoat, burnKayak, burnElec, chargeElec, elecLevel, elecWords, chargeBattery, BATTERY_PER_HOUR, driveBy, fill, pour, rescue, moveCan, tankWords, batteryWords, canWords, litres, low as fuelLow } from './fuel.js';
 import { STEPS as TRIP_STEPS, stepOf, stepNumber, complete as completeStep, start as startGuide, words as guideWords, isNewGame, placeAt, FISH_SPOTS } from './firstTrip.js';
@@ -651,7 +652,7 @@ function aroundEar(P, dt) {
   // planing RIB you're riding in isn't silent.)
   if (together.active) {
     for (const b of visitors.boats()) {
-      if (b.speed > 0.3 && !UNPOWERED.has(b.kind)) motors.push({ x: b.pos.x, z: b.pos.z, level: clamp(b.speed / 7, 0.08, 1), voice: b.hull?.motor?.inboard || b.kind === 'cabin' ? 'inboard' : '' });
+      if (b.speed > 0.3 && !UNPOWERED.has(b.kind)) motors.push({ x: b.pos.x, z: b.pos.z, level: clamp(b.speed / 7, 0.08, 1), voice: voiceOfHull(b.hull, b.kind) });
     }
   }
   const inn = HAVEN_ROOMS.inn, inside = town.inside('inn');
@@ -1330,6 +1331,16 @@ for (const [id, b] of Object.entries(BOATS)) {
   if (berth && Math.hypot(berth.x - b.pos.x, berth.z - b.pos.z) < 3) {
     b.tieTo({ ...berth, t: 9 });
     continue;
+  }
+  // (H3) The jet ski left on the beach: there still. Her grapnel's line, if she has one, before
+  // it's let go again below.
+  if (here && saved.beached && noAnchor(b)) {
+    b.beached = { x: b.pos.x, z: b.pos.z, heading: b.heading };
+    continue;
+  }
+  if (noAnchor(b)) {
+    b.grapnel = !!fitEffect(state.yard, id).grapnel;
+    b.anchorRope = b.grapnel ? GRAPNEL.rope : undefined;
   }
   if (here && saved.anchored) {
     const old = !saved.anchor && berthFor(b, boats, { reach: 2.5 });
@@ -3348,6 +3359,10 @@ function teachBoat() {
     : S ? $t`${stick} up or down moves the throttle${notch} (it stays where you leave it), across steers; ${key('neutral')} stops, ${key('anchor')} anchors.`
       : $t`${key('forward')} and ${key('back')} move the throttle${notch} (it stays where you leave it), ${key('left')} and ${key('right')} steer, ${key('neutral')} stops, ${key('anchor')} anchors.`;
   const use = T ? $t('tap the prompt') : `press ${key('interact')}`;
+  // (H3) The jet ski has no anchor: the same key beaches her in the shallows.
+  const jetLever = T ? lever
+    : S ? $t`${stick} up or down moves the throttle${notch} (it stays where you leave it), across steers; ${key('neutral')} stops, ${key('anchor')} beaches her in the shallows.`
+      : $t`${key('forward')} and ${key('back')} move the throttle${notch} (it stays where you leave it), ${key('left')} and ${key('right')} steer, ${key('neutral')} stops, ${key('anchor')} beaches her in the shallows.`;
   const text = {
     skiff: $t`The motor skiff, for the open coast: ${lever} Near a shore, slow down and ${use} to step off.`,
     kayak: $t`The kayak: slow, silent, and it floats in a hand’s depth, so you can creep up on fish in the shallows and reeds. ${S ? $t`${T ? $t('The stick') : $t('The left stick')} paddles and steers.` : $t`${key('forward')}${key('left')}${key('back')}${key('right')} paddle and steer.`} Its little electric motor: ${T ? $t('the Lower motor button') : key('motor')}.`,
@@ -3356,7 +3371,7 @@ function teachBoat() {
     console: $t`The centre console: twin outboards, about twenty-six knots on the pair she came with (the Marine Works has others). ${lever} To fish, just cast: you step back into the cockpit to face your line.`,
     rib: $t`The RIB: a deep-V hull with tubes for sides, one big outboard, about thirty-five knots on the engine she came with (the Marine Works has others). ${lever} Her tubes keep her steady and dry in a sea. To fish, just cast: you step back to face your line.`,
     tender: $t`The tender: a little RIB on a tiller outboard, about twenty-two knots with you alone (the Marine Works has others). ${lever} Light, so sit still in a sea and ease her off down the backs of the waves. Near a shore, slow down and ${use} to step off.`,
-    jetski: $t`The jet ski: over thirty knots. ${lever} It steers by its jet, so it only turns with the throttle on. Hold on over the crests. No fishing from it.`,
+    jetski: $t`The jet ski: over thirty knots. ${jetLever} It steers by its jet, so it only turns with the throttle on. Hold on over the crests. No fishing from it, and no anchor: beach her, tie her up, or fit a folding grapnel at the Marine Works.`,
     trawler: $t`The expedition trawler: one slow diesel, eight knots all day and about nine at most, however hard you push her. ${lever} You stand at her wheel in the pilothouse. Seventeen tonnes carry their way: ease back early, and come alongside at dead slow. A single screw walks her stern to port going astern.`,
     cruiser: $t`The sport-fishing yacht: twin diesels, a cabin with bunks and a galley, and an open cockpit to fish from. ${lever} About nineteen knots on her own diesels (the Marine Works has bigger), slow to turn at speed. Anchor or tie up, then ${use} for the cabin. She can cross to Las Brasas (${use} out on open water).`,
     cabin: $t`The cabin boat: slow and steady, with a bunk and a galley stove. ${lever} Anchor or tie up, then ${use} for the cabin: cook, and sleep aboard.`,
@@ -3379,15 +3394,34 @@ function toggleAnchor() {
     hud.flash($t('Hauling in the anchor…'), t, 3);
     return;
   }
-  const c = anchorCheck(boat);
+  // (H3) The jet ski on the beach: pushed off again.
+  if (boat.beached) {
+    boat.beached = null;
+    audio.knock(0.25);
+    hud.flash($t('You push her off the sand: she’s free to go'), t, 2.4);
+    save();
+    return;
+  }
+  const c = anchorCheck(boat, Boat.bottomAt);
   if (!c.ok) {
-    hud.flash(c.why, t, 4);
+    hud.flash(c.why, t, 5);
+    return;
+  }
+  if (c.beach) {
+    // (H3) Run up into the shallows: she lies there, engine in neutral, until you push her off or
+    // open the throttle. No anchor, no line.
+    boat.beached = { x: boat.pos.x, z: boat.pos.z, heading: boat.heading };
+    boat.lever = 0;
+    boat.power = 0;
+    audio.knock(0.3);
+    hud.flash($t`Beached: her nose is on the bottom in ${c.depth < 0.1 ? $t('barely any water') : `${c.depth.toFixed(1)} m`}, and she’ll stay. ${K('anchor')} or the throttle pushes her off.`, t, 4);
+    save();
     return;
   }
   boat.setAnchor(true);
-  audio.plop(1.2);
+  audio.plop(c.grapnel ? 0.6 : 1.2);
   audio.knock(0.35);
-  hud.flash($t`The anchor goes down: ${c.depth < 10 ? c.depth.toFixed(1) : Math.round(c.depth)} m of water…`, t, 3);
+  hud.flash(c.grapnel ? $t`The grapnel goes over on its line: ${c.depth.toFixed(1)} m of water…` : $t`The anchor goes down: ${c.depth < 10 ? c.depth.toFixed(1) : Math.round(c.depth)} m of water…`, t, 3);
   save();
 }
 // What the anchor does as it goes: it bites on the bottom, and comes up again.
@@ -3405,6 +3439,17 @@ eachBoat((b) => {
   b.onAnchor = (what, who) => {
     if (who !== boat || onFoot) return;
     const bed = who.anchor?.bed || { kind: 'sand', hold: 1 };
+    // (H3) The jet ski's grapnel: it hooks, and says so in its own words.
+    if (noAnchor(who)) {
+      const G = { set: bed.kind === 'rock' ? $t('The grapnel’s caught among the rocks: she’s holding, on its short line') : $t('The grapnel’s hooked in: she’ll lie back on its line. It lets go in a blow, so keep an eye on her'), fast: $t('It won’t come: it’s hooked fast. You take the line in short and let her lift on the swell to snatch it free…'), drag: $t('Her grapnel’s dragging! Shallower water and a calmer spot, or beach her'), up: $t('Grapnel in: she’s free to go') }[what];
+      if (what === 'drag') haptics.pulse('warn', 1.5);
+      if (what === 'up') {
+        audio.knock(0.3);
+        save();
+      }
+      if (G) hud.flash(G, t, 4);
+      return;
+    }
     if (what === 'set') hud.flash(anchorDown(bed), t, 4.5);
     else if (what === 'bite') {
       // (On rock it's caught or skidding, as it said going down: nothing to dig into.)
@@ -3545,6 +3590,14 @@ function mooringAction() {
     if (B) return { text: $t`Slow down to tie up (${sp.toFixed(1)} m/s)`, run: () => {}, busy: true };
   }
   if (tow && (tow.lead === boat || tow.towed === boat)) return { text: $t`Let go the tow (the ${tow.lead === boat ? tow.towed.name : tow.lead.name})`, run: () => letGoTow() };
+  // (H3) The jet ski: on the beach, or her grapnel, or (with neither to hand) the prompt says why.
+  if (boat.beached) return { text: $t('Push her off the sand'), run: toggleAnchor };
+  if (noAnchor(boat)) {
+    if (boat.anchored) return boat.anchor?.phase === 'haul' ? { text: $t('Hauling in the grapnel…'), run: () => {}, busy: true } : { text: $t('Haul in the grapnel'), run: toggleAnchor };
+    if (sp >= 1) return null;
+    const c = anchorCheck(boat, Boat.bottomAt);
+    return { text: c.beach ? $t('Beach her') : c.grapnel ? $t('Throw the grapnel over') : $t('No anchor: why?'), run: toggleAnchor };
+  }
   if (boat.anchored) return boat.anchor?.phase === 'haul' ? { text: $t('Hauling in the anchor…'), run: () => {}, busy: true } : { text: $t('Raise the anchor'), run: toggleAnchor };
   if (sp < 1) return { text: $t('Drop the anchor'), run: toggleAnchor };
   return null;
@@ -3682,10 +3735,11 @@ function diveEntry() {
 function chooseDive(entry) {
   const tank = state.dive.tank;
   // (J2) Over the side of a friend's boat: whether she's held, from their word.
-  const drift = entry.from === 'boat' ? !boat.anchored && !boat.tie : entry.from === 'crew' && !entry.held;
+  const drift = entry.from === 'boat' ? !boat.anchored && !boat.tie && !boat.beached : entry.from === 'crew' && !entry.held;
   const fresh = waterOf(zoneAt(entry.x, entry.z)) === 'fresh';
   const buttons = [];
-  if (drift && entry.from === 'boat') buttons.push({ text: $t('Drop the anchor first'), cls: 'quiet', run: () => toggleAnchor() });
+  // (H3: the jet ski's grapnel, if she has one; with none, the words above say she'll drift.)
+  if (drift && entry.from === 'boat' && (!noAnchor(boat) || boat.grapnel)) buttons.push({ text: noAnchor(boat) ? $t('Throw the grapnel over first') : $t('Drop the anchor first'), cls: 'quiet', run: () => toggleAnchor() });
   buttons.push(tank > SCUBA.reserve
     ? { text: $t`Scuba, with the camera (${Math.round(tank)} bar)`, cls: 'quiet', run: () => startDive('scuba', entry) }
     : { text: $t('Scuba: the tank needs filling'), cls: 'quiet', run: () => hud.flash($t('The tank’s nearly empty: the chandlery in Willowhaven fills it.'), t, 3.5) });
@@ -7021,7 +7075,7 @@ const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const fuelName = (what) => (what === 'car' ? $t('the car') : `the ${BOATS[what].name}`);
 // Within reach of a jetty or quay (where a boat ties up, and the battery charges).
 const pierNear = (b, reach = 4) => PIERS.some((P) => Math.hypot(b.pos.x - clamp(b.pos.x, P.x0, P.x1), b.pos.z - clamp(b.pos.z, P.z0, P.z1)) < reach);
-const moored = (b) => !!b.tie || (b.speed < 0.4 && pierNear(b));
+const moored = (b) => !!b.tie || !!b.beached || (b.speed < 0.4 && pierNear(b));
 
 // (F2c) Lights at sea (navlights.js): every boat's after dark, yours, the town's and your friends',
 // in one cloud of points drawn with the scene. The town's and your friends' are added as they're
@@ -9333,6 +9387,9 @@ function applyYard() {
     b.setLoads(loadsOf(id, e));
     b.anchorHold = e.hold;
     b.anchorRode = e.rode || 'rope';
+    // (H3) The jet ski's folding grapnel, if fitted: her only anchor, on its 10 m line.
+    b.grapnel = !!e.grapnel;
+    b.anchorRope = e.grapnel ? GRAPNEL.rope : undefined;
     b.setFits?.(e.list);
     trollOf(b);
   }
@@ -11993,6 +12050,11 @@ function currentHint() {
     // (The trawler: her autopilot and bow thruster.)
     // (Not at anchor or tied up: the bumpers are the rods' then, see padContext.)
     const aids = boat.hull.autopilot && !boat.anchored && !boat.tie ? $t` · ${K('spotlock')} autopilot${pilot.on ? ` (${degrees(pilot.set)}°)` : ''} · ${P ? `${padName('LB')} ${padName('RB')}` : `${K('trimDown')}${K('trimUp')}`} thruster` : '';
+    // (H3) The jet ski has no anchor: the same key beaches her, or ties her up at a jetty.
+    if (noAnchor(boat)) {
+      if (P) return $t`${$t('Throttle')}: ${word} · ${kbd('L-stick')} ↕ ${notch}, ↔ ${$t('steer')} · ${K('neutral')} stop · ${K('anchor')} beach her, or tie up${motor}${aids} · ${fuel}`;
+      return $t`${$t('Throttle')}: ${word} · ${UD} ${notch} · ${LR} ${$t('steer')} · ${K('neutral')} stop · ${K('anchor')} beach her, or tie up${motor}${aids} · ${fuel}`;
+    }
     if (P) return $t`${kind === 'kayak' ? $t('Motor') : $t('Throttle')}: ${word} · ${kbd('L-stick')} ↕ ${notch}, ↔ ${pilot.on ? $t('its course') : $t('steer')} · ${K('neutral')} stop · ${K('anchor')} anchor${motor}${aids} · ${fuel}`;
     return $t`${kind === 'kayak' ? $t('Motor') : $t('Throttle')}: ${word} · ${UD} ${notch} · ${LR} ${pilot.on ? $t('its course') : $t('steer')} · ${K('neutral')} stop · ${K('anchor')} anchor${motor}${aids} · ${fuel}`;
   }
@@ -12736,7 +12798,8 @@ together.fleetSource = () => boats.filter((b) => !(b === boat && !onFoot)).map((
 // (H1e) Tied up, or at anchor: where it lies, the rode out, and dropping (0), holding (1) or
 // hauling (2), so friends draw her rode from her bow to it (see visitors.js anchorView).
 function moorWire(b) {
-  if (b.tie) return { ty: 1 };
+  // (H3: on the beach, held as she is when tied up: no rode to draw.)
+  if (b.tie || b.beached) return { ty: 1 };
   const A = b.anchored && b.anchor;
   return A ? { an: [A.x, A.z, A.out ?? 0, A.phase === 'haul' ? 2 : A.phase === 'drop' ? 0 : 1] } : {};
 }
@@ -13036,7 +13099,7 @@ function save() {
   if (haul) finishHaul();
   state.platforms = Object.fromEntries(Object.values(BOATS).filter((M) => M.hull.platform && savedDown(M.platformDrop || 0, M.platformWant || 0, !!carriedOn(state, M.id))).map((M) => [M.id, 1]));
   for (const [id, b] of Object.entries(BOATS)) {
-    state.boats[id] = { x: b.pos.x, z: b.pos.z, heading: b.heading, anchored: b.anchored && b.anchor?.phase !== 'haul', ...(b.emotorDown || b.outboardDown ? { motor: true } : {}), ...(b.sailUp ? { sail: Math.round(b.sheet * 100) / 100 } : {}) };
+    state.boats[id] = { x: b.pos.x, z: b.pos.z, heading: b.heading, anchored: b.anchored && b.anchor?.phase !== 'haul', ...(b.beached ? { beached: true } : {}), ...(b.emotorDown || b.outboardDown ? { motor: true } : {}), ...(b.sailUp ? { sail: Math.round(b.sheet * 100) / 100 } : {}) };
     // (Where her anchor lies, or the berth she's tied up at, so she's found just as she was left.)
     if (b.anchor && b.anchor.phase !== 'haul') state.boats[id].anchor = { x: b.anchor.x, z: b.anchor.z };
     if (b.tie) state.boats[id].tie = { pier: b.tie.pier, side: b.tie.side, along: b.tie.along, heading: b.tie.heading };

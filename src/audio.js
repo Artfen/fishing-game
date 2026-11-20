@@ -1,3 +1,4 @@
+import { engineVoice } from './enginevoice.js';
 import { rand, clamp } from './util.js';
 import { hear } from './earshot.js';
 import { SOUNDS, SOUND_DIR, LOOP_PAD } from './soundFiles.js';
@@ -113,7 +114,7 @@ export class AudioScape {
     this.musicOn = true;
     this.t = 0;
     this.under = 0;
-    this.volumes = { master: 1, mute: false, music: 0.8, ambient: 1, wind: 0.8, waves: 0.9, rain: 1, effects: 1, reel: 0.9, alerts: 0.8, light: false };
+    this.volumes = { master: 1, mute: false, music: 0.8, ambient: 1, wind: 0.8, waves: 0.9, rain: 1, effects: 1, engines: 1, reel: 0.9, alerts: 0.8, light: false };
   }
 
   start() {
@@ -179,6 +180,8 @@ export class AudioScape {
     this.musicVol = bus();
     this.effects = bus();
     this.reelBus = bus();
+    // (H3) Engines, yours and others', a volume of their own: docs/HUMAN-TOUCH.md.
+    this.engineBus = bus();
 
     // The echo: everything sent to it goes in at verbIn. Full: a convolution with a long recorded
     // tail (rich, and the heaviest thing in the sound: much of it worked out on a helper thread that
@@ -218,6 +221,7 @@ export class AudioScape {
     sfxSend.gain.value = 0.15;
     // The reverb sends are taken after each bus's volume, so turning a bus down quietens its echo too.
     this.effects.connect(sfxSend);
+    this.engineBus.connect(sfxSend);
     sfxSend.connect(this.verbIn);
 
     this.music = ctx.createGain();
@@ -352,6 +356,7 @@ export class AudioScape {
     this.rainBus.gain.setTargetAtTime(V.rain, now, 0.05);
     this.effects.gain.setTargetAtTime(V.effects, now, 0.05);
     this.reelBus.gain.setTargetAtTime(V.reel ?? 0.9, now, 0.05);
+    this.engineBus.gain.setTargetAtTime(V.engines ?? 1, now, 0.05);
     this.alerts.gain.setTargetAtTime(V.alerts, now, 0.05);
     this.musicVol.gain.setTargetAtTime(V.music, now, 0.05);
     this.setLight(!!V.light);
@@ -691,19 +696,23 @@ export class AudioScape {
       putter.connect(far);
       far.connect(g);
       g.connect(p);
-      p.connect(this.nature);
+      p.connect(this.engineBus);
       for (const o of [o1, o2, lfo]) o.start();
-      this.farEng = { o1, o2, lfo, tone, far, g, p };
+      this.farEng = { o1, o2, lfo, depth, tone, far, g, p };
     }
-    const e = this.farEng, diesel = voice === 'inboard', on = level > 0 && vol > 0.001;
-    const rpm = diesel ? 24 + level * 38 : 34 + level * 58;
-    this.set(e.o1.frequency, rpm, 0.4);
-    this.set(e.o2.frequency, rpm * (diesel ? 1.006 : 2.02), 0.4);
-    this.set(e.lfo.frequency, rpm / (diesel ? 3 : 2.2), 0.4);
-    this.set(e.tone.frequency, diesel ? 170 + level * 520 : 260 + level * 900, 0.4);
+    // (H3: a friend's jet ski with the jet ski's own voice, see enginevoice.js.)
+    const e = this.farEng, on = level > 0 && vol > 0.001, v = engineVoice(level, voice);
+    if (e.o2.type !== v.wave2) e.o2.type = v.wave2;
+    this.set(e.o1.frequency, v.rpm, 0.4);
+    this.set(e.o2.frequency, v.rpm * v.ratio, 0.4);
+    this.set(e.lfo.frequency, v.lfoHz, 0.4);
+    this.set(e.depth.gain, v.lfoDepth, 0.4);
+    this.set(e.tone.frequency, v.cutoff, 0.4);
+    this.set(e.tone.Q, v.q, 0.4);
     this.set(e.far.frequency, lp || 18000, 0.3);
     this.set(e.p.pan, clamp(pan, -1, 1), 0.15);
-    this.set(e.g.gain, on ? vol * (diesel ? 0.05 + level * 0.07 : 0.035 + level * 0.06) : 0, on ? 0.4 : 0.8);
+    // (Heard from afar a touch quieter than your own: the same voice, 0.85 of it.)
+    this.set(e.g.gain, on ? vol * v.gain * 0.85 : 0, on ? 0.4 : 0.8);
   }
 
   bird(vol, pan) {
@@ -844,14 +853,14 @@ export class AudioScape {
   alarmRun() {}
 
   // The skiff's outboard: a low putter at idle that rises in pitch and loudness with the
-  // throttle. level 0 is off. (voice: 'jet' the jet ski's, a higher, harder whine that climbs
-  // further; 'inboard' the yacht's two diesels, a deeper, slower throb beating gently together.
-  // tone: an outboard of its own, from the engine catalogue (see engines.js): { pitch, its note
-  // against her own engine's; smooth, how much less it putters, a V6 more even than a four;
-  // electric, an electric outboard's: no putter at all, a thin whine that climbs with the
-  // throttle, far quieter, and nothing at all at rest }.)
+  // throttle. level 0 is off. (voice: 'jet' the jet ski's, a smooth drone with the water rushing
+  // under it, see enginevoice.js; 'inboard' the yacht's two diesels, a deeper, slower throb beating
+  // gently together. tone: an outboard of its own, from the engine catalogue (see engines.js):
+  // { pitch, its note against her own engine's; smooth, how much less it putters, a V6 more even
+  // than a four; electric, an electric outboard's: no putter at all, a thin whine that climbs with
+  // the throttle, far quieter, and nothing at all at rest }.)
   engine(level, voice = '', tone = null) {
-    const jet = voice === 'jet' || voice === true, diesel = voice === 'inboard';
+    if (voice === true) voice = 'jet';
     if (!this.ctx) return;
     const ctx = this.ctx;
     if (!this.eng && level > 0) {
@@ -880,31 +889,59 @@ export class AudioScape {
       mix2.connect(f);
       f.connect(putter);
       putter.connect(g);
-      g.connect(this.sfx);
-      o1.start(t0);
-      o2.start(t0);
-      lfo.start(t0);
-      this.eng = { o1, o2, f, g, lfo, lfoDepth };
+      g.connect(this.engineBus);
+      // (H3) A slow wander in pitch (two slow, unrelated waves, so it never quite repeats), and the
+      // hiss of water and the intake (the jet ski's: silent on the others).
+      const drift = ctx.createGain(), w1 = ctx.createOscillator(), w2 = ctx.createOscillator();
+      drift.gain.value = 0;
+      w1.frequency.value = 0.23;
+      w2.frequency.value = 0.091;
+      w1.connect(drift);
+      w2.connect(drift);
+      drift.connect(o1.detune);
+      drift.connect(o2.detune);
+      const hiss = ctx.createBufferSource();
+      hiss.buffer = this.pink || this.white;
+      hiss.loop = true;
+      const wf = ctx.createBiquadFilter();
+      wf.type = 'bandpass';
+      wf.Q.value = 0.8;
+      const wg = ctx.createGain();
+      wg.gain.value = 0;
+      hiss.connect(wf);
+      wf.connect(wg);
+      wg.connect(this.engineBus);
+      for (const o of [o1, o2, lfo, w1, w2, hiss]) o.start(t0);
+      // (Silent on every boat but the jet ski: unplugged then, as the beds are; see parkBeds.)
+      (this.beds ||= []).push({ src: hiss, first: wf, g: wg, parked: false, quietSince: null });
+      this.eng = { o1, o2, f, g, lfo, lfoDepth, drift, wf, wg };
     }
     if (!this.eng) return;
-    const e = this.eng, on = level > 0.001;
+    const e = this.eng;
     if (tone?.electric) {
       this.set(e.o1.frequency, 220 + level * 760, 0.25);
       this.set(e.o2.frequency, (220 + level * 760) * 3.01, 0.25);
       this.set(e.lfo.frequency, 7, 0.25);
       this.set(e.lfoDepth.gain, 0.04, 0.3);
       this.set(e.f.frequency, 900 + level * 2600, 0.3);
+      this.set(e.f.Q, 2, 0.3);
+      this.set(e.drift.gain, 0, 0.3);
+      this.set(e.wg.gain, 0, 0.3);
       this.set(e.g.gain, level > 0.02 ? 0.006 + level * 0.022 : 0, level > 0.02 ? 0.3 : 0.5);
       return;
     }
-    const pitch = tone?.pitch ?? 1, smooth = tone?.smooth ?? 0;
-    const rpm = (jet ? 55 + level * 165 : diesel ? 24 + level * 38 : 34 + level * 58) * pitch;
-    this.set(e.o1.frequency, rpm, 0.25);
-    this.set(e.o2.frequency, rpm * (diesel ? 1.006 : 2.02), 0.25);
-    this.set(e.lfo.frequency, rpm / (diesel ? 3 : 2.2), 0.25);
-    this.set(e.lfoDepth.gain, 0.45 * (1 - smooth), 0.3);
-    this.set(e.f.frequency, (jet ? 480 + level * 2400 : diesel ? 170 + level * 520 : 260 + level * 900) * (0.85 + 0.15 * pitch), 0.3);
-    this.set(e.g.gain, on ? (jet ? 0.03 + level * 0.08 : diesel ? 0.05 + level * 0.08 : 0.035 + level * 0.07) : 0, on ? 0.3 : 0.6);
+    const v = engineVoice(level, voice, tone), on = v.gain > 0;
+    if (e.o2.type !== v.wave2) e.o2.type = v.wave2;
+    this.set(e.o1.frequency, v.rpm, 0.25);
+    this.set(e.o2.frequency, v.rpm * v.ratio, 0.25);
+    this.set(e.lfo.frequency, v.lfoHz, 0.25);
+    this.set(e.lfoDepth.gain, v.lfoDepth, 0.3);
+    this.set(e.f.frequency, v.cutoff, 0.3);
+    this.set(e.f.Q, v.q, 0.3);
+    this.set(e.drift.gain, v.drift, 0.5);
+    this.set(e.wf.frequency, v.waterHz, 0.4);
+    this.set(e.wg.gain, v.water, on ? 0.4 : 0.6);
+    this.set(e.g.gain, v.gain, on ? 0.3 : 0.6);
   }
 
   // The starter turning her over: a grinding whirr that pulses with each compression (slower and
@@ -937,7 +974,7 @@ export class AudioScape {
       o.connect(f);
       f.connect(chug);
       chug.connect(g);
-      g.connect(this.sfx);
+      g.connect(this.engineBus);
       o.start(t0);
       lfo.start(t0);
       this.st = { o, lfo, g };
