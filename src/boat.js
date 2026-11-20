@@ -2500,7 +2500,7 @@ export class Boat {
     this.body.add(this.torso);
     this.rowerParts.push(this.torso);
     // (H4: shoulders, a waist, and a neck: body.js. Seated, a touch shorter in the body.)
-    const chest = cast(new THREE.Mesh(B.torso, coat));
+    const chest = (this.chest = cast(new THREE.Mesh(B.torso, coat)));
     chest.position.y = 0.25;
     chest.scale.set(1, 0.93, 1);
     this.torso.add(chest);

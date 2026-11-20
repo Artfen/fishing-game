@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { buildHat } from './hats.js';
 import { cleanLook, figureLook } from './looks.js';
-import { beardShape } from './body.js';
+import { beardShape, outfitColours, outfitParts } from './body.js';
 
 // What the angler wears, on the figure (on foot, see walker.js, and in a boat, see boat.js): the
 // yellow raincoat, or the wool jumper with the coat off, or just a shirt; the sun hat or a red
@@ -71,12 +71,26 @@ export class Dress {
 export function dressFigure(F, look) {
   const L = cleanLook(look), M = F.selfMats;
   if (!M || !F.head || !F.dress) return;
+  // (H4b) An outfit's own colours over the look's: oilskins, a hoodie, waders, a wetsuit.
+  const O = outfitColours(L.outfit, L);
   M[1].color.set(L.skin);
   M[2].color.set(L.hatColor);
-  M[4].color.set(L.boots);
+  M[4].color.set(O.boots || L.boots);
   // (H4: the hair round the back and sides and the brows, in the hair's colour: body.js.)
   F.hairMat?.color.set(L.hair);
-  F.dress.setPalette?.({ coat: L.coat, jumper: L.jumper, shirt: L.shirt, legs: L.legs });
+  F.dress.setPalette?.({ coat: O.top || L.coat, jumper: O.top || L.jumper, shirt: O.top || L.shirt, legs: O.legs || L.legs });
+  // (H4b) And what it adds over the body (a vest, a life jacket's float, a bib and braces, a hood),
+  // on the chest so it moves with it.
+  if (F.chest && F.outfitKey !== `${L.outfit}|${L.coat}`) {
+    for (const o of F.outfitParts || []) {
+      o.removeFromParent();
+      o.geometry.dispose();
+      if (!M.includes(o.material)) o.material.dispose();
+    }
+    F.outfitKey = `${L.outfit}|${L.coat}`;
+    F.outfitParts = outfitParts(L.outfit, M[0], L);
+    for (const o of F.outfitParts) F.chest.add(o);
+  }
   // The hat: her own sun hat, or another (the woolly hat still comes out when it's cold: dress.js).
   F.ownHat ??= F.dress.sunHat;
   const key = `${L.hat}|${L.hatColor}|${L.hair}|${L.beard}|${L.glasses}`;

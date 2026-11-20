@@ -123,7 +123,7 @@ export class Walker {
     this.torso.position.y = 0.92;
     this.body.add(this.torso);
     // (H4: shoulders, a waist and hips, and a neck: body.js.)
-    const chest = cast(new THREE.Mesh(B.torso, coat));
+    const chest = (this.chest = cast(new THREE.Mesh(B.torso, coat)));
     chest.position.y = 0.27;
     this.torso.add(chest);
     const neck = new THREE.Mesh(B.neck, skin);

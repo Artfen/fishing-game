@@ -303,7 +303,17 @@ export class SettingsUI {
       return wrap;
     };
     const words = (k) => this.choice(LOOK_OPTIONS[k].map((v) => [v, LOOK_WORDS[k][v]]), L[k], (v) => put(k, v));
+    // (H4b) You, turning, as friends see you: the right stick or a drag turns you round (main.js).
+    const pv = el('canvas', 'st-you-preview');
+    pv.id = 'st-you-preview';
+    pv.width = 300;
+    pv.height = 360;
+    pv.setAttribute('role', 'img');
+    pv.setAttribute('aria-label', $t('You, turning slowly: drag to turn'));
+    out.push(pv);
+    this.hooks.youPreview?.(pv);
     out.push(el('p', 'st-note', $t('How you look, on foot and at the helm, and to friends playing with you. Your clothes keep you warm and dry whatever their colour (the woolly hat still comes out when it’s cold).')));
+    out.push(this.row($t('Outfit'), $t('What you wear over it all. Just for looks: the weather still decides what keeps you warm and dry.'), words('outfit')));
     out.push(this.row($t('Skin'), null, swatches('skin', $t('Skin'))));
     out.push(this.row($t('Raincoat'), $t('When it’s on.'), swatches('coat', $t('Raincoat'))));
     out.push(this.row($t('Jumper'), $t('With the coat off on a cool day.'), swatches('jumper', $t('Jumper'))));

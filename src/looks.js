@@ -8,7 +8,7 @@
 // What you wear still keeps you warm and dry as before (comfort.js): the raincoat keeps the rain
 // off whatever its colour, the woolly hat comes out when it's cold whatever hat you chose.
 //
-// state.look: { skin, coat, jumper, shirt, legs, boots, hat, hatColor, hair, beard, glasses }.
+// state.look: { skin, coat, jumper, shirt, legs, boots, hat, hatColor, hair, beard, glasses, outfit }.
 
 // The choices (colours as hex; a broad, even range of skin tones).
 import { $t } from './i18n.js';
@@ -24,17 +24,21 @@ export const LOOK_OPTIONS = {
   hair: ['#2a211c', '#4a2f22', '#8a4a2a', '#b06a3a', '#d8b46a', '#a9a59e', '#e9e5dc'],
   beard: ['none', 'short', 'full'],
   glasses: ['none', 'glasses', 'shades'],
+  // (H4b) What you wear over it all: as the weather has it (the raincoat, the jumper or the shirt),
+  // or oilskins, a fishing vest, a life jacket, a hoodie, waders, a wetsuit (body.js OUTFITS).
+  outfit: ['weather', 'oilskins', 'vest', 'lifejacket', 'hoodie', 'waders', 'wetsuit'],
 };
 // As you've always looked: the yellow raincoat and the teal sun hat.
 export const DEFAULT_LOOK = {
   skin: '#f1c7a1', coat: '#e8b440', jumper: '#5f7486', shirt: '#d8ccb0', legs: '#3b4a68', boots: '#2d2a28',
-  hat: 'sun', hatColor: '#35676b', hair: '#4a2f22', beard: 'none', glasses: 'none',
+  hat: 'sun', hatColor: '#35676b', hair: '#4a2f22', beard: 'none', glasses: 'none', outfit: 'weather',
 };
 // The words for the choices that aren't colours.
 export const LOOK_WORDS = {
   hat: { sun: $t('Sun hat'), cap: $t('Cap'), beanie: $t('Beanie'), bucket: $t('Bucket hat'), flatcap: $t('Flat cap'), hair: $t('No hat'), bun: $t('No hat, hair up') },
   beard: { none: $t('Clean-shaven'), short: $t('Short beard'), full: $t('Full beard') },
   glasses: { none: $t('No glasses'), glasses: $t('Glasses'), shades: $t('Sunglasses') },
+  outfit: { weather: $t('As the weather has it'), oilskins: $t('Oilskins'), vest: $t('Fishing vest'), lifejacket: $t('Life jacket'), hoodie: $t('Hoodie'), waders: $t('Waders'), wetsuit: $t('Wetsuit') },
 };
 
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -53,5 +57,5 @@ export const isDefault = (look) => Object.keys(DEFAULT_LOOK).every((k) => look[k
 // jumper and shirt (worn as the weather has them: see visitors.js), the beard and glasses.
 export function figureLook(look) {
   const L = cleanLook(look);
-  return { coat: L.coat, legs: L.legs, boots: L.boots, skin: L.skin, hat: L.hat, hatColor: L.hat === 'hair' || L.hat === 'bun' ? L.hair : L.hatColor, hair: L.hair, jumper: L.jumper, shirt: L.shirt, beard: L.beard, glasses: L.glasses };
+  return { coat: L.coat, legs: L.legs, boots: L.boots, skin: L.skin, hat: L.hat, hatColor: L.hat === 'hair' || L.hat === 'bun' ? L.hair : L.hatColor, hair: L.hair, jumper: L.jumper, shirt: L.shirt, beard: L.beard, glasses: L.glasses, outfit: L.outfit };
 }

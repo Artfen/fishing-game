@@ -89,13 +89,108 @@ function boot() {
 // The body, from the hips up to the base of the neck, centred where the old capsule was (its
 // middle 0.27 above the torso's pivot): a turned profile, broad at the shoulders and in at the
 // waist, a little flattened front to back.
+const PROFILE = [[0, -0.04], [0.13, -0.035], [0.162, 0.02], [0.165, 0.09], [0.15, 0.2], [0.158, 0.3], [0.172, 0.39], [0.178, 0.45], [0.16, 0.51], [0.11, 0.56], [0.06, 0.585], [0, 0.59]];
+const TORSO_SCALE = [1.06, 1, 0.78], TORSO_LIFT = -0.27;
 function torso() {
-  const prof = [[0, -0.04], [0.13, -0.035], [0.162, 0.02], [0.165, 0.09], [0.15, 0.2], [0.158, 0.3], [0.172, 0.39], [0.178, 0.45], [0.16, 0.51], [0.11, 0.56], [0.06, 0.585], [0, 0.59]];
-  const g = new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r, y)), 18);
-  g.scale(1.06, 1, 0.78);
-  g.translate(0, -0.27, 0);
+  const g = new THREE.LatheGeometry(PROFILE.map(([r, y]) => new THREE.Vector2(r, y)), 18);
+  g.scale(...TORSO_SCALE);
+  g.translate(0, TORSO_LIFT, 0);
   g.computeVertexNormals();
   return g;
+}
+// The body's radius at a height of its profile (y from −0.04 at the hips to 0.59 at the neck).
+function radiusAt(y) {
+  for (let i = 1; i < PROFILE.length; i++) {
+    const [r0, y0] = PROFILE[i - 1], [r1, y1] = PROFILE[i];
+    if (y <= y1) return r0 + ((r1 - r0) * (y - y0)) / Math.max(1e-6, y1 - y0);
+  }
+  return 0;
+}
+// (H4b) A band of something worn over the body: from y0 to y1 of its profile, standing off it by
+// grow, in the torso's own space (so it goes on as a child of the chest mesh).
+function band(y0, y1, grow = 1.06, steps = 6) {
+  const pts = [];
+  for (let i = 0; i <= steps; i++) {
+    const y = y0 + ((y1 - y0) * i) / steps;
+    pts.push(new THREE.Vector2(radiusAt(y) * grow + 0.004, y));
+  }
+  const g = new THREE.LatheGeometry(pts, 18);
+  g.scale(...TORSO_SCALE);
+  g.translate(0, TORSO_LIFT, 0);
+  g.computeVertexNormals();
+  return g;
+}
+// Where the front of the body is at a height of its profile, in the torso's space (for pockets).
+const frontAt = (y, grow = 1) => [radiusAt(y) * grow * TORSO_SCALE[2], y + TORSO_LIFT];
+
+// (H4b) What you can wear over all that (Settings → You), the same on every figure: the colours
+// it puts on (a top: coat, jumper and shirt alike; the trousers; the boots), from your look where
+// it's yours to colour, and what it adds over the body. 'weather' is as before: the raincoat,
+// the jumper or the shirt as the weather has it.
+export const OUTFITS = ['weather', 'oilskins', 'vest', 'lifejacket', 'hoodie', 'waders', 'wetsuit'];
+export function outfitColours(outfit, L) {
+  switch (outfit) {
+    case 'oilskins': return { top: L.coat, legs: '#d9552b', boots: '#27352a' };
+    case 'hoodie': return { top: L.jumper };
+    case 'waders': return { legs: '#4a5240', boots: '#3c4334' };
+    case 'wetsuit': return { top: '#1d2226', legs: '#1d2226', boots: '#1d2226' };
+    default: return {};
+  }
+}
+// The pieces it adds, to go on the chest mesh: [mesh…]. top: the top's material (a hood and a
+// pocket in the hoodie's colour follow it); L: the look (a wetsuit's stripe in the raincoat's).
+export function outfitParts(outfit, top, L) {
+  const lam = (c) => new THREE.MeshLambertMaterial({ color: c });
+  const out = [], put = (geo, m) => {
+    const o = new THREE.Mesh(geo, m);
+    o.castShadow = true;
+    o.name = `outfit:${outfit}`;
+    out.push(o);
+  };
+  const braces = (c) => {
+    // (Over each shoulder, from the bib at the front to the back.)
+    const parts = [];
+    for (const s of [1, -1]) {
+      const [zf, yf] = frontAt(0.4, 1.06), [zs, ys] = frontAt(0.47, 1.08);
+      parts.push([new THREE.BoxGeometry(0.035, 0.012, 0.2), M4(s * 0.09, ys + 0.03, 0, 1, 1, 1, 0, 0, 0)]);
+      parts.push([new THREE.BoxGeometry(0.035, yf > 0 ? ys - yf + 0.04 : 0.1, 0.012), M4(s * 0.09, (ys + yf) / 2, zf + 0.005)]);
+      parts.push([new THREE.BoxGeometry(0.035, ys - yf + 0.04, 0.012), M4(s * 0.09, (ys + yf) / 2, -zs + 0.01)]);
+    }
+    put(joinShapes(parts), lam(c));
+  };
+  const pocket = (x, y, w, h, grow) => {
+    const [z, yy] = frontAt(y, grow);
+    return [new THREE.BoxGeometry(w, h, 0.022), M4(x, yy, z + 0.006)];
+  };
+  switch (outfit) {
+    case 'vest': {
+      put(joinShapes([[band(0.17, 0.53, 1.075), M4()], pocket(0.065, 0.27, 0.07, 0.07, 1.075), pocket(-0.065, 0.27, 0.07, 0.07, 1.075), pocket(0.07, 0.4, 0.06, 0.05, 1.075), pocket(-0.07, 0.4, 0.06, 0.05, 1.075)]), lam('#7a7a52'));
+      break;
+    }
+    case 'lifejacket': {
+      put(joinShapes([[band(0.22, 0.54, 1.2), M4()], [new THREE.TorusGeometry(0.085, 0.035, 8, 16).rotateX(Math.PI / 2), M4(0, 0.555 + TORSO_LIFT, 0, 1.06, 1, 0.9)]]), lam('#e8642a'));
+      put(band(0.27, 0.305, 1.24), lam('#2b2b2b'));
+      break;
+    }
+    case 'hoodie': {
+      const [z, y] = frontAt(0.18, 1.02);
+      put(joinShapes([[new THREE.SphereGeometry(0.1, 12, 8), M4(0, 0.54 + TORSO_LIFT, -0.1, 1.35, 0.7, 0.85)], [new THREE.BoxGeometry(0.19, 0.08, 0.025), M4(0, y, z + 0.008)]]), top);
+      break;
+    }
+    case 'waders':
+    case 'oilskins': {
+      put(band(-0.035, 0.41, 1.05), lam(outfit === 'waders' ? '#4a5240' : '#d9552b'));
+      braces(outfit === 'waders' ? '#2f3428' : '#a83e1e');
+      if (outfit === 'oilskins') put(new THREE.SphereGeometry(0.1, 12, 8).applyMatrix4(M4(0, 0.54 + TORSO_LIFT, -0.1, 1.35, 0.7, 0.85)), top);
+      break;
+    }
+    case 'wetsuit': {
+      put(band(0.36, 0.43, 1.02), lam(L.coat));
+      break;
+    }
+    default:
+  }
+  return out;
 }
 
 // The head (for a head of radius R, 0.13 for you; the old ball's size), facing +z, its middle

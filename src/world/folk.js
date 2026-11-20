@@ -5,7 +5,7 @@ import { Boat, floatDraft, wakeOf } from '../boat.js';
 import { wakes } from './wakes.js';
 import { buildHat } from '../hats.js';
 import { faceParts } from '../dress.js';
-import { bodyShapes, buildHead } from '../body.js';
+import { bodyShapes, buildHead, outfitColours, outfitParts } from '../body.js';
 import { damp, dampAngle, clamp, smoothstep, wrapAngle } from '../util.js';
 import { FOLK, FOLK_IDS, SPOTS, POTS } from '../townsfolk.js';
 import { Skipper } from './skipper.js';
@@ -86,7 +86,9 @@ const cast = (m) => {
 // (Exported for the friends you play with, each in a look of their own: see visitors.js.)
 export class Figure {
   constructor(id, look = LOOKS[id]) {
-    const L = look;
+    // (H4b) A friend's outfit: its colours over their look's (the townsfolk wear their own).
+    const O = outfitColours(look.outfit, look);
+    const L = look.outfit ? { ...look, coat: O.top || look.coat, jumper: O.top || look.jumper, shirt: O.top || look.shirt, legs: O.legs || look.legs, boots: O.boots || look.boots } : look;
     this.id = id;
     this.look = L;
     this.group = new THREE.Group();
@@ -124,9 +126,11 @@ export class Figure {
     this.torso = new THREE.Group();
     this.torso.position.y = 0.92;
     this.body.add(this.torso);
-    const chest = cast(new THREE.Mesh(B.torso, coat));
+    const chest = (this.chest = cast(new THREE.Mesh(B.torso, coat)));
     chest.position.y = 0.28;
     this.torso.add(chest);
+    // (H4b) What their outfit adds over the body: a vest, a life jacket, a bib and braces, a hood.
+    for (const o of outfitParts(L.outfit, coat, look)) chest.add(o);
     const neck = new THREE.Mesh(B.neck, skin);
     neck.position.y = 0.58;
     this.torso.add(neck);
