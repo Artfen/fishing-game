@@ -30,6 +30,9 @@ import { $t } from './i18n.js';
 // checklist for a trip) }.
 
 const $ = (id) => document.getElementById(id);
+// (A boat's name at the head of a button: "The motor skiff", "Esquife a motor".)
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
 function el(tag, cls, text) {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
@@ -46,6 +49,21 @@ const PLATES = {
 };
 const HOST = { haven: $t('Ruth'), muelle: $t('Paco') };
 const OLD = (fresh) => (fresh >= 0.99 ? 'fresh' : fresh > 0.8 ? $t('a day old') : $t('getting on'));
+
+// (H2) A few figures as bars: [label, share of the most (0…1), the figure itself]. The figure is
+// written beside its bar, so the bar only shows at a glance what the words say exactly.
+function bars(rows) {
+  const box = el('div', 'hb-bars');
+  for (const [label, share, value] of rows) {
+    const row = el('div', 'hb-bar');
+    const track = el('span', 'hb-bar-track'), fill = el('span', 'hb-bar-fill');
+    fill.style.width = `${Math.round(Math.max(0.04, Math.min(1, share || 0)) * 100)}%`;
+    track.append(fill);
+    row.append(el('span', 'hb-bar-label', label), track, el('span', 'hb-bar-value', value));
+    box.append(row);
+  }
+  return box;
+}
 
 export class HarbourSheet {
   constructor(state, hooks) {
@@ -214,7 +232,7 @@ export class HarbourSheet {
         row.append(this.button($t`Buy her: ${money(PRICES[kind])}`, () => H.yardBuy(kind)));
       } else {
         row.append(el('p', '', $t`The ${name}`), el('span', 'cp-soft', $t`${money(PRICES[kind])} · or ${money(hirePrice(kind))} for a day${COMES_WITH[kind] && !owns(Y, COMES_WITH[kind]) ? $t` · her ${COMES_WITH[kind]} comes with her, bought` : ''}`));
-        row.append(this.button(`Hire: ${money(hirePrice(kind))}`, () => H.yardHire(kind), 'quiet'), this.button(`Buy: ${money(PRICES[kind])}`, () => H.yardBuy(kind)));
+        row.append(this.button($t`Hire: ${money(hirePrice(kind))}`, () => H.yardHire(kind), 'quiet'), this.button($t`Buy: ${money(PRICES[kind])}`, () => H.yardBuy(kind)));
       }
       out.push(row);
     }
@@ -230,7 +248,7 @@ export class HarbourSheet {
     const k = this.lookKind;
     out.push(el('p', 'hb-say', $t`Morwenna in the paint shed, a brush behind her ear: “Your colours, and her name on the bow in proper sign-writer’s letters. ${money(PAINT_PRICE)} a coat, ${money(NAME_PRICE)} for the name.”`));
     const pick = el('div', 'hb-picks');
-    for (const kind of mine) pick.append(this.button(`The ${H.boatName(kind)}`, () => { this.lookKind = kind; this.render(); }, kind === k ? '' : 'quiet'));
+    for (const kind of mine) pick.append(this.button(cap($t`The ${H.boatName(kind)}`), () => { this.lookKind = kind; this.render(); }, kind === k ? '' : 'quiet'));
     out.push(pick);
     if (!k) return out;
     const L = Y.looks[k] || {};
@@ -334,7 +352,7 @@ export class HarbourSheet {
     this.fitKind = mine.includes(this.fitKind) ? this.fitKind : mine[0];
     const k = this.fitKind;
     const pick = el('div', 'hb-picks');
-    for (const kind of mine) pick.append(this.button(`The ${H.boatName(kind)}`, () => { this.fitKind = kind; this.render(); }, kind === k ? '' : 'quiet'));
+    for (const kind of mine) pick.append(this.button(cap($t`The ${H.boatName(kind)}`), () => { this.fitKind = kind; this.render(); }, kind === k ? '' : 'quiet'));
     out.push(pick, this.previewBlock(k));
     const e = fitEffect(Y, k), have = Y.fits[k] || [];
     out.push(el('p', 'hb-fit-sum', have.length
@@ -355,7 +373,7 @@ export class HarbourSheet {
         const work = [more ? (more > 1 ? $t`${more} more seats` : $t`${more} more seat`) : null, W?.divers ? $t('takes dive work') : null, W?.comfort ? $t`her people happy in ${Math.round(W.comfort * 100)} cm more sea` : null];
         text.append(el('p', '', F.name), el('span', 'cp-soft', F.desc), el('span', 'hb-fit-meta', [F.kg ? `${F.kg} kg` : $t('no weight to speak of'), F.amps ? $t`draws ${F.amps} A` : null, ...work].filter(Boolean).join(' · ')));
         row.append(text);
-        if (fitted) row.append(el('span', 'cp-soft', 'fitted'), this.button($t('Take it off'), () => H.yardUnfit(k, id), 'quiet'));
+        if (fitted) row.append(el('span', 'cp-soft', $t('fitted')), this.button($t('Take it off'), () => H.yardUnfit(k, id), 'quiet'));
         else row.append(this.button(`${slotted ? $t`Swap for this` : $t('Fit it')}: ${money(F.price[k])}`, () => H.yardFit(k, id)));
         out.push(row);
       }
@@ -422,14 +440,26 @@ export class HarbourSheet {
       return [top, go, ...extra(t)].filter(Boolean).join(' · ');
     };
     const out = [el('h4', 'hb-fit-cat', inboard ? $t('Engines and propellers') : n > 1 ? $t('Engines and propellers') : $t('Engine and propeller'))];
-    const blades = spec.blades === 4 ? (spec.steel ? 'four-bladed stainless' : 'four-bladed') : 'three-bladed';
+    const blades = spec.blades === 4 ? (spec.steel ? $t('four-bladed stainless') : $t('four-bladed')) : $t('three-bladed');
     // (An electric outboard: its power in kilowatts, its range on its own battery at its own easy
     // pace, not on her tank at her cruise.)
     const power = (E) => (E.electric ? `${E.kw} kW` : n > 1 ? `2 × ${E.hp} hp` : `${E.hp} hp`);
     const far = (x) => (x?.bph ? $t`${Math.round(rangeAt(x, tank, kk))} nautical miles on a full battery at ${x.kn} knots` : $t`${Math.round(rangeAt(x, tank, kk))} nautical miles on a full tank at ${C.cruise} knots`);
     out.push(el('p', 'hb-fit-sum', (n > 1 ? $t`${where}: ${n > 1 ? $t('a pair of ') : $t('the ')}${O.name}s (${power(O)} ${O.layout}, ${O.kg * n} kg), on ${n > 1 ? $t`${blades} ${spec.pitch}-inch propellers` : $t`a ${blades} ${spec.pitch}-inch propeller`}.${cur ? $t` She does ${kn(cur.top)} flat out, and ${far(cur)}.` : ''}` : $t`${where}: ${n > 1 ? $t('a pair of ') : $t('the ')}${O.name} (${power(O)} ${O.layout}, ${O.kg * n} kg), on ${n > 1 ? $t`${blades} ${spec.pitch}-inch propellers` : $t`a ${blades} ${spec.pitch}-inch propeller`}.${cur ? $t` She does ${kn(cur.top)} flat out, and ${far(cur)}.` : ''}`)));
+    // (H2) Each engine's figures as bars too, against the best of those she can take: top speed,
+    // range and weight, from the same trials and tank as the words.
+    const trialOf = (model) => T[`${model}/${propsFor(kk, model).includes(now.prop) ? now.prop : 'matched'}`];
+    const most = { top: 0, nm: 0, kg: 0 };
     for (const model of C.models) {
-      const E = MODELS[model], on = model === now.model, t = T[`${model}/${propsFor(kk, model).includes(now.prop) ? now.prop : 'matched'}`];
+      const t = trialOf(model);
+      if (t) {
+        most.top = Math.max(most.top, t.top);
+        most.nm = Math.max(most.nm, rangeAt(t, tank, kk));
+      }
+      most.kg = Math.max(most.kg, MODELS[model].kg * n);
+    }
+    for (const model of C.models) {
+      const E = MODELS[model], on = model === now.model, t = trialOf(model);
       const row = el('div', `cp-row hb-fit${on ? ' on' : ''}`);
       const text = el('div', 'hb-fit-text');
       const range = (x) => {
@@ -438,11 +468,19 @@ export class HarbourSheet {
         const was = cur && !cur.bph ? Math.round(rangeAt(cur, tank, kk)) : null;
         return [$t`${nm} nm at ${C.cruise} kn${was != null && nm !== was ? ` (${nm > was ? '+' : '−'}${Math.abs(nm - was)})` : ''}`];
       };
-      text.append(el('p', '', `${n > 1 ? 'Twin ' : ''}${E.name}${n > 1 ? 's' : ''}: ${power(E)}${model === C.stock ? $t(' (as she came)') : ''}`), el('span', 'cp-soft', E.desc),
+      text.append(el('p', '', `${n > 1 ? $t`Twin ${E.name}: ${power(E)}` : `${E.name}: ${power(E)}`}${model === C.stock ? $t(' (as she came)') : ''}`), el('span', 'cp-soft', E.desc),
         el('span', 'hb-fit-meta', $t`${E.layout} · ${E.kg * n} kg${diff(E.kg * n, O.kg * n, ' kg', 0)}`), el('span', 'hb-fit-meta', figures(t, range)));
+      if (t) {
+        const nm = rangeAt(t, tank, kk);
+        text.append(bars([
+          [$t('Top speed'), t.top / most.top, kn(t.top)],
+          [$t('Range'), nm / most.nm, `${Math.round(nm)} nm`],
+          [$t('Weight'), (E.kg * n) / most.kg, `${E.kg * n} kg`],
+        ]));
+      }
       row.append(text);
       if (on) row.append(el('span', 'cp-soft', $t('on her now')));
-      else row.append(this.button(`Fit ${n > 1 ? 'them' : 'it'}: ${money(E.price * n)}`, () => H.yardRepower(k, model)));
+      else row.append(this.button(`${n > 1 ? $t('Fit them') : $t('Fit it')}: ${money(E.price * n)}`, () => H.yardRepower(k, model)));
       out.push(row);
     }
     if (O.electric) out.push(el('p', 'cp-soft', $t`The ${O.name} turns its own propeller, matched to it. It charges free wherever she ties up at a jetty or a quay, and overnight; flat, the oars bring her in.`));
@@ -462,7 +500,7 @@ export class HarbourSheet {
         this.render();
       }));
       else if (on) row.append(el('span', 'cp-soft', $t('on her now')));
-      else row.append(this.button(`Fit ${n > 1 ? 'them' : 'it'}: ${money(P.price * n)}`, () => H.yardReprop(k, prop)));
+      else row.append(this.button(`${n > 1 ? $t('Fit them') : $t('Fit it')}: ${money(P.price * n)}`, () => H.yardReprop(k, prop)));
       out.push(row);
     }
     out.push(el('p', 'cp-soft', $t`The yard ran her with each, out past the bay on a calm day: what she did then is what you’ll get.${C.plate ? $t` Her plate allows ${n > 1 ? $t`${C.plate} hp each` : $t`${C.plate} hp`}.` : ''} The old is taken in part exchange; new engines come with your kind of propeller, pitched for them. More weight aboard, a sea or a foul bottom all cost speed, whatever’s fitted.`));

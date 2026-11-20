@@ -205,3 +205,17 @@ test('the guide names the buttons as printed on the controller in hand', () => {
   assert.ok(left.some((r) => r.key === 'L2') && right.some((r) => r.key === '✕'));
   assert.equal(left.length + right.length, GUIDE().length);
 });
+
+// Settings at a glance: a row's line split after its first sentence, the rest shown on the row
+// you're on (style.css .st-more).
+const { splitLead } = await import('../src/settings.js');
+
+test('a setting\'s line: its first sentence, then the rest, in any of the languages', () => {
+  assert.deepEqual(splitLead('Hold to reel at your chosen speed, tap to twitch. The rod looks after itself.'), ['Hold to reel at your chosen speed, tap to twitch.', 'The rod looks after itself.']);
+  assert.deepEqual(splitLead('One sentence only.'), ['One sentence only.', '']);
+  assert.deepEqual(splitLead('A 9.9 hp outboard, 0.21 litres. Fitted while you wait.')[1], 'Fitted while you wait.', 'a decimal point isn\'t a full stop');
+  assert.deepEqual(splitLead('¿Te gusta? Cámbialo cuando quieras.'), ['¿Te gusta?', 'Cámbialo cuando quieras.']);
+  assert.deepEqual(splitLead('Il dit « Prêt ? » Oui, prêt.'), ['Il dit « Prêt ? »', 'Oui, prêt.'], 'French: the space before ? and inside « »');
+  assert.deepEqual(splitLead('She said “go.” Then went.'), ['She said “go.”', 'Then went.']);
+  assert.deepEqual(splitLead(''), ['', '']);
+});

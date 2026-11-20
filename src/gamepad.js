@@ -597,7 +597,7 @@ export function topDialog() {
 }
 
 export function focusables(root) {
-  return [...root.querySelectorAll('button, [href], input, select, textarea, [tabindex]')]
+  return [...root.querySelectorAll('button, [href], input, select, textarea, summary, [tabindex]')]
     .filter((el) => el.tabIndex >= 0 && !el.disabled && !el.closest('[hidden]') && visible(el));
 }
 

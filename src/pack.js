@@ -872,14 +872,14 @@ export class PackUI {
           if (block) check('no', block.text);
           else if (RIG_KINDS.has(rod.kind) && term.weight) check(fit.level, $t`With the ${term.short.toLowerCase()} (${term.weight} g), the rig weighs ${w} g: ${fit.words}.`);
           else if (w >= w0 && w <= w1) check('ok', $t`This ${w} g ${it.type === 'jig' ? $t('jig') : $t('lure')} fits your rod’s ${w0}–${w1} g casting range.`);
-          else check(fit.level, $t`This ${w} g ${it.type === 'jig' ? $t('jig') : it.type} is ${fit.words}.`);
+          else check(fit.level, $t`This ${w} g ${{ jig: $t('jig'), lure: $t('lure'), fly: $t('fly'), bait: $t('bait') }[it.type] || it.type} is ${fit.words}.`);
           check('info', $t`Casts ${castRange(rod, it, term).join('–')} m on the ${rod.short.toLowerCase()}.`);
         }
         this.lineAdvice(it, rod, check);
       } else {
         const need = ROD_IDS.map((r) => RODS[r]).filter((r) => fits(r, it));
         const carried = need.find((r) => g.pack.rods.includes(r.id));
-        const what = it.type === 'jig' ? $t('a squid jig') : it.type === 'bait' ? 'bait' : `a ${it.type}`;
+        const what = { jig: $t('a squid jig'), bait: $t('bait'), lure: $t('a lure'), fly: $t('a fly') }[it.type] || it.type;
         check('no', $t`The ${hand.short.toLowerCase()} can’t fish ${what}: ${carried ? $t`your ${carried.short.toLowerCase()} can` : $t`it needs the ${need.slice(0, 2).map((r) => r.short.toLowerCase()).join(' or ')}${this.atBox ? $t` (in the ${this.boxName})` : $t(', at camp or a boat locker')}`}.`);
       }
       // Who takes it, with a link to each one's page in the field guide.
@@ -898,7 +898,7 @@ export class PackUI {
       if (on && on.id !== it.id && fits(rod, it) && rod.kind !== 'fly') {
         const term = termOf(g, rod);
         compare = [['', on.short, it.short], [$t('Weight'), `${castWeight(rod, on, term)} g`, `${castWeight(rod, it, term)} g`], [$t('Casts'), `${castRange(rod, on, term).join('–')} m`, `${castRange(rod, it, term).join('–')} m`]];
-        if (on.type === 'lure' && it.type === 'lure') compare.push([$t('Runs'), on.dive ? `~${on.dive} m deep` : (ACTION_WORDS[on.action] || '').split(',')[0], it.dive ? `~${it.dive} m deep` : (ACTION_WORDS[it.action] || '').split(',')[0]]);
+        if (on.type === 'lure' && it.type === 'lure') compare.push([$t('Runs'), on.dive ? $t`~${on.dive} m deep` : (ACTION_WORDS[on.action] || '').split(',')[0], it.dive ? $t`~${it.dive} m deep` : (ACTION_WORDS[it.action] || '').split(',')[0]]);
       }
     } else if (ref.type === 'setup') {
       const s = this.setupOf(ref);
