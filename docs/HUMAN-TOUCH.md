@@ -258,3 +258,53 @@ new proportions; the townsfolk keep their own clothes (they don't take an outfit
 
 The full suite; a controller-only run; a two-player run on the local relay; `tools/perf.mjs`
 before and after each phase; saves from before loaded; Spanish and French screens checked.
+
+#### H5 as checked
+
+- **Controller only** (a simulated DualSense, no mouse or keys, the real game in Chromium), two
+  runs, every check passed. The first (19 checks): a new game from the title, the name typed on
+  the on-screen keyboard, Career or Free Roam and how you like to play (the recommended choice
+  focused each time), the controller guide coming up once by itself, the bumpers round every
+  Settings tab, and a friend joined with the code typed on the pad. The second (29): walking and
+  jogging, aboard the rowing boat and rowing, the skiff's helm, the fish finder, the chart, the
+  anchor down, a cast, a fish fought and landed and kept, the other rod and the next bait, a dive
+  from the anchored boat and back aboard, the backpack, a colour changed in Settings → You (the
+  focus staying on it), a boat painted at the Marine Works, and the journal's "Save and go to the
+  title screen", the game saved. A third, short one (6 checks): Settings → You reached with the
+  bumpers, and the right stick turning the figure all the way round (its face comes and goes:
+  30–63% of the head's box face-coloured over the turn, 43–45% over as many frames without the
+  stick), the focus staying where it was. (The jet ski's beach and grapnel were checked with the
+  pad in H3.)
+- **Two players** on the local relay (`tools/local-realtime.mjs`): H1's twelve checks (each sees
+  the other as they made themselves, in their boats, with their anchor lines), and H4's: a
+  friend who puts a life jacket on is seen wearing it at the jet ski's bars.
+- **Old saves**: a game saved by the version from before the Human Touch (main at `2cda5ac`)
+  loads: its look as it was, an outfit "as the weather has it", the Engines volume where its boat
+  sounds were, and a jet ski anchored the old way still at anchor.
+- **Spanish and French**: the screens this phase changed or added, in both (Settings → Audio with
+  the Engines volume, Settings → You with the turning figure and the outfits, the jet ski's
+  anchor with the grapnel; the controller guide was checked in H2); nothing overflowing after
+  one fix: the outfits' row in French, squeezed a word a line beside its seven choices, has its
+  words above them now.
+- **A friend's figure, given back**: `tests/together.test.mjs` counted the body's shared shapes
+  as a friend's own; it leaves them out now, as the charters test does (they aren't theirs to
+  give back: every other figure still wears them).
+
+**Performance** (`tools/perf.mjs`, high quality, against main from before the Human Touch,
+`2cda5ac`; swiftshader on four cores, so the simulation's time swings by a millisecond or two
+between runs of the same build):
+
+| scene | draw calls before → now | shader programs | simulation, ms a step, before → now |
+|---|---|---|---|
+| harbour | 333 → 329–332 | 480 → 252 | 6.30, 7.48 → 5.89, 5.75 |
+| dive_reef | 231–236 → 229–240 | 481 → 253 | 7.43, 7.25 → 5.80, 7.19 |
+| liveaboard | 198 → 201–206 | 480 → 252 | 5.29, 5.25 → 6.51, 6.32 |
+
+The liveaboard's two runs looked a millisecond slower, so it was measured again, the old build,
+this one, and this one without the background preparation (the shaders and the chart readied a
+few seconds in, see "Between H3 and H4") taking turns, four rounds each: old 7.08–7.41 (mean 7.23),
+now 6.52–7.28 (mean 6.80), without the preparation 6.83–8.46. Not slower: the first pair fell
+on a busy moment for the machine. A profile of the 240 steps showed the same work in both, the
+townsfolk's boats (`folk.js drawBoat`) the largest share of three.js's, as before. The liveaboard
+draws three to eight more things (your figure aboard has a neck, hair and forearms of its own
+now); the harbour, with the face joined into fewer pieces, draws no more.
