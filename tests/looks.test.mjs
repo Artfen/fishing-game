@@ -80,3 +80,33 @@ test('sent to friends with your name, and kept as you made it (anything odd made
   assert.equal(p.look.hat, 'sun');
   assert.equal(p.look.skin, L.DEFAULT_LOOK.skin);
 });
+
+// (H4b) Outfits: what you wear over it all, the same on every figure and to friends.
+test('an outfit: kept and cleaned, as you came if unknown, sent to friends, worn on foot, at the helm and by a friend\'s figure', async () => {
+  const { OUTFITS, outfitColours } = await import('../src/body.js');
+  const { Figure } = await import('../src/world/folk.js');
+  assert.deepEqual(L.LOOK_OPTIONS.outfit, OUTFITS, 'the choices are the ones body.js makes');
+  assert.equal(L.cleanLook({}).outfit, 'weather', 'an older save, or a friend from before: as the weather has it');
+  assert.equal(L.cleanLook({ outfit: 'tuxedo' }).outfit, 'weather');
+  assert.equal(L.cleanLook({ outfit: 'waders' }).outfit, 'waders');
+  assert.ok(L.isDefault(L.cleanLook({})) && !L.isDefault(L.cleanLook({ outfit: 'vest' })));
+  assert.equal(L.figureLook({ outfit: 'lifejacket' }).outfit, 'lifejacket', 'a friend\'s figure gets it');
+  // On foot and at the helm: its pieces on the chest, its colours on the top, the trousers, the boots.
+  const look = L.cleanLook({ outfit: 'waders', legs: L.LOOK_OPTIONS.legs[1] });
+  for (const F of [new Walker(new THREE.Scene()), new Boat(new THREE.Scene(), { kind: 'skiff' })]) {
+    dressFigure(F, look);
+    const parts = F.chest.children.filter((o) => o.name === 'outfit:waders');
+    assert.ok(parts.length >= 2, 'a bib and braces');
+    assert.equal(`#${F.selfMats[4].color.getHexString()}`, outfitColours('waders', look).boots, 'wader boots');
+    // Changed: the old pieces off, the new ones on.
+    dressFigure(F, { ...look, outfit: 'weather' });
+    assert.equal(F.chest.children.filter((o) => o.name.startsWith('outfit:')).length, 0, 'taken off');
+  }
+  // A friend in a wetsuit: black all over, a stripe in their raincoat's colour.
+  const fr = new Figure('sam', L.figureLook({ ...look, outfit: 'wetsuit' }));
+  assert.equal(`#${fr.coatMat.color.getHexString()}`, outfitColours('wetsuit', look).top);
+  assert.ok(fr.chest.children.some((o) => o.name === 'outfit:wetsuit'));
+  // And the look that goes to friends carries it.
+  const T = new Together({ config: () => null, name: () => 'Ines', look: () => L.cleanLook({ outfit: 'hoodie' }) });
+  assert.equal(T.meta().look.outfit, 'hoodie');
+});

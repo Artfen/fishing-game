@@ -5,6 +5,7 @@ import { buildRod, bendRod } from './props.js';
 import { RODS } from './tackle.js';
 import { lerp, damp, dampAngle, smoothstep, clamp } from './util.js';
 import { Dress } from './dress.js';
+import { bodyShapes, buildHead } from './body.js';
 
 const WALK = 3.0;      // metres per second
 const JOG = 5.4;
@@ -16,6 +17,9 @@ const HOLD = new THREE.Vector3(0.08, 1.02, 0.28); // where the figure holds the 
 const EYE = 1.6;      // eye height in first person
 const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _d = new THREE.Vector3(), _pl = new THREE.Vector3();
 const _p = { x: 0, z: 0 };
+
+// (A hand turned to hang on from the forearm: body.js's hand points down, the forearm up.)
+const FLIP = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI);
 
 function setLimb(mesh, a, b, r) {
   _d.subVectors(b, a);
@@ -105,8 +109,12 @@ export class Walker {
     const flapMat = new THREE.MeshLambertMaterial({ color: '#5a4029' });
     const matMat = new THREE.MeshLambertMaterial({ color: '#4f7a6a' });
     const tubeMat = new THREE.MeshLambertMaterial({ color: '#3d4a3a' });
-    this.selfMats = [coat, skin, hat, pants, boot, dark, pack, flapMat, matMat, tubeMat];
+    // (H4: your hair, round the back and sides and in your brows: see body.js, dress.js.)
+    const hairMat = new THREE.MeshLambertMaterial({ color: '#4a2f22' });
+    this.selfMats = [coat, skin, hat, pants, boot, dark, pack, flapMat, matMat, tubeMat, hairMat];
+    this.hairMat = hairMat;
     const cast = (m) => { m.castShadow = true; return m; };
+    const B = bodyShapes();
 
     this.body = new THREE.Group();
     this.group.add(this.body);
@@ -114,10 +122,13 @@ export class Walker {
     this.torso = new THREE.Group();
     this.torso.position.y = 0.92;
     this.body.add(this.torso);
-    const chest = cast(new THREE.Mesh(new THREE.CapsuleGeometry(0.17, 0.26, 4, 10), coat));
+    // (H4: shoulders, a waist and hips, and a neck: body.js.)
+    const chest = (this.chest = cast(new THREE.Mesh(B.torso, coat)));
     chest.position.y = 0.27;
-    chest.scale.set(1, 1, 0.85);
     this.torso.add(chest);
+    const neck = new THREE.Mesh(B.neck, skin);
+    neck.position.y = 0.57;
+    this.torso.add(neck);
     const collar = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.035, 6, 12), coat);
     collar.rotation.x = Math.PI / 2;
     collar.position.y = 0.52;
@@ -140,15 +151,8 @@ export class Walker {
     this.head = new THREE.Group();
     this.head.position.y = 0.66;
     this.torso.add(this.head);
-    this.head.add(cast(new THREE.Mesh(new THREE.SphereGeometry(0.13, 14, 10), skin)));
-    for (const s of [1, -1]) {
-      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.014, 6, 4), dark);
-      eye.position.set(s * 0.045, 0.015, 0.122);
-      this.head.add(eye);
-    }
-    const nose = new THREE.Mesh(new THREE.SphereGeometry(0.022, 6, 4), skin);
-    nose.position.set(0, -0.015, 0.13);
-    this.head.add(nose);
+    // (H4: a face, ears and hair: body.js.)
+    this.head.add(buildHead(skin, dark, hairMat, 0.13).group);
     const brim = cast(new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.25, 0.025, 16), hat));
     brim.position.y = 0.075;
     const crown = cast(new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 0.13, 14), hat));
@@ -159,8 +163,9 @@ export class Walker {
     this.head.add(hatGroup);
     this.dress = new Dress({ coat, pants, head: this.head, sunHat: hatGroup, mats: this.selfMats });
 
-    // Legs: hip → knee → foot, each a pivot so they swing naturally.
-    const limbGeo = new THREE.CylinderGeometry(1, 1, 1, 7).translate(0, -0.5, 0);
+    // Legs: hip → knee → foot, each a pivot so they swing naturally. (H4: tapering, and boots
+    // with a toe and a heel: body.js.)
+    const limbGeo = B.limbDown;
     this.legs = [1, -1].map((s) => {
       const hip = new THREE.Group();
       hip.position.set(s * 0.1, 0.9, 0);
@@ -174,7 +179,7 @@ export class Walker {
       const shin = cast(new THREE.Mesh(limbGeo, pants));
       shin.scale.set(0.065, 0.4, 0.065);
       knee.add(shin);
-      const foot = cast(new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, 0.24), boot));
+      const foot = cast(new THREE.Mesh(B.boot, boot));
       foot.position.set(0, -0.43, 0.05);
       knee.add(foot);
       return { s, hip, knee };
@@ -183,9 +188,9 @@ export class Walker {
     // Arms: an upper arm and a forearm, the elbow worked out from where the hand has to be (see
     // reach), bending out and down the way an elbow does.
     this.arms = [1, -1].map((s) => {
-      const arm = cast(new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 7), coat));
-      const fore = cast(new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 7), coat));
-      const hand = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), skin);
+      const arm = cast(new THREE.Mesh(B.limbSpan, coat));
+      const fore = cast(new THREE.Mesh(B.limbSpan, coat));
+      const hand = new THREE.Mesh(B.hand, skin);
       this.body.add(arm, fore, hand);
       return { s, arm, fore, hand, shoulder: new THREE.Vector3(s * 0.22, 0.44, 0), target: new THREE.Vector3(), elbow: new THREE.Vector3() };
     });
@@ -413,7 +418,9 @@ export class Walker {
     this.head.rotation.x = fishing ? 0.12 : -0.35 * sip + 0.1 * hug;
 
     // Rod
-    this.rod.visible = fishing > 0.02;
+    // (H4c: drawn only while your hands are on it: they reach it before it's out, and keep hold
+    // of it till it's put away, rather than leave it hanging as you stop.)
+    this.rod.visible = fishing > 0.3;
     this.tube.visible = !this.rod.visible;
     this.rod.position.copy(HOLD);
     this.rod.rotation.y = this.pose.rodYaw;
@@ -436,12 +443,14 @@ export class Walker {
       // Sitting: hands resting on your knees, or held out to the fire.
       if (st) free.lerp(this.warmHands ? _d.set(a.s * 0.12, 0.2, 0.46).applyMatrix4(this.torso.matrix) : _d.set(a.s * 0.15, -0.3, 0.34).applyMatrix4(this.torso.matrix), st);
       const onRod = _d.set(0, a.s > 0 ? 0.06 : 0.32, 0).applyMatrix4(this.rod.matrix);
-      a.target.lerpVectors(free, onRod, smoothstep(0, 1, fishing));
+      a.target.lerpVectors(free, onRod, smoothstep(0.02, 0.3, fishing));
       // (The elbow out to the side and down, a little back: further out holding the rod.)
       reach(shoulder, a.target, _pl.set(a.s * (0.55 + 0.35 * fishing), -0.75, -0.35), a.elbow);
       setLimb(a.arm, shoulder, a.elbow, 0.056);
       setLimb(a.fore, a.elbow, a.target, 0.049);
       a.hand.position.copy(a.target);
+      // (H4: the hand along the forearm, fingers on from the wrist.)
+      a.hand.quaternion.copy(a.fore.quaternion).multiply(FLIP);
       if (a.s > 0) {
         this.bottle.visible = sip > 0.05;
         this.bottle.position.copy(a.target);

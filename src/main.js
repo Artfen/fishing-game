@@ -109,7 +109,7 @@ import { FINDS, NOTES, LIES_DAYS, HELD_MAX, thrownUp, tideSpot, stillLying, beac
 import { storesAboard, draw as drawStores, stockUp, daysWords, storesFor, FILL as STORES_FILL, WATCH as STORES_WATCH } from './stores.js';
 import { PRICES as BOAT_PRICES, PAINTS, FITS, usable as usableBoat, owns as ownsBoat, buyBoat, buyAnother, hireBoat, hiredToday, paintBoat, nameBoat, fitBoat, unfitBoat, fitEffect, engineOf, repowerBoat, repropBoat, trimBoat } from './shipyard.js';
 import { BIRD_KINDS } from './birdData.js';
-import { cleanLook } from './looks.js';
+import { cleanLook, figureLook } from './looks.js';
 import { boatLooksOf } from './boatlooks.js';
 import { dressFigure } from './dress.js';
 import { flagById, logLine, addRun, addFish } from './papers.js';
@@ -132,7 +132,7 @@ import { groundSpot as findGroundSpot, waterUnder, AGROUND, OFF as AGROUND_OFF }
 import { Rockpools, poolNear, poolOpen, visibleLife, turnStone, settle, netIn, letGo, POOL_LIFE, POOL_SITES } from './world/rockpools.js';
 import { seasonOf, seasonWords, sunTimes, sunHour, seasonWarmth, riverFlow, leafTint, seasonLine, seasonBoost } from './world/season.js';
 import { galeSky, galeNear, hoursToGale, outlook, galeFor } from './world/forecast.js';
-import { FolkView } from './world/folk.js';
+import { FolkView, Figure } from './world/folk.js';
 import { Passersby } from './world/passersby.js';
 import { VisitorView } from './world/visitors.js';
 import { SharedWorld } from './sharedworld.js';
@@ -972,6 +972,8 @@ const pads = new Gamepads(input, {
     }
     // (A boat at the Marine Works turned, as a drag turns her: a turn in under three seconds.)
     if (s.rx && root?.querySelector('#hb-preview')) boatPreview.turn(s.rx * 240 * dt);
+    // (H4b: and you, in Settings → You.)
+    if (s.rx && root?.querySelector('#st-you-preview')) youView.yaw += s.rx * 2.4 * dt;
     return false;
   },
   oskButton: (n) => osk.button(n),
@@ -11511,6 +11513,8 @@ const settingsUI = new SettingsUI(state, {
   // (A taste of the new strength, straight away.)
   // (H2) Settings → Controls: the controller guide, Settings again after it.
   padGuide: () => showPadGuide(true),
+  // (H4b) You, turning, in Settings → You.
+  youPreview: (canvas) => youPreview(canvas),
   feltVibration: (id) => {
     const k = STRENGTHS[id] ?? 0;
     if (k) pads.feel(Math.min(1, 0.9 * k), Math.min(1, 0.5 * k), 0, Math.min(1, 0.7 * k), 260);
@@ -13690,6 +13694,44 @@ function loadSaveFile(file) {
     ]);
   };
   reader.readAsText(file);
+}
+
+// (H4b) You in Settings → You, turning slowly: the figure your friends see you as (world/folk.js
+// Figure, in your look and outfit), drawn by the studio about thirty times a second while the pane's
+// up, and made again when you change something. A drag, or the right stick, turns you round.
+const youView = { fig: null, key: '', yaw: 0.6, canvas: null, raf: 0, drawn: 0 };
+function youPreview(canvas) {
+  youView.canvas = canvas;
+  let x = null;
+  canvas.addEventListener('pointerdown', (e) => { x = e.clientX; canvas.setPointerCapture?.(e.pointerId); });
+  canvas.addEventListener('pointermove', (e) => { if (x != null) { youView.yaw += (e.clientX - x) * 0.012; x = e.clientX; } });
+  canvas.addEventListener('pointerup', () => { x = null; });
+  youView.drawn = 0;
+  if (!youView.raf) youView.raf = requestAnimationFrame(youStep);
+}
+function youStep(now) {
+  const c = youView.canvas;
+  if (!c?.isConnected) {
+    youView.raf = 0;
+    return;
+  }
+  youView.raf = requestAnimationFrame(youStep);
+  if (now - youView.drawn < 33) return;
+  youView.yaw += youView.drawn ? Math.min(0.1, (now - youView.drawn) / 1000) * 0.35 : 0;
+  youView.drawn = now;
+  const L = figureLook(state.look), key = JSON.stringify(L);
+  if (key !== youView.key) {
+    youView.fig?.dispose();
+    youView.fig = new Figure('you', L);
+    youView.fig.group.visible = true;
+    // (Without the things a figure keeps hidden in its hands, a rod, a fish, a bucket: framed as
+    // they'd be, they'd make you small.)
+    const hidden = [];
+    youView.fig.group.traverse((o) => { if (o !== youView.fig.group && o.visible === false) hidden.push(o); });
+    for (const o of hidden) o.removeFromParent();
+    youView.key = key;
+  }
+  studio().drawObject(c, youView.fig.group, { yaw: youView.yaw, pitch: 0.06 });
 }
 
 // (Stutter: docs/HUMAN-TOUCH.md) What the panels draw with, made ready in the background a few

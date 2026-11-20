@@ -303,7 +303,17 @@ export class SettingsUI {
       return wrap;
     };
     const words = (k) => this.choice(LOOK_OPTIONS[k].map((v) => [v, LOOK_WORDS[k][v]]), L[k], (v) => put(k, v));
+    // (H4b) You, turning, as friends see you: the right stick or a drag turns you round (main.js).
+    const pv = el('canvas', 'st-you-preview');
+    pv.id = 'st-you-preview';
+    pv.width = 300;
+    pv.height = 360;
+    pv.setAttribute('role', 'img');
+    pv.setAttribute('aria-label', $t('You, turning slowly: drag to turn'));
+    out.push(pv);
+    this.hooks.youPreview?.(pv);
     out.push(el('p', 'st-note', $t('How you look, on foot and at the helm, and to friends playing with you. Your clothes keep you warm and dry whatever their colour (the woolly hat still comes out when it’s cold).')));
+    out.push(this.row($t('Outfit'), $t('What you wear over it all. Just for looks: the weather still decides what keeps you warm and dry.'), words('outfit'), true));
     out.push(this.row($t('Skin'), null, swatches('skin', $t('Skin'))));
     out.push(this.row($t('Raincoat'), $t('When it’s on.'), swatches('coat', $t('Raincoat'))));
     out.push(this.row($t('Jumper'), $t('With the coat off on a cool day.'), swatches('jumper', $t('Jumper'))));
@@ -501,8 +511,9 @@ export class SettingsUI {
   // A setting: its name, a line on it, and its control. (H2) Only the first sentence of the line
   // shows; the rest comes up on the row you're on (focused with a controller or the keyboard, or
   // under the mouse), so a pane reads at a glance and still says everything where you look.
-  row(label, desc, control) {
-    const r = el('div', 'st-row');
+  row(label, desc, control, wide = false) {
+    // (wide: many choices, the words above them rather than squeezed beside: the outfits.)
+    const r = el('div', wide ? 'st-row st-row-wide' : 'st-row');
     const t = el('div', 'st-text');
     t.append(el('span', 'st-label', label));
     if (desc) {

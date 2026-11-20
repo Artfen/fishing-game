@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { buildHat } from './hats.js';
 import { cleanLook, figureLook } from './looks.js';
+import { beardShape, outfitColours, outfitParts } from './body.js';
 
 // What the angler wears, on the figure (on foot, see walker.js, and in a boat, see boat.js): the
 // yellow raincoat, or the wool jumper with the coat off, or just a shirt; the sun hat or a red
@@ -70,10 +71,26 @@ export class Dress {
 export function dressFigure(F, look) {
   const L = cleanLook(look), M = F.selfMats;
   if (!M || !F.head || !F.dress) return;
+  // (H4b) An outfit's own colours over the look's: oilskins, a hoodie, waders, a wetsuit.
+  const O = outfitColours(L.outfit, L);
   M[1].color.set(L.skin);
   M[2].color.set(L.hatColor);
-  M[4].color.set(L.boots);
-  F.dress.setPalette?.({ coat: L.coat, jumper: L.jumper, shirt: L.shirt, legs: L.legs });
+  M[4].color.set(O.boots || L.boots);
+  // (H4: the hair round the back and sides and the brows, in the hair's colour: body.js.)
+  F.hairMat?.color.set(L.hair);
+  F.dress.setPalette?.({ coat: O.top || L.coat, jumper: O.top || L.jumper, shirt: O.top || L.shirt, legs: O.legs || L.legs });
+  // (H4b) And what it adds over the body (a vest, a life jacket's float, a bib and braces, a hood),
+  // on the chest so it moves with it.
+  if (F.chest && F.outfitKey !== `${L.outfit}|${L.coat}`) {
+    for (const o of F.outfitParts || []) {
+      o.removeFromParent();
+      o.geometry.dispose();
+      if (!M.includes(o.material)) o.material.dispose();
+    }
+    F.outfitKey = `${L.outfit}|${L.coat}`;
+    F.outfitParts = outfitParts(L.outfit, M[0], L);
+    for (const o of F.outfitParts) F.chest.add(o);
+  }
   // The hat: her own sun hat, or another (the woolly hat still comes out when it's cold: dress.js).
   F.ownHat ??= F.dress.sunHat;
   const key = `${L.hat}|${L.hatColor}|${L.hair}|${L.beard}|${L.glasses}`;
@@ -107,14 +124,15 @@ export function dressFigure(F, look) {
 export function faceParts(L) {
   const out = [];
   if (L.beard && L.beard !== 'none') {
-    const full = L.beard === 'full', m = new THREE.MeshLambertMaterial({ color: L.hair });
-    const b = new THREE.Mesh(new THREE.SphereGeometry(full ? 0.105 : 0.095, 12, 8, 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.5), m);
-    b.position.set(0, full ? -0.012 : -0.005, full ? 0.035 : 0.045);
-    b.scale.set(1, full ? 1.1 : 0.75, 0.9);
+    // (H4: round the jaw and over the chin, with a moustache, as the head's made: body.js.)
+    const b = new THREE.Mesh(beardShape(L.beard, 0.13), new THREE.MeshLambertMaterial({ color: L.hair }));
+    b.name = `beard:${L.beard}`;
+    b.castShadow = true;
     out.push(b);
   }
   if (L.glasses && L.glasses !== 'none') {
     const g = new THREE.Group(), dark = L.glasses === 'shades';
+    g.name = `glasses:${L.glasses}`;
     const m = new THREE.MeshLambertMaterial({ color: dark ? '#141414' : '#2b2b2b' });
     for (const s of [1, -1]) {
       const lens = dark ? new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.006, 12).rotateX(Math.PI / 2), m) : new THREE.Mesh(new THREE.TorusGeometry(0.022, 0.004, 4, 14), m);

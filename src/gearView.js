@@ -188,6 +188,18 @@ export class GearStage {
     return done;
   }
 
+  // (H4b) Something of the game's own, kept by whoever made it (a figure of you, Settings → You),
+  // drawn into a 2D canvas turned by view.yaw and framed whole; not let go afterwards.
+  drawObject(canvas, object, view = {}) {
+    if (!this.init()) return;
+    const w = canvas.width, h = canvas.height, ctx = canvas.getContext('2d');
+    const cam = this.frame(object, { yaw: 0, pitch: 0.05, ...view }, w, h, { zoom: view.zoom || 1 });
+    const shot = this.shoot(w, h, cam);
+    ctx.clearRect(0, 0, w, h);
+    ctx.drawImage(shot, 0, 0, w, h);
+    this.holder.remove(object);
+  }
+
   // (Stutter) A piece drawn straight into a visible 2D canvas (the catch card's fish): no picture
   // encoded or decoded on the way, and nothing kept.
   drawInto(canvas, ref) {

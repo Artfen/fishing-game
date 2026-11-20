@@ -5,6 +5,7 @@ import { Boat, floatDraft, wakeOf } from '../boat.js';
 import { wakes } from './wakes.js';
 import { buildHat } from '../hats.js';
 import { faceParts } from '../dress.js';
+import { bodyShapes, buildHead, outfitColours, outfitParts, isSharedShape } from '../body.js';
 import { damp, dampAngle, clamp, smoothstep, wrapAngle } from '../util.js';
 import { FOLK, FOLK_IDS, SPOTS, POTS } from '../townsfolk.js';
 import { Skipper } from './skipper.js';
@@ -85,18 +86,23 @@ const cast = (m) => {
 // (Exported for the friends you play with, each in a look of their own: see visitors.js.)
 export class Figure {
   constructor(id, look = LOOKS[id]) {
-    const L = look;
+    // (H4b) A friend's outfit: its colours over their look's (the townsfolk wear their own).
+    const O = outfitColours(look.outfit, look);
+    const L = look.outfit ? { ...look, coat: O.top || look.coat, jumper: O.top || look.jumper, shirt: O.top || look.shirt, legs: O.legs || look.legs, boots: O.boots || look.boots } : look;
     this.id = id;
     this.look = L;
     this.group = new THREE.Group();
     this.group.visible = false;
     this.group.scale.setScalar(L.scale ?? L.big ?? 1);
     const coat = mat(L.coat), skin = mat(L.skin), legs = mat(L.legs), boots = mat(L.boots), dark = mat('#2b2522');
+    // (H4: the same body as yours, body.js: hair round the back and sides, in theirs or a dark brown.)
+    const hairMat = mat(L.hair || '#4a3a2c'), B = bodyShapes();
+    this.hairMat = hairMat;
     // (A friend's figure wears what they're wearing over it: see wear.)
     this.coatMat = coat;
     this.body = new THREE.Group();
     this.group.add(this.body);
-    const limb = new THREE.CylinderGeometry(1, 1, 1, 7).translate(0, -0.5, 0);
+    const limb = B.limbDown;
     // Legs: hip → knee → boot.
     this.legs = [1, -1].map((s) => {
       const hip = new THREE.Group();
@@ -111,8 +117,8 @@ export class Figure {
       const shin = cast(new THREE.Mesh(limb, legs));
       shin.scale.set(0.066, 0.42, 0.066);
       knee.add(shin);
-      const boot = cast(new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.08, 0.22), boots));
-      boot.position.set(0, -0.43, 0.04);
+      const boot = cast(new THREE.Mesh(B.boot, boots));
+      boot.position.set(0, -0.42, 0.04);
       knee.add(boot);
       return { hip, knee };
     });
@@ -120,10 +126,14 @@ export class Figure {
     this.torso = new THREE.Group();
     this.torso.position.y = 0.92;
     this.body.add(this.torso);
-    const chest = cast(new THREE.Mesh(new THREE.CapsuleGeometry(0.17, 0.27, 4, 10), coat));
+    const chest = (this.chest = cast(new THREE.Mesh(B.torso, coat)));
     chest.position.y = 0.28;
-    chest.scale.set(1, 1, 0.82);
     this.torso.add(chest);
+    // (H4b) What their outfit adds over the body: a vest, a life jacket, a bib and braces, a hood.
+    for (const o of outfitParts(L.outfit, coat, look)) chest.add(o);
+    const neck = new THREE.Mesh(B.neck, skin);
+    neck.position.y = 0.58;
+    this.torso.add(neck);
     if (L.apron || L.bib) {
       const a = new THREE.Mesh(new THREE.BoxGeometry(0.3, L.apron ? 0.62 : 0.5, 0.03), mat(L.apron || L.bib));
       a.position.set(0, L.apron ? 0.1 : 0.2, 0.14);
@@ -132,15 +142,7 @@ export class Figure {
     this.head = new THREE.Group();
     this.head.position.y = 0.67;
     this.torso.add(this.head);
-    this.head.add(cast(new THREE.Mesh(new THREE.SphereGeometry(0.125, 14, 10), skin)));
-    for (const s of [1, -1]) {
-      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.013, 6, 4), dark);
-      eye.position.set(s * 0.043, 0.015, 0.117);
-      this.head.add(eye);
-    }
-    const nose = new THREE.Mesh(new THREE.SphereGeometry(0.021, 6, 4), skin);
-    nose.position.set(0, -0.015, 0.125);
-    this.head.add(nose);
+    this.head.add(buildHead(skin, dark, hairMat, 0.125).group);
     this.head.add(this.hat(L));
     // (H1a) A friend's beard and glasses, as yours are made (dress.js): the townsfolk have their own.
     for (const o of faceParts(L)) this.head.add(o);
@@ -158,7 +160,7 @@ export class Figure {
       const fore = cast(new THREE.Mesh(limb, L.sleeves === 'rolled' ? skin : coat));
       fore.scale.set(0.05, 0.27, 0.05);
       elbow.add(fore);
-      const hand = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), skin);
+      const hand = new THREE.Mesh(B.hand, skin);
       hand.position.y = -0.29;
       elbow.add(hand);
       return { sh, elbow, hand };
@@ -304,7 +306,8 @@ export class Figure {
     const done = new Set();
     this.group.traverse((o) => {
       for (const x of [o.geometry, ...(Array.isArray(o.material) ? o.material : [o.material])]) {
-        if (x && !done.has(x)) {
+        // (Not the body's shared shapes: body.js. Every other figure is still wearing them.)
+        if (x && !done.has(x) && !isSharedShape(x)) {
           done.add(x);
           x.dispose();
         }

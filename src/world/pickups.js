@@ -3,6 +3,7 @@
 // adrift (a yellow mooring buoy with its broken chain's stub of rope). They ride the waves, and go
 // when they're aboard (then they're a passenger: passengers.js) or the job's given up.
 
+import { isSharedShape } from '../body.js';
 import * as THREE from 'three';
 import { Figure } from './folk.js';
 import { lookFor } from './visitors.js';
@@ -56,7 +57,7 @@ export class PickupView {
       // (Everything in it was made for it alone: given back to the graphics card.)
       it.fig?.dispose();
       it.g.traverse((o) => {
-        o.geometry?.dispose();
+        if (!isSharedShape(o.geometry)) o.geometry?.dispose();
         o.material?.dispose?.();
       });
       this.items.delete(id);

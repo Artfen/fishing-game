@@ -634,9 +634,11 @@ test('a friend who leaves and comes back has the same boats, and their figure is
   const afloat = at({ m: 'boat', k: 'skiff', x: 150, z: 330, h: 0, vx: 0, vz: 0, a: 'sit' }, [{ k: 'row', x: 160, z: 340, h: 1 }]);
   // On foot first: a figure, its own shapes and colours.
   play(at({ m: 'foot', x: 0, z: 0, h: 0, vx: 0, vz: 0, a: 'stand' }), 0.2);
+  // (Not the body's shapes every figure shares, H4 body.js: those aren't theirs, and stay.)
+  const { isSharedShape } = await import('../src/body.js');
   let given = 0, made = 0;
   view.drawn.get('sam').figure.group.traverse((o) => {
-    for (const x of [o.geometry, o.material]) if (x) { made++; x.addEventListener('dispose', () => given++); }
+    for (const x of [o.geometry, o.material]) if (x && !isSharedShape(x)) { made++; x.addEventListener('dispose', () => given++); }
   });
   play(afloat, 0.2);
   const d = view.drawn.get('sam'), skiff = d.boats.skiff, row = d.moored.row;
