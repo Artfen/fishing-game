@@ -261,6 +261,7 @@ before and after each phase; saves from before loaded; Spanish and French screen
 
 #### H5 as checked
 
+- **The full suite**: all 1,370 tests pass (`node --import ./tests/setup.mjs --test 'tests/*.test.mjs'`).
 - **Controller only** (a simulated DualSense, no mouse or keys, the real game in Chromium), two
   runs, every check passed. The first (19 checks): a new game from the title, the name typed on
   the on-screen keyboard, Career or Free Roam and how you like to play (the recommended choice
