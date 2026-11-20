@@ -6729,7 +6729,8 @@ export class Boat {
     this.head.rotation.x = fishing ? 0.15 : 0;
 
     // Rod
-    this.rod.visible = this.occupied && fishing > 0.02;
+    // (H4c: drawn only while your hands are on it, as on foot: walker.js.)
+    this.rod.visible = this.occupied && fishing > 0.3;
     this.rodStowed.visible = !this.rod.visible && !this.hull.noFish && !!this.hull.stow;
     // (In the fighting chair the rod's butt sits in the gimbal at the front of the seat.)
     if (this.standAt) this.fromYou(this.rod.position, 0.05 * (1 - this.chairT), lerp(0.33, 0.06, this.chairT), lerp(0.34, 0.3, this.chairT));
@@ -6782,7 +6783,7 @@ export class Boat {
         onOar = _b.copy(oar.handle).applyMatrix4(oar.g.matrix);
       }
       const onRod = _d.set(0, a.s > 0 ? 0.08 : 0.3, 0).applyMatrix4(this.rod.matrix);
-      a.target.lerpVectors(onOar, onRod, smoothstep(0, 1, fishing));
+      a.target.lerpVectors(onOar, onRod, smoothstep(0.02, 0.3, fishing));
       // (The elbow out to the side and down, and back a little, as the body's turned.)
       _pole.set(a.s * 0.65, -0.7, -0.3).applyQuaternion(this.torso.quaternion);
       elbowFor(shoulder, a.target, _pole, a.elbow);

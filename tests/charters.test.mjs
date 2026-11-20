@@ -300,12 +300,14 @@ test('passengers put ashore and castaways picked up are given back to the graphi
   const { Passengers } = await import('../src/passengers.js');
   const { PickupView } = await import('../src/world/pickups.js');
   const scene = new THREE.Scene();
-  // Everything made for an object: each listens for being given back.
+  // Everything made for an object: each listens for being given back. (Not the body's shapes that
+  // every figure shares, H4 body.js: those aren't made for it, and stay.)
+  const { isSharedShape } = await import('../src/body.js');
   const watch = (group) => {
     const w = { made: 0, given: 0 };
     group.traverse((o) => {
       for (const x of [o.geometry, o.material]) {
-        if (!x || x._watched) continue;
+        if (!x || x._watched || isSharedShape(x)) continue;
         x._watched = true;
         w.made++;
         x.addEventListener('dispose', () => w.given++);

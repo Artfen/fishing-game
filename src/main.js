@@ -133,7 +133,6 @@ import { Rockpools, poolNear, poolOpen, visibleLife, turnStone, settle, netIn, l
 import { seasonOf, seasonWords, sunTimes, sunHour, seasonWarmth, riverFlow, leafTint, seasonLine, seasonBoost } from './world/season.js';
 import { galeSky, galeNear, hoursToGale, outlook, galeFor } from './world/forecast.js';
 import { FolkView, Figure } from './world/folk.js';
-import { bodyShapes } from './body.js';
 import { Passersby } from './world/passersby.js';
 import { VisitorView } from './world/visitors.js';
 import { SharedWorld } from './sharedworld.js';
@@ -13722,12 +13721,7 @@ function youStep(now) {
   youView.drawn = now;
   const L = figureLook(state.look), key = JSON.stringify(L);
   if (key !== youView.key) {
-    const shared = new Set(Object.values(bodyShapes()));
-    youView.fig?.group.traverse((o) => {
-      if (!o.isMesh) return;
-      if (!shared.has(o.geometry)) o.geometry.dispose();
-      for (const m of [o.material].flat()) m.dispose?.();
-    });
+    youView.fig?.dispose();
     youView.fig = new Figure('you', L);
     youView.fig.group.visible = true;
     // (Without the things a figure keeps hidden in its hands, a rod, a fish, a bucket: framed as

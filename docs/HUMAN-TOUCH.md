@@ -222,6 +222,38 @@ preview in Settings → You; the most visible animation fixes (hands on the whee
 casting, boarding). Older saves' looks carried over. Draw calls and frame time measured before
 and after.
 
+#### H4 as built
+
+The simpler version, as proposed: not one new rig for everyone (walking, rowing, the helm, the
+townsfolk's work each animate their figure in their own way, and rewriting all of that would have
+risked every one of them), but **one set of body parts** (`src/body.js`) that all of them wear, so
+you on foot, you in a boat, your friends and the townsfolk are the same kind of person.
+
+- **The body**: a head with a jaw and chin, ears, a nose, eyes, brows and a mouth; hair round the
+  back and sides (it shows under a hat) in your hair's colour; a neck; a torso broad at the
+  shoulders, in at the waist and out at the hips (where an egg was); tapering limbs, rounded at the
+  joints; hands with a thumb; boots with a toe and a heel; a beard that follows the jaw (the old
+  one, a sphere inside the head, poked out as two wedges). The face's parts are joined per colour:
+  three pieces to draw where there were four.
+- **Elbows in the boat**: your arms there were one straight tube from shoulder to hand. They bend
+  now (an upper arm and a forearm, `elbowFor`), on the oars, the tiller, the wheel, the jet ski's
+  bars and the rod.
+- **The rod in your hands**: it no longer hangs in the air as you stop aiming, on foot or afloat;
+  drawn only while your hands are on it.
+- **Outfits** (Settings → You, sent to friends with your look): as the weather has it, oilskins, a
+  fishing vest, a life jacket, a hoodie, waders, a wetsuit. Just for looks.
+- **You, turning**, at the top of Settings → You: the figure your friends see, in your look and
+  outfit; a drag or the right stick turns it.
+- **Old saves**: a look from before wears "as the weather has it", as it did.
+- **Cost**: a figure is about 1,800 triangles, as before (the boats' drawing budgets, which count
+  you aboard, hold); the harbour benchmark against main, the same draw calls and the simulation's
+  time within the noise. The shapes are made once and shared by every figure, and never given
+  back to the graphics card with one (`isSharedShape`).
+
+Not done, and why: the diver keeps its own figure (`diver.js`: a suit, a mask, fins, which it
+already wears); sitting and boarding were left as they are, nothing in them looked wrong at the
+new proportions; the townsfolk keep their own clothes (they don't take an outfit).
+
 ### H5: checking it all
 
 The full suite; a controller-only run; a two-player run on the local relay; `tools/perf.mjs`

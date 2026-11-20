@@ -418,7 +418,9 @@ export class Walker {
     this.head.rotation.x = fishing ? 0.12 : -0.35 * sip + 0.1 * hug;
 
     // Rod
-    this.rod.visible = fishing > 0.02;
+    // (H4c: drawn only while your hands are on it: they reach it before it's out, and keep hold
+    // of it till it's put away, rather than leave it hanging as you stop.)
+    this.rod.visible = fishing > 0.3;
     this.tube.visible = !this.rod.visible;
     this.rod.position.copy(HOLD);
     this.rod.rotation.y = this.pose.rodYaw;
@@ -441,7 +443,7 @@ export class Walker {
       // Sitting: hands resting on your knees, or held out to the fire.
       if (st) free.lerp(this.warmHands ? _d.set(a.s * 0.12, 0.2, 0.46).applyMatrix4(this.torso.matrix) : _d.set(a.s * 0.15, -0.3, 0.34).applyMatrix4(this.torso.matrix), st);
       const onRod = _d.set(0, a.s > 0 ? 0.06 : 0.32, 0).applyMatrix4(this.rod.matrix);
-      a.target.lerpVectors(free, onRod, smoothstep(0, 1, fishing));
+      a.target.lerpVectors(free, onRod, smoothstep(0.02, 0.3, fishing));
       // (The elbow out to the side and down, a little back: further out holding the rod.)
       reach(shoulder, a.target, _pl.set(a.s * (0.55 + 0.35 * fishing), -0.75, -0.35), a.elbow);
       setLimb(a.arm, shoulder, a.elbow, 0.056);

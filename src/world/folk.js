@@ -5,7 +5,7 @@ import { Boat, floatDraft, wakeOf } from '../boat.js';
 import { wakes } from './wakes.js';
 import { buildHat } from '../hats.js';
 import { faceParts } from '../dress.js';
-import { bodyShapes, buildHead, outfitColours, outfitParts } from '../body.js';
+import { bodyShapes, buildHead, outfitColours, outfitParts, isSharedShape } from '../body.js';
 import { damp, dampAngle, clamp, smoothstep, wrapAngle } from '../util.js';
 import { FOLK, FOLK_IDS, SPOTS, POTS } from '../townsfolk.js';
 import { Skipper } from './skipper.js';
@@ -306,7 +306,8 @@ export class Figure {
     const done = new Set();
     this.group.traverse((o) => {
       for (const x of [o.geometry, ...(Array.isArray(o.material) ? o.material : [o.material])]) {
-        if (x && !done.has(x)) {
+        // (Not the body's shared shapes: body.js. Every other figure is still wearing them.)
+        if (x && !done.has(x) && !isSharedShape(x)) {
           done.add(x);
           x.dispose();
         }
