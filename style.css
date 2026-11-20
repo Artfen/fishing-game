@@ -1652,6 +1652,7 @@ body.touch #rest-veil { padding-bottom: calc(170px + env(safe-area-inset-bottom,
   background: rgba(243, 232, 207, 0.92); color: var(--ink); font: 700 20px/1 var(--font-ui); cursor: pointer;
 }
 .map-zoom button:hover { background: var(--paper-shade); }
+.map-padhint { position: absolute; right: 10px; bottom: 8px; margin: 0; padding: 3px 8px; border-radius: 6px; background: rgba(243, 232, 207, 0.9); font: 600 12px var(--font-ui); color: var(--ink); pointer-events: none; }
 .map-side { min-height: 0; overflow-y: auto; padding-right: 4px; }
 .map-side h3:first-child { margin-top: 0; }
 .map-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
@@ -2973,3 +2974,26 @@ body.screen-clean.underway #gear { opacity: 0; pointer-events: none; }
 .st-swatches { display: flex; flex-wrap: wrap; gap: 6px; max-width: 320px; }
 .st-swatches .hb-swatch { padding: 5px; min-width: 0; }
 .st-swatches .hb-swatch[aria-pressed='true'] { outline: 2px solid var(--ink, #3a2e26); outline-offset: 1px; }
+
+/* ---------------- The on-screen keyboard (osk.js): typing with a controller ---------------- */
+#osk {
+  position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 60;
+  width: min(640px, calc(100vw - 32px)); padding: 14px; border-radius: 16px;
+  background: var(--paper); color: var(--ink); box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+  font: 600 16px var(--font-ui);
+}
+#osk[hidden] { display: none; }
+.osk-shown { min-height: 1.6em; margin: 0 4px 10px; padding: 8px 12px; border-radius: 10px; background: rgba(53, 41, 31, 0.08); font-size: 20px; letter-spacing: 0.02em; overflow-wrap: anywhere; }
+.osk-shown::after { content: '▏'; animation: osk-caret 1s steps(1) infinite; }
+.osk-shown.osk-empty { color: var(--ink-faint); }
+@keyframes osk-caret { 50% { opacity: 0; } }
+.osk-keys { display: grid; gap: 6px; }
+.osk-row { display: flex; gap: 6px; }
+.osk-key { flex: 1 1 0; min-width: 0; min-height: 44px; border: 0; border-radius: 9px; background: #fffaf0; color: var(--ink); font: 600 18px var(--font-ui); box-shadow: 0 2px 0 rgba(53, 41, 31, 0.18); cursor: pointer; }
+.osk-key:focus-visible, body.pad .osk-key:focus { outline: 3px solid var(--lantern); outline-offset: 2px; background: #fff2cf; }
+.osk-wide { flex-grow: 1.6; font-size: 15px; }
+.osk-space { flex-grow: 4; font-size: 15px; }
+.osk-done { background: #35676b; color: #fff9ef; }
+.osk-pad .osk-key { min-height: 56px; font-size: 22px; }
+.osk-pad { max-width: 320px; margin: 0 auto; }
+.osk-hint { margin: 10px 4px 0; font: 500 12px/1.4 var(--font-ui); color: var(--ink-soft); text-align: center; }

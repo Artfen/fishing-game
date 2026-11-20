@@ -15,6 +15,7 @@
 // hands (PAD_NAMES: ✕ on a PlayStation controller, B on a Nintendo one).
 
 import { $t } from './i18n.js';
+import { isTextBox } from './osk.js';
 export const BTN = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, VIEW: 8, MENU: 9, L3: 10, R3: 11, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
 const NAMES = Object.keys(BTN);
 export const GLYPH = {
@@ -501,7 +502,9 @@ export class Gamepads {
   /* ---------------- menus ---------------- */
 
   menu(pressed, L, R, dt) {
-    const root = this.ctx === 'title' ? this.h.focusRoot?.() : topDialog();
+    // (H2: the on-screen keyboard, over everything, wherever it was opened from.)
+    const top = topDialog(), osk = top?.id === 'osk';
+    const root = osk ? top : this.ctx === 'title' ? this.h.focusRoot?.() : top;
     const edge = (n) => pressed[BTN[n]] && !this.was[BTN[n]];
     if (!root) {
       if (edge('B')) this.input.emit('press', 'Escape', ['cancel']);
@@ -537,19 +540,25 @@ export class Gamepads {
         move(root, dir);
       }
     }
+    // (The keyboard's own buttons: B deletes, Y shifts, X a space, Menu is done. See osk.js.)
+    if (osk) for (const n of ['B', 'Y', 'X', 'MENU', 'VIEW']) if (edge(n)) this.h.oskButton?.(n);
     if (edge('A')) {
-      const first = firstFocus(root);
-      if (inside()) document.activeElement.click();
+      const first = firstFocus(root), a = document.activeElement;
+      // (On a text box: the on-screen keyboard, to type into it.)
+      if (inside() && !osk && isTextBox(a) && this.h.typeInto) this.h.typeInto(a);
+      else if (inside()) a.click();
       else if (first) first.focus();
       // (A card with nothing to choose, like a discovery: A carries on, as Enter does.)
       else this.input.emit('press', 'Enter', []);
     }
-    if (this.ctx === 'title') return;
+    if (this.ctx === 'title' || osk) return;
     if (edge('B')) this.input.emit('press', 'Escape', ['cancel']);
     if (edge('LB') || edge('RB')) tabs(root, edge('RB') ? 1 : -1);
     // The buttons that open the map and Settings close them again.
     if (edge('VIEW')) this.input.emit('press', 'Pad:map', ['map']);
     if (edge('MENU')) this.input.emit('press', 'Pad:settings', ['settings']);
+    // (H2) A chart or a boat to turn: the right stick, the triggers and X are theirs (main.js).
+    if (this.h.panel?.(root, { rx: R.x, ry: R.y, zoom: this.rt - this.lt, x: edge('X') }, dt)) return;
     // The right stick scrolls whatever you're in.
     if (R.y) {
       const s = scroller(document.activeElement, root);
@@ -567,7 +576,7 @@ const visible = (el) => !!el && el.getClientRects().length > 0 && getComputedSty
 export function topDialog() {
   const all = [...document.querySelectorAll('[role="dialog"], [role="alertdialog"]')].filter((d) => !d.hidden && !d.closest('[hidden]') && visible(d));
   if (!all.length) return null;
-  return all.find((d) => d.id === 'confirm') || all.find((d) => d.id === 'photo-card') || all.find((d) => d.id === 'mem-viewer') || all[all.length - 1];
+  return all.find((d) => d.id === 'osk') || all.find((d) => d.id === 'confirm') || all.find((d) => d.id === 'photo-card') || all.find((d) => d.id === 'mem-viewer') || all[all.length - 1];
 }
 
 export function focusables(root) {

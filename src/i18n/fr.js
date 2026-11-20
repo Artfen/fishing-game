@@ -8718,4 +8718,12 @@ export default {
 "Close journal": "Fermer le carnet",
 "Quick calls to your friends": "Appels rapides à tes amis",
 "Controls": "Commandes",
+"{0} type · {1} delete · {2} capitals and accents · {3} space · {4} done": "{0} écrire · {1} effacer · {2} majuscules et accents · {3} espace · {4} terminé",
+"Keyboard": "Clavier",
+"Done": "Terminé",
+"Shift": "Majuscules",
+"Space": "Espace",
+"move ·": "déplacer ·",
+"zoom ·": "zoom ·",
+"mark the middle": "marquer le centre",
 };

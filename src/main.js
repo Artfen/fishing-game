@@ -169,6 +169,7 @@ import { FishFinder } from './sonar.js';
 import { bottomOf } from './sonarRead.js';
 import { setupTouch } from './touch.js';
 import { Gamepads, buttonFor, topDialog, focusables, padName, setPadStyle, styleFor } from './gamepad.js';
+import { OnScreenKeyboard } from './osk.js';
 import { levers, nearest, step, setIndex, within, capIndex, leverWords, slide, valueAt, positionOf, displayIndex, positionAtIndex, leverPositionWords, GEAR_IN } from './throttle.js';
 import { LeverUI } from './lever.js';
 import { anchorCheck, berthFor, berthAt, castOffCheck, canTow, towStep, towLineFor, TOW } from './mooring.js';
@@ -957,7 +958,35 @@ const pads = new Gamepads(input, {
   },
   focusRoot: () => $('title'),
   rodStick: () => fishing.expert && fishing.lineOut && !modal,
+  // (H2: typing with a controller, see osk.js.)
+  typeInto: (el) => osk.open(el, oskHint()),
+  // (H2) The chart moved with the right stick, zoomed with the triggers, X a mark at its middle;
+  // a boat in the yard's picture turned with the right stick. True: the stick's taken.
+  panel: (root, s, dt) => {
+    if (root?.id === 'map' && mapSheet.isOpen) {
+      mapSheet.stick(s.rx, s.ry, s.zoom, dt);
+      if (s.x) mapSheet.tapCentre();
+      return true;
+    }
+    // (A boat at the Marine Works turned, as a drag turns her: a turn in under three seconds.)
+    if (s.rx && root?.querySelector('#hb-preview')) boatPreview.turn(s.rx * 240 * dt);
+    return false;
+  },
+  oskButton: (n) => osk.button(n),
 });
+// The on-screen keyboard: a text box typed into with a controller alone (your name, a code to join
+// a friend, a gift code, a title), its buttons named as printed on yours.
+const osk = new OnScreenKeyboard();
+const oskHint = () => $t`${padName('A')} type · ${padName('B')} delete · ${padName('Y')} capitals and accents · ${padName('X')} space · ${padName('Menu')} done`;
+// (Esc on a keyboard, or anywhere off it with a mouse: done with it.)
+addEventListener('keydown', (e) => {
+  if (!osk.isOpen || e.fromPad) return;
+  if (e.code === 'Escape' || e.code === 'Enter') {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    osk.done();
+  }
+}, true);
 input.padLabel = (a) => pads.label(a);
 // The controller's buttons named as printed on it (✕ on a PlayStation one), or as chosen in Settings.
 function padNamesNow() {
@@ -11718,6 +11747,8 @@ const STATUS_TEXT = {
 function padContext() {
   // (A question open before the game's begun, the name or how you like to play: the controller
   // answers it, rather than being pulled back to the title's buttons.)
+  // (H2: typing on the on-screen keyboard, anywhere.)
+  if (osk.isOpen) return 'menu';
   if (!started) return settingsUI.isOpen || !$('confirm').hidden ? 'menu' : 'title';
   if (modal === 'sleep' || modal === 'travel') return 'off';
   if (!$('confirm').hidden || !$('photo-card').hidden) return 'menu';
@@ -14075,6 +14106,8 @@ function openMap(highlight = null) {
   if (modal) return;
   if (fishing.aiming) fishing.cancel();
   const p = player();
+  // (Opened with a controller: the crosshair X marks under, at once. See map.js tapCentre.)
+  mapSheet.padAim = scheme() === 'pad';
   mapSheet.open({ player: { x: p.pos.x, z: p.pos.z, heading: p.heading }, onFoot, boats, boat, friends: friendsOnMap, jobs: jobsOnMap }, typeof highlight === 'string' ? highlight : null);
   modal = 'map';
   audio.page();
