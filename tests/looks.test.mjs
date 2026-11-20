@@ -29,8 +29,11 @@ test('the choices: a broad range of skin, your clothes’ colours, hats, hair, b
   assert.equal(odd.beard, 'full');
   assert.equal(odd.coat, L.LOOK_OPTIONS.coat[2]);
   assert.ok(!('extra' in odd));
-  // A friend's figure: the sun hat drawn as a bucket hat; no hat shows the hair.
-  assert.equal(L.figureLook({ hat: 'sun' }).hat, 'bucket');
+  // A friend's figure (H1a: as they made themselves, all of it): the sun hat as theirs is, the
+  // jumper, shirt, beard and glasses with it; no hat shows the hair.
+  const fl = L.figureLook({ hat: 'sun', beard: 'short', glasses: 'glasses', jumper: L.LOOK_OPTIONS.jumper[1], shirt: L.LOOK_OPTIONS.shirt[2] });
+  assert.equal(fl.hat, 'sun');
+  assert.deepEqual([fl.beard, fl.glasses, fl.jumper, fl.shirt], ['short', 'glasses', L.LOOK_OPTIONS.jumper[1], L.LOOK_OPTIONS.shirt[2]]);
   const bun = L.figureLook({ hat: 'bun', hair: L.LOOK_OPTIONS.hair[3] });
   assert.equal(bun.hatColor, L.LOOK_OPTIONS.hair[3]);
   // Kept in the save.

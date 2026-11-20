@@ -16,6 +16,7 @@
 // 1.0.0), so no SDK is needed: see Realtime below.
 
 import { cleanLook } from './looks.js';
+import { cleanBoatLooks } from './boatlooks.js';
 import { kindOf, isBoatId } from './boatid.js';
 import { $t } from './i18n.js';
 
@@ -213,6 +214,12 @@ export function cleanPose(p, kinds = null, gear = null) {
     out.f = !!p.f;   // a line out
     out.s = !!p.s;   // under sail
     out.n = !!p.n;   // at anchor or tied up
+    // (H1e) Tied up (her lines and fenders out), or at anchor: where the anchor lies, how much
+    // rode is out, and whether it's going down, holding or coming up (0, 1, 2), so friends see
+    // her rode run from her bow down to it. Never further off than her rode could reach.
+    if (p.ty) out.ty = true;
+    const an = anchorWire(p.an, x, z);
+    if (an && !out.ty) out.an = an;
     if (p.zz) out.zz = true; // (J3) asleep aboard (turned in on her deck, or her bunk)
     if (p.hi) out.hi = true; // at her inside helm, in the wheelhouse (boat.js setHelmInside)
     // Their bow trolling motor's state (see trollmount.js: ten small numbers), if they have one.
@@ -229,6 +236,11 @@ export function cleanPose(p, kinds = null, gear = null) {
     }
   }
   if (m === 'foot') out.a = ACTS.includes(p.a) ? p.a : 'stand';
+  // (H1a) What they're wearing just now, over their look: the raincoat (1), the jumper (2), the
+  // woolly hat (4); and how wet they are (0 … 1).
+  if (Number.isInteger(p.wr) && p.wr >= 0 && p.wr < 8) out.wr = p.wr;
+  const wt = finite(p.wt, 0, 1);
+  if (wt) out.wt = wt;
   // Diving: how deep, head up or down, kicking or not, and the kit (scuba, or breath-hold with a
   // speargun), so friends in the water see them swimming as they are (see visitors.js).
   if (m === 'dive') {
@@ -276,8 +288,18 @@ export function cleanPose(p, kinds = null, gear = null) {
   return out;
 }
 
+// (H1e) An anchor as it comes over the wire: [x, z, rode out (m), 0 dropping / 1 holding / 2
+// hauling], within reach of a boat at (bx, bz); null if not one.
+const ANCHOR_REACH = 70;
+export function anchorWire(a, bx, bz) {
+  if (!Array.isArray(a) || a.length !== 4) return null;
+  const ax = finite(a[0], -1e5, 1e5), az = finite(a[1], -1e5, 1e5), out = finite(a[2], 0, 60), ph = [0, 1, 2].includes(a[3]) ? a[3] : null;
+  if (ax == null || az == null || out == null || ph == null || Math.hypot(ax - bx, az - bz) > ANCHOR_REACH) return null;
+  return [ax, az, out, ph];
+}
+
 // Where someone's boats in the water are lying (all but the one they're in): [{ k, x, z, h }],
-// checked like a pose; at most FLEET_MAX.
+// checked like a pose; at most FLEET_MAX. (H1e) Each at anchor (an: as a pose's) or tied up (ty).
 export function cleanFleet(list, kinds = null) {
   if (!Array.isArray(list)) return [];
   const out = [];
@@ -287,7 +309,8 @@ export function cleanFleet(list, kinds = null) {
     // (Each boat once: a second of a kind by her id.)
     const i = isBoatId(b.i) && b.i !== b.k && kindOf(b.i) === b.k ? b.i : null;
     if (x == null || z == null || h == null || out.some((o) => (o.i || o.k) === (i || b.k))) continue;
-    out.push({ k: b.k, ...(i ? { i } : {}), x, z, h });
+    const an = b.ty ? null : anchorWire(b.an, x, z);
+    out.push({ k: b.k, ...(i ? { i } : {}), x, z, h, ...(b.ty ? { ty: true } : {}), ...(an ? { an } : {}) });
   }
   return out;
 }
@@ -566,10 +589,11 @@ export function glide(p, at, dt) {
 // kinds a pose may name; WS: the WebSocket class; online() → whether the browser is online.
 // (listenMs, retryScale, newCode and now are there for the tests.)
 export class Together {
-  constructor({ config, name, look = () => null, kinds = null, skies = null, rods = null, items = null, WS = globalThis.WebSocket, online = () => globalThis.navigator?.onLine !== false, listenMs = LISTEN_MS, retryScale = 1, newCode = makeCode, now = () => globalThis.performance.now() / 1000, store = undefined }) {
+  constructor({ config, name, look = () => null, boatLooks = () => null, kinds = null, skies = null, rods = null, items = null, WS = globalThis.WebSocket, online = () => globalThis.navigator?.onLine !== false, listenMs = LISTEN_MS, retryScale = 1, newCode = makeCode, now = () => globalThis.performance.now() / 1000, store = undefined }) {
     this.config = config;
     this.name = name;
     this.look = look; // (how you look, see looks.js: sent with your name)
+    this.boatLooks = boatLooks; // (H1c: how your boats look, see boatlooks.js: sent with it)
     this.kinds = kinds;
     this.gear = rods || items ? { rods, items } : null; // (the rods and tackle a pose may name)
     this.WS = WS;
@@ -650,7 +674,8 @@ export class Together {
   }
 
   meta() {
-    return { id: this.id, name: this.name() || $t('Someone'), host: this.hosting, ...(this.look() ? { look: this.look() } : {}) };
+    const yd = this.boatLooks();
+    return { id: this.id, name: this.name() || $t('Someone'), host: this.hosting, ...(this.look() ? { look: this.look() } : {}), ...(yd && Object.keys(yd).length ? { yd } : {}) };
   }
 
   // Start a session of your own: a fresh code nobody else is using (or, given one, take back your
@@ -755,7 +780,7 @@ export class Together {
     await rt.join(topicFor(code), this.id);
     if (attempt !== this.attempt) return false;
     // (Whoever's there answers a hello with where they are, presence or not.)
-    if (ask) rt.send('hello', { id: this.id, name: this.name(), ...(this.look() ? { look: this.look() } : {}) });
+    if (ask) rt.send('hello', this.helloMsg());
     else rt.send('hello', { id: this.id, probe: true });
     await new Promise((r) => setTimeout(r, this.listenMs));
     if (!rt.open) throw new Error('the connection closed');
@@ -855,7 +880,7 @@ export class Together {
         if (attempt !== this.attempt) return;
         rt.onClose = () => this.lost();
         rt.track(this.meta());
-        rt.send('hello', { id: this.id, name: this.name(), ...(this.look() ? { look: this.look() } : {}) });
+        rt.send('hello', this.helloMsg());
         this.sent = null;
         this.reconnecting = false;
         this.retry = 0;
@@ -879,10 +904,19 @@ export class Together {
     this.lost();
   }
 
-  // Your name changed: tell the others.
+  // A hello: your name, your look and your boats' (what the presence says, for whoever's there).
+  helloMsg() {
+    const { id, name, look, yd } = this.meta();
+    return { id, name: this.name(), ...(look ? { look } : {}), ...(yd ? { yd } : {}) };
+  }
+
+  // Your name, your look or your boats' looks changed: tell the others (only if anything did).
   renamed() {
     if (this.active && this.rt?.open) {
-      this.rt.track(this.meta());
+      const m = this.meta(), sig = JSON.stringify(m);
+      if (sig === this.metaSig) return;
+      this.metaSig = sig;
+      this.rt.track(m);
       this.sent = null;
     }
   }
@@ -902,12 +936,14 @@ export class Together {
     return p;
   }
 
-  named(p, raw, host, look = undefined) {
+  named(p, raw, host, look = undefined, yd = undefined) {
     const fresh = !p.name;
     const n = cleanName(raw);
     if (n) p.name = n;
     // (How they look, as they made themselves: see looks.js. Anything odd is their default look.)
     if (look && typeof look === 'object') p.look = cleanLook(look);
+    // (H1c) How their boats look, by each boat's id (see boatlooks.js).
+    if (yd && typeof yd === 'object') p.yard = cleanBoatLooks(yd, this.kinds);
     if (host) {
       // (A new host, or the host back after a reload: what the last one said no longer holds.)
       if (p.id !== this.hostId) this.world = null;
@@ -944,7 +980,7 @@ export class Together {
         const p = this.peer(key);
         if (p) {
           p.present = true;
-          this.named(p, meta.name, !!meta.host, meta.look);
+          this.named(p, meta.name, !!meta.host, meta.look, meta.yd);
         }
       });
       return;
@@ -954,7 +990,7 @@ export class Together {
         const p = this.peer(key);
         if (p) {
           p.present = true;
-          this.named(p, meta.name, !!meta.host, meta.look);
+          this.named(p, meta.name, !!meta.host, meta.look, meta.yd);
         }
       });
       this.presenceList(payload?.leaves, (key) => {
@@ -976,7 +1012,7 @@ export class Together {
       const p = data.probe ? null : this.peer(data.id);
       if (p) {
         p.seen = this.clock;
-        this.named(p, data.name, false, data.look);
+        this.named(p, data.name, false, data.look, data.yd);
       }
       if (this.active || this.status === 'connecting') {
         this.sent = null;
@@ -1186,6 +1222,13 @@ export class Together {
     if (P.m === 'boat' && P.tc) msg.tc = P.tc;
     if (P.m === 'boat' && Array.isArray(P.tr)) msg.tr = P.tr;
     if (P.m === 'boat' && P.zz) msg.zz = 1; // (J3: asleep aboard)
+    // (H1e) Tied up, or her anchor: where it lies (to half a metre), the rode out (to a metre), and
+    // dropping, holding or hauling.
+    if (P.m === 'boat' && P.ty) msg.ty = 1;
+    else if (P.m === 'boat' && Array.isArray(P.an)) msg.an = [Math.round(P.an[0] * 2) / 2, Math.round(P.an[1] * 2) / 2, Math.round(P.an[2]), P.an[3]];
+    // (H1a) What you're wearing over your look, and how wet you are.
+    if (P.wr != null) msg.wr = P.wr;
+    if (P.wt) msg.wt = Math.round(P.wt * 4) / 4;
     // (F4b) The boat you're towing, and the line.
     if (P.m === 'boat' && P.tw) msg.tw = { k: P.tw.k, x: r2(P.tw.x), z: r2(P.tw.z), h: r2(P.tw.h), t: Math.round((P.tw.t || 0) * 10) / 10, l: Math.round((P.tw.l || 0) * 10) / 10, ...(P.tw.e ? { e: P.tw.e } : {}) };
     if (P.m === 'foot') msg.a = P.a;
@@ -1217,7 +1260,7 @@ export class Together {
       || Math.abs((S.xl ?? 0) - (msg.xl ?? 0)) > 3 || Math.abs((S.sl ?? 100) - (msg.sl ?? 100)) > 2
       || S.cr !== msg.cr || (msg.cr && Math.hypot(S.cx - msg.cx, S.cz - msg.cz) > 0.15) || Math.abs((S.cy ?? 0) - (msg.cy ?? 0)) > 0.1
       || S.bi !== msg.bi || String(S.dk) !== String(msg.dk) || S.pf !== msg.pf || S.tc !== msg.tc
-      || String(S.tr) !== String(msg.tr) || S.zz !== msg.zz
+      || String(S.tr) !== String(msg.tr) || S.zz !== msg.zz || S.ty !== msg.ty || String(S.an) !== String(msg.an) || S.wr !== msg.wr || S.wt !== msg.wt
       || (S.tw?.k ?? null) !== (msg.tw?.k ?? null) || (msg.tw && (Math.hypot(S.tw.x - msg.tw.x, S.tw.z - msg.tw.z) > 0.25 || Math.abs(S.tw.h - msg.tw.h) > 0.05 || Math.abs(S.tw.t - msg.tw.t) > 0.5 || Math.abs(S.tw.l - msg.tw.l) > 0.5 || S.tw.e !== msg.tw.e))
       || S.kt !== msg.kt || S.kk !== msg.kk || Math.abs((S.y ?? 0) - (msg.y ?? 0)) > 0.25 || Math.abs((S.pt ?? 0) - (msg.pt ?? 0)) > 0.1;
     if (!now && (this.sendT > 0 || (!moved && this.clock - (S?.at ?? -99) < IDLE_EVERY))) return;
@@ -1237,9 +1280,11 @@ export class Together {
   sendFleet() {
     if (!this.fleetSource || !this.rt?.open || this.reconnecting) return;
     // (A second of a kind by her own id, as cleanFleet takes it.)
-    const fl = this.fleetSource().slice(0, FLEET_MAX).map((b) => ({ k: b.k, ...(b.i ? { i: b.i } : {}), x: r2(b.x), z: r2(b.z), h: r2(b.h) }));
+    // (H1e) Each tied up or at anchor, as a pose says it.
+    const fl = this.fleetSource().slice(0, FLEET_MAX).map((b) => ({ k: b.k, ...(b.i ? { i: b.i } : {}), x: r2(b.x), z: r2(b.z), h: r2(b.h), ...(b.ty ? { ty: 1 } : {}),
+      ...(!b.ty && Array.isArray(b.an) ? { an: [Math.round(b.an[0] * 2) / 2, Math.round(b.an[1] * 2) / 2, Math.round(b.an[2]), b.an[3]] } : {}) }));
     const S = this.fleetSent;
-    const moved = !S || S.length !== fl.length || fl.some((b, i) => b.k !== S[i].k || b.i !== S[i].i || Math.hypot(b.x - S[i].x, b.z - S[i].z) > 1 || Math.abs(b.h - S[i].h) > 0.1);
+    const moved = !S || S.length !== fl.length || fl.some((b, i) => b.k !== S[i].k || b.i !== S[i].i || Math.hypot(b.x - S[i].x, b.z - S[i].z) > 1 || Math.abs(b.h - S[i].h) > 0.1 || b.ty !== S[i].ty || String(b.an) !== String(S[i].an));
     if (!moved && this.fleetT > -FLEET_EVERY * 2) return;
     this.rt.send('fleet', { id: this.id, fl });
     this.fleetSent = fl;

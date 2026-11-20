@@ -1,12 +1,20 @@
-// Hats (and, for no hat, hair): a flat cap, a beanie, a bucket hat, a cap, or a cap of hair with a
-// bun at the back, for a head of radius 0.13. Shared by the townsfolk and friends (world/folk.js)
+// Hats (and, for no hat, hair): the wide-brimmed sun hat (yours, as walker.js makes it), a flat
+// cap, a beanie, a bucket hat, a cap, or a cap of hair with a bun at the back, for a head of
+// radius 0.13. Shared by the townsfolk and friends (world/folk.js)
 // and your own figure (looks.js). L: { hat, hatColor, hair }; mat(colour): a material.
 import * as THREE from 'three';
 
 export function buildHat(L, mat) {
   const g = new THREE.Group();
   const c = mat(L.hatColor || L.hair || '#333');
-  if (L.hat === 'flatcap') {
+  if (L.hat === 'sun') {
+    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.25, 0.025, 16), c);
+    brim.position.y = 0.075;
+    const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 0.13, 14), c);
+    crown.position.y = 0.14;
+    g.add(brim, crown);
+    g.rotation.set(-0.12, 0, 0.08);
+  } else if (L.hat === 'flatcap') {
     const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.135, 0.06, 14), c);
     crown.position.y = 0.09;
     crown.scale.z = 1.12;
