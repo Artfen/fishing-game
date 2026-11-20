@@ -85,9 +85,11 @@ test('a friend drawn as they made themselves: on foot and at the helm, hat, bear
   play(peer({ m: 'foot', x: 0, z: 0, h: 0, vx: 0, vz: 0, a: 'stand', wr: 2 }));
   const f = view.drawn.get('sam').figure;
   assert.equal(`#${f.coatMat.color.getHexString()}`, look.jumper);
-  let beard = 0;
-  f.head.traverse((o) => { if (o.isMesh && o.geometry?.parameters?.radius === 0.105) beard++; });
+  // (The parts by name, as dress.js faceParts makes them: H4 changed the beard's shape.)
+  let beard = 0, glasses = 0;
+  f.head.traverse((o) => { if (o.name === 'beard:full') beard++; if (o.name === 'glasses:glasses') glasses++; });
   assert.ok(beard >= 1, 'a full beard');
+  assert.ok(glasses >= 1, 'and glasses');
   // In the raincoat: the coat's colour.
   play(peer({ m: 'foot', x: 0, z: 0, h: 0, vx: 0, vz: 0, a: 'stand', wr: 1 }));
   assert.equal(`#${f.coatMat.color.getHexString()}`, look.coat);

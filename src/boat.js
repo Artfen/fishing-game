@@ -21,6 +21,7 @@ import { rodeFor, berthAt } from './mooring.js';
 import { anchorBottom, setBy, uplift, UPLIFT_REF, rodeOf, rodePoints, ANCHOR_HOLD, breakoutHold, liftedOut } from './anchoring.js';
 import { CLEAR_K } from './apart.js';
 import { Dress } from './dress.js';
+import { bodyShapes, buildHead, elbowFor } from './body.js';
 import { CARGO, slide as slidePiece } from './cargo.js';
 import { trawlerPlan, trawlerPlaces, pilotSole, step as planStep, spotAt as planSpot, nearestOn } from './deckplan.js';
 import { PLATFORM } from './platform.js';
@@ -612,6 +613,10 @@ function bilgeSurface(rows, y, z0, z1) {
   geo.computeVertexNormals();
   return geo;
 }
+
+// (A hand turned to hang on from the arm: body.js's hand points down, the arm up.)
+const FLIP = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI);
+const _pole = new THREE.Vector3();
 
 function setLimb(mesh, a, b, r) {
   _d.subVectors(b, a);
@@ -2483,17 +2488,25 @@ export class Boat {
     const pants = new THREE.MeshLambertMaterial({ color: '#3b4a68' });
     const boot = new THREE.MeshLambertMaterial({ color: '#5a3d2b' });
     const dark = new THREE.MeshLambertMaterial({ color: '#2b2522' });
-    this.selfMats = [coat, skin, hat, pants, boot, dark];
+    // (H4: your hair, round the back and sides and in your brows: see body.js, dress.js.)
+    const hairMat = new THREE.MeshLambertMaterial({ color: '#4a2f22' });
+    this.selfMats = [coat, skin, hat, pants, boot, dark, hairMat];
+    this.hairMat = hairMat;
     const cast = (m) => { m.castShadow = true; return m; };
+    const B = bodyShapes();
 
     this.torso = new THREE.Group();
     this.torso.position.set(this.seatX, this.seatY, 0.02 + this.seatZ);
     this.body.add(this.torso);
     this.rowerParts.push(this.torso);
-    const chest = cast(new THREE.Mesh(new THREE.CapsuleGeometry(0.17, 0.22, 4, 10), coat));
-    chest.position.y = 0.27;
-    chest.scale.set(1, 1, 0.85);
+    // (H4: shoulders, a waist, and a neck: body.js. Seated, a touch shorter in the body.)
+    const chest = cast(new THREE.Mesh(B.torso, coat));
+    chest.position.y = 0.25;
+    chest.scale.set(1, 0.93, 1);
     this.torso.add(chest);
+    const neck = new THREE.Mesh(B.neck, skin);
+    neck.position.y = 0.54;
+    this.torso.add(neck);
     const collar = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.035, 6, 12), coat);
     collar.rotation.x = Math.PI / 2;
     collar.position.y = 0.5;
@@ -2502,15 +2515,8 @@ export class Boat {
     this.head = new THREE.Group();
     this.head.position.y = 0.63;
     this.torso.add(this.head);
-    this.head.add(cast(new THREE.Mesh(new THREE.SphereGeometry(0.13, 14, 10), skin)));
-    for (const s of [1, -1]) {
-      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.014, 6, 4), dark);
-      eye.position.set(s * 0.045, 0.015, 0.122);
-      this.head.add(eye);
-    }
-    const nose = new THREE.Mesh(new THREE.SphereGeometry(0.022, 6, 4), skin);
-    nose.position.set(0, -0.015, 0.13);
-    this.head.add(nose);
+    // (H4: a face, ears and hair: body.js.)
+    this.head.add(buildHead(skin, dark, hairMat, 0.13).group);
     const brim = cast(new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.25, 0.025, 16), hat));
     brim.position.y = 0.075;
     const crown = cast(new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 0.13, 14), hat));
@@ -2523,7 +2529,8 @@ export class Boat {
     this.dress = new Dress({ coat, pants, head: this.head, sunHat: hatGroup, mats: this.selfMats });
     this.shiver = 0;
 
-    const limbGeo = new THREE.CylinderGeometry(1, 1, 1, 7);
+    // (H4: tapering limbs, boots with a toe and a heel, hands with a thumb: body.js.)
+    const limbGeo = B.limbSpan;
     const leg = (s) => {
       const thigh = cast(new THREE.Mesh(limbGeo, pants));
       const shin = cast(new THREE.Mesh(limbGeo, pants));
@@ -2537,7 +2544,7 @@ export class Boat {
       for (const p of [hip, knee, foot]) p.x += this.seatX;
       setLimb(thigh, hip, knee, 0.07);
       setLimb(shin, knee, foot, 0.06);
-      const b = cast(new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, 0.22), boot));
+      const b = cast(new THREE.Mesh(B.boot, boot));
       b.position.set(foot.x, foot.y - 0.02, foot.z + 0.05);
       if (H.paddle) b.rotation.x = -0.9;
       this.body.add(thigh, shin, b);
@@ -2549,12 +2556,15 @@ export class Boat {
     leg(1);
     leg(-1);
 
+    // (H4) Arms with an elbow: the upper arm and the forearm, bent as an arm bends to reach the oar,
+    // the tiller, the wheel or the rod (body.js elbowFor), where one straight tube used to be.
     this.arms = [1, -1].map((s) => {
       const arm = cast(new THREE.Mesh(limbGeo, coat));
-      const hand = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), skin);
-      this.body.add(arm, hand);
-      this.rowerParts.push(arm, hand);
-      return { s, arm, hand, shoulder: new THREE.Vector3(s * 0.21, 0.43, 0), target: new THREE.Vector3() };
+      const fore = cast(new THREE.Mesh(limbGeo, coat));
+      const hand = new THREE.Mesh(B.hand, skin);
+      this.body.add(arm, fore, hand);
+      this.rowerParts.push(arm, fore, hand);
+      return { s, arm, fore, hand, shoulder: new THREE.Vector3(s * 0.21, 0.43, 0), target: new THREE.Vector3(), elbow: new THREE.Vector3() };
     });
   }
 
@@ -6773,8 +6783,14 @@ export class Boat {
       }
       const onRod = _d.set(0, a.s > 0 ? 0.08 : 0.3, 0).applyMatrix4(this.rod.matrix);
       a.target.lerpVectors(onOar, onRod, smoothstep(0, 1, fishing));
-      setLimb(a.arm, shoulder, a.target, 0.055);
+      // (The elbow out to the side and down, and back a little, as the body's turned.)
+      _pole.set(a.s * 0.65, -0.7, -0.3).applyQuaternion(this.torso.quaternion);
+      elbowFor(shoulder, a.target, _pole, a.elbow);
+      setLimb(a.arm, shoulder, a.elbow, 0.057);
+      setLimb(a.fore, a.elbow, a.target, 0.05);
       a.hand.position.copy(a.target);
+      // (H4: the hand along the forearm, fingers on from the wrist.)
+      a.hand.quaternion.copy(a.fore.quaternion).multiply(FLIP);
     }
 
     // Lantern sways and glows as evening comes.
