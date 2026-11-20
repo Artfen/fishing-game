@@ -160,6 +160,15 @@ export const FITS = {
     hold: 2,
     rode: 'chain',
   },
+  // (H3) The jet ski's only anchor: she carries none of her own. A small folding grapnel on a short
+  // line (mooring.js GRAPNEL): it hooks rather than digs, so it holds less than a boat's anchor.
+  grapnel: {
+    name: $t('Folding grapnel'), cat: 'gear', kg: 1.5, amps: 0,
+    price: { jetski: 25 },
+    desc: $t('A small folding grapnel on 10 m of line, stowed under the seat: enough to hold her off a beach for a swim, in water up to 5 m deep. It hooks rather than digs, so it lets go in a blow.'),
+    hold: 0.5,
+    grapnel: true,
+  },
 };
 export const FIT_IDS = Object.keys(FITS);
 // (What she comes with as standard isn't offered, unless an older game bought it anyway: fitted,
@@ -423,7 +432,7 @@ export function fitEffect(yard, id0) {
   const kind = kindOf(id0);
   const list = (yard?.fits?.[id0] || []).filter((id) => FITS[id]?.price[kind]);
   const has = (id) => list.includes(id);
-  const e = { tank: 1, thrust: 1, burn: 1, kg: 0, amps: 0, sonar: false, deep: false, plotter: false, vhf: false, house: false, troll: 1, lights: false, livewell: false, holders: false, bimini: false, hold: 1, rode: 'rope', seats: 0, comfort: 0, divers: false, trollMotor: null, trollBank: false, list };
+  const e = { tank: 1, thrust: 1, burn: 1, kg: 0, amps: 0, sonar: false, deep: false, plotter: false, vhf: false, house: false, troll: 1, lights: false, livewell: false, holders: false, bimini: false, hold: 1, rode: 'rope', grapnel: false, seats: 0, comfort: 0, divers: false, trollMotor: null, trollBank: false, list };
   for (const id of list) {
     const F = FITS[id];
     e.kg += F.kg || 0;
@@ -434,6 +443,7 @@ export function fitEffect(yard, id0) {
     if (F.troll) e.troll *= F.troll;
     if (F.hold) e.hold *= F.hold;
     if (F.rode) e.rode = F.rode;
+    if (F.grapnel) e.grapnel = true;
     if (F.house) e.house = true;
     const W = F.work;
     if (W) {

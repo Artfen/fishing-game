@@ -158,3 +158,28 @@ test('a layer of sound that’s been silent a couple of seconds is unplugged (no
   A.parkBeds(20);
   assert.equal(b.parked, false);
 });
+
+test('(H3) engines on a volume of their own: your engine, its starter and a friend\'s engine across the water, with the jet ski\'s water hiss unplugged when it\'s silent', () => {
+  made = [];
+  const A = new AudioScape();
+  A.start();
+  A.engine(0.5, 'jet');
+  const reaches = (from, to, seen = new Set()) => from === to || (!seen.has(from) && (seen.add(from), (from.outs || []).some((n) => reaches(n, to, seen))));
+  assert.ok(reaches(A.eng.g, A.engineBus), 'your engine into the engines\' bus');
+  assert.ok(!reaches(A.eng.g, A.effects), 'not into the fishing and boat sounds\'');
+  assert.ok(reaches(A.eng.wg, A.engineBus), 'the jet ski\'s water hiss with it');
+  assert.equal(A.eng.o2.type, 'triangle', 'the jet ski\'s softer second oscillator');
+  A.engine(0.5, '');
+  assert.equal(A.eng.o2.type, 'square', 'an outboard\'s as it was');
+  A.starter(true);
+  assert.ok(reaches(A.st.g ?? A.st.out ?? Object.values(A.st).find((n) => n?.outs?.length), A.engineBus), 'the starter too');
+  A.motorAt(0.6, 0.5, 0, 0, 'jet');
+  assert.ok(reaches(A.farEng.g, A.engineBus), 'a friend\'s engine too');
+  // The volume: Settings' Engines slider.
+  let set = null;
+  A.engineBus.gain.setTargetAtTime = (v) => { set = v; };
+  A.setVolumes({ engines: 0.3 });
+  assert.equal(set, 0.3);
+  // The hiss is one of the layers that's unplugged when silent.
+  assert.ok(A.beds.some((b) => b.g === A.eng.wg));
+});

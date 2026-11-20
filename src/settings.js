@@ -34,7 +34,7 @@ export const CAST_MODES = {
 };
 
 export const DEFAULT_SETTINGS = {
-  audio: { master: 1, mute: false, music: 0.8, ambient: 1, wind: 0.8, waves: 0.9, rain: 0.8, effects: 1, reel: 0.9, alerts: 0.8, light: false },
+  audio: { master: 1, mute: false, music: 0.8, ambient: 1, wind: 0.8, waves: 0.9, rain: 0.8, effects: 1, engines: 1, reel: 0.9, alerts: 0.8, light: false },
   graphics: { preset: 'auto', scale: 1, shadows: 'auto', ocean: 'auto', water: 'auto', plants: 'auto', particles: 'auto', underwater: 'auto', life: 'auto', fps: 0, screen: 'full' },
   // sea: 'auto' (with the weather) or a SEA_PRESETS id; wind 'auto' or 'manual' (windSpeed m/s,
   // windFrom compass degrees); currents: natural, gentle or still (on your rig and boat).
@@ -106,6 +106,9 @@ export function cleanSettings(raw, legacy = {}) {
     waves: num(a.waves, d.audio.waves, 0, 1),
     rain: num(a.rain, d.audio.rain, 0, 1),
     effects: num(a.effects, num(lv.nature, d.audio.effects, 0, 1), 0, 1),
+    // (H3: engines on their own now. A game from before keeps them where its fishing and boat
+    // sounds were, so nothing gets louder.)
+    engines: num(a.engines, num(a.effects, d.audio.engines, 0, 1), 0, 1),
     reel: num(a.reel, d.audio.reel, 0, 1),
     alerts: num(a.alerts, d.audio.alerts, 0, 1),
     light: a.light === true,
@@ -564,7 +567,8 @@ export class SettingsUI {
     vol('wind', $t('Wind'), $t('The wind in your ears: louder in gusts and out in the open.'));
     vol('waves', $t('Waves'), $t('The wash of the sea and surf on the shore, with the sea state.'));
     vol('rain', $t('Rain'), $t('The patter and hiss of rain.'));
-    vol('effects', $t('Fishing and boat sounds'), $t('Oars, the motor, casts and splashes.'));
+    vol('effects', $t('Fishing and boat sounds'), $t('Oars, casts, splashes and the boat working in the sea.'));
+    vol('engines', $t('Engines'), $t('Your engine and the engines of boats going by: the outboards, the diesels and the jet ski.'));
     vol('reel', $t('Reel and line'), $t('The drag clicking as a fish takes line (faster the faster it runs), the reel whirring as you wind, and the line singing as it nears breaking. Turn it down for a quieter fight.'));
     const test = el('button', 'pk-btn quiet', $t('Play the ring'));
     test.type = 'button';

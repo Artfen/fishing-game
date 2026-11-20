@@ -24,7 +24,13 @@ import { $t } from './i18n.js';
 // shorter and the anchor's pulled more upward (anchoring.js uplift), and holds less. In shallow
 // water, a few metres more than the depth at least. (Before B6: two and a half times, on 30 m.)
 export const ANCHOR = { rope: 50, scope: 5, maxDepth: 25 };
-export const rodeFor = (depth) => clamp(depth * ANCHOR.scope, depth + 2.5, ANCHOR.rope);
+// (H3) The jet ski's folding grapnel, if she has one fitted (shipyard.js): 10 m of line, for water
+// to 5 m deep. A boat's anchor rope, or her grapnel's line if that's what she has.
+export const GRAPNEL = { rope: 10, scope: 5, maxDepth: 5 };
+export const rodeFor = (depth, rope = ANCHOR.rope) => clamp(depth * ANCHOR.scope, Math.min(depth + 2.5, rope), rope);
+
+// (H3) Boats with no anchor of their own: the jet ski (a grapnel if one's fitted, and the beach).
+export const noAnchor = (b) => b.kind === 'jetski' || !!b.hull?.motor?.jet;
 
 // Where the bow is, on the water.
 export const bowOf = (b, out = { x: 0, z: 0 }) => {
@@ -34,13 +40,30 @@ export const bowOf = (b, out = { x: 0, z: 0 }) => {
 };
 
 // Can she anchor here? { ok, depth, x, z } (where the anchor goes down) or { ok: false, why }.
-export function anchorCheck(b) {
+// (H3) The jet ski: { ok, beach: true } to run her up onto the beach in the shallows (sand,
+// shingle or mud, not rock: bottomAt(x, z) → { kind }, as the fish finder reads it), or { ok,
+// grapnel: true } with her grapnel in water to 5 m; and plainly why not.
+export function anchorCheck(b, bottomAt = null) {
   if (b.hull.rig) return { ok: false, why: $t('A windsurf board has no anchor: tie up at a pontoon or a jetty, or step ashore.') };
   const bow = bowOf(b), depth = -solidHeight(bow.x, bow.z);
+  if (noAnchor(b)) return jetCheck(b, bow, depth, bottomAt);
   if (b.speed > 1) return { ok: false, why: $t('Slow down before dropping the anchor') };
   if (depth < b.hull.draft + 0.6) return { ok: false, why: $t`Too shallow to anchor here (${depth < 0.1 ? $t('barely any water') : `${depth.toFixed(1)} m`}): she’d swing onto the bottom. Find a little more water, or tie up or step ashore instead.` };
   if (depth > ANCHOR.maxDepth) return { ok: false, why: $t`Too deep to anchor here (${Math.round(depth)} m): the anchor rope is ${ANCHOR.rope} m long. Find water under ${ANCHOR.maxDepth} m deep, nearer the shore or over a shoal.` };
   return { ok: true, depth, x: bow.x, z: bow.z };
+}
+
+// The jet ski: the beach in the shallows, her grapnel a little further out, or neither.
+function jetCheck(b, bow, depth, bottomAt) {
+  if (b.speed > 1) return { ok: false, why: $t('Slow down first') };
+  if (depth < b.hull.draft + 0.6) {
+    const kind = bottomAt?.(bow.x, bow.z)?.kind;
+    if (kind === 'rock') return { ok: false, why: $t('Rocks under her bow: run her up here and you’d hole her. Find a beach of sand or shingle, or tie her up at a jetty.') };
+    return { ok: true, beach: true, depth: Math.max(0, depth), x: b.pos.x, z: b.pos.z };
+  }
+  if (!b.grapnel) return { ok: false, why: $t('A jet ski carries no anchor. Run her into the shallows and the anchor button beaches her on the sand, tie her up at a jetty, or have a folding grapnel fitted at the Marine Works for shallow water.') };
+  if (depth > GRAPNEL.maxDepth) return { ok: false, why: $t`Too deep for her grapnel (${depth < 10 ? depth.toFixed(1) : Math.round(depth)} m): its line is ${GRAPNEL.rope} m, enough for ${GRAPNEL.maxDepth} m of water. Find shallower water, or run her into the shallows and beach her.` };
+  return { ok: true, grapnel: true, depth, x: bow.x, z: bow.z };
 }
 
 /* ---------------- tying up ---------------- */

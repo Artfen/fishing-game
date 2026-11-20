@@ -74,7 +74,7 @@ export const DEFAULT_STATE = {
   items: {},     // lantern: true
   tips: {},      // which gentle hints have already been shown
   boats: {},     // where each boat was left: her id (G8: for now her kind: 'row', 'skiff', 'kayak', 'bass', 'cabin', 'sail', …) ->
-                 //   { x, z, heading, anchored, anchor: { x, z }, tie: { pier, side, along, heading }, motor }
+                 //   { x, z, heading, anchored, beached (H3: the jet ski on the sand), anchor: { x, z }, tie: { pier, side, along, heading }, motor }
   vessel: 'row', // which boat you're in, or last used (her id)
   tow: null,     // one boat towing another: { lead, towed } (ids)
   mode: 'boat',  // 'boat' or 'foot'
@@ -270,7 +270,7 @@ function pos(v) {
   if (!Number.isFinite(x) || !Number.isFinite(z) || ((Math.abs(x) > 2000 || z < -2600 || z > 7600) && !north)) return null;
   // (motor: the kayak's electric motor left lowered; older saves have it raised.)
   // (sail: the sailing boat's sail left up, and how far her sheet was eased.)
-  const out = { x, z, heading: num(v.heading, 0), anchored: !!v.anchored, ...(v.motor === true ? { motor: true } : {}), ...(typeof v.sail === 'number' && Number.isFinite(v.sail) ? { sail: num(v.sail, 0.5, 0, 1) } : {}) };
+  const out = { x, z, heading: num(v.heading, 0), anchored: !!v.anchored, ...(v.beached === true ? { beached: true } : {}), ...(v.motor === true ? { motor: true } : {}), ...(typeof v.sail === 'number' && Number.isFinite(v.sail) ? { sail: num(v.sail, 0.5, 0, 1) } : {}) };
   // Where her anchor lies (on the bottom, near her), and the berth she's tied up at.
   if (isObj(v.anchor)) {
     const ax = num(v.anchor.x, NaN), az = num(v.anchor.z, NaN);
