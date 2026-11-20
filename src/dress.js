@@ -95,17 +95,25 @@ export function dressFigure(F, look) {
     F.lookParts.push(g);
     F.dress.sunHat = g;
   }
-  // A beard, under the chin, in the hair's colour.
-  if (L.beard !== 'none') {
+  for (const o of faceParts(L)) {
+    F.head.add(o);
+    F.lookParts.push(o);
+  }
+}
+
+// A beard (under the chin, in the hair's colour) and glasses (two rims and a bridge) or sunglasses
+// (two dark lenses), for a head of radius 0.13: yours (dressFigure), and a friend's figure, so
+// they wear them too (world/visitors.js). L: a clean look.
+export function faceParts(L) {
+  const out = [];
+  if (L.beard && L.beard !== 'none') {
     const full = L.beard === 'full', m = new THREE.MeshLambertMaterial({ color: L.hair });
     const b = new THREE.Mesh(new THREE.SphereGeometry(full ? 0.105 : 0.095, 12, 8, 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.5), m);
     b.position.set(0, full ? -0.012 : -0.005, full ? 0.035 : 0.045);
     b.scale.set(1, full ? 1.1 : 0.75, 0.9);
-    F.head.add(b);
-    F.lookParts.push(b);
+    out.push(b);
   }
-  // Glasses (two rims and a bridge) or sunglasses (two dark lenses), over the eyes.
-  if (L.glasses !== 'none') {
+  if (L.glasses && L.glasses !== 'none') {
     const g = new THREE.Group(), dark = L.glasses === 'shades';
     const m = new THREE.MeshLambertMaterial({ color: dark ? '#141414' : '#2b2b2b' });
     for (const s of [1, -1]) {
@@ -116,7 +124,7 @@ export function dressFigure(F, look) {
     const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.005, 0.005), m);
     bridge.position.set(0, 0.02, 0.132);
     g.add(bridge);
-    F.head.add(g);
-    F.lookParts.push(g);
+    out.push(g);
   }
+  return out;
 }

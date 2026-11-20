@@ -1,6 +1,6 @@
 import { figureLook } from '../looks.js';
 import * as THREE from 'three';
-import { walkHeight } from './terrain.js';
+import { walkHeight, solidHeight } from './terrain.js';
 import { waveHeight } from './water.js';
 import { Boat, floatDraft, wakeOf } from '../boat.js';
 import { wakes } from './wakes.js';
@@ -17,6 +17,9 @@ import { FightShow } from '../fightshow.js';
 import { fishById, buildFishMesh, scaleOf, girthOf, setLook } from '../fish.js';
 import { Diver } from '../diver.js';
 import { kindOf } from '../boatid.js';
+import { dressFigure } from '../dress.js';
+import { dressBoat } from '../boatlooks.js';
+import { rodeOf, rodeShape } from '../anchoring.js';
 import { floorAt as planFloor, heightOf as planHeight } from '../deckplan.js';
 
 const _cv = new THREE.Vector3(), _cq = new THREE.Quaternion(), _ACROSS = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 2);
@@ -25,7 +28,10 @@ const DIVER_SEEN = 160; // how near a friend diving is drawn (m)
 const CREW_NEAR = 4;    // m beyond a boat's half-length she's still the one you're stood in
 const MOORED_EASE = 6;  // m: a boat of a friend's lying this near where she was eases there
 const _tip = new THREE.Vector3();
-const _crew = new THREE.Vector3(), _towA = new THREE.Vector3(), _towB = new THREE.Vector3();
+const _crew = new THREE.Vector3(), _towA = new THREE.Vector3(), _towB = new THREE.Vector3(), _fl = new THREE.Vector3();
+// (H1e) How near a friend's anchored boat her rode is drawn (m): past this it's a thread you'd
+// never make out.
+const RODE_SEEN = 350;
 
 // The friends you're playing with (see together.js), drawn where they are: on foot, a figure of
 // their own (walking, standing, fishing or sitting), or in whichever boat they're in, at the helm
@@ -92,50 +98,71 @@ export class VisitorView {
       d = null;
     }
     if (!d) {
-      d = { name: p.name, lookKey, look: p.look ? figureLook(p.look) : lookFor(p.name), figure: null, boats: {}, moored: {}, roll: 0 };
+      d = { name: p.name, lookKey, look: p.look ? figureLook(p.look) : lookFor(p.name), full: p.look || null, figure: null, boats: {}, moored: {}, roll: 0 };
       this.drawn.set(p.id, d);
     }
+    // (H1c) Their boats' looks, by each boat's id, as they last said.
+    d.yard = p.yard || null;
     return d;
+  }
+
+  // (H1a, H1c) One of a friend's boats as they made her (her paint, stripe, tubes, flag, name and
+  // fittings: boatlooks.js), and her skipper, if they're aboard, as they made themselves (their
+  // whole look, dress.js dressFigure; or, for a friend whose game doesn't send one, the colours
+  // made from their name). Every time she's drawn, but only done when something's changed, so a
+  // boat given back from earlier (kept) or a look that came late is put right.
+  dressed(d, b, id, skipper = false) {
+    dressBoat(b, d.yard?.[id] || null);
+    if (!skipper) return b;
+    const key = d.full ? JSON.stringify(d.full) : `name:${d.name}`;
+    if (b.skipperKey !== key) {
+      b.skipperKey = key;
+      if (d.full) dressFigure(b, d.full);
+      else {
+        const M = b.selfMats, L = d.look;
+        M[0].color.set(L.coat);
+        M[1].color.set(L.skin);
+        M[2].color.set(L.hatColor);
+        M[3].color.set(L.legs);
+        M[4].color.set(L.boots);
+      }
+    }
+    return b;
   }
 
   // (id: her kind, or a second of it's id, 'rib~2': see boatid.js.)
   boatFor(d, id) {
-    if (d.boats[id]) return d.boats[id];
+    if (d.boats[id]) return this.dressed(d, d.boats[id], id, true);
     const old = this.keptBoat(d.name, 'boats', id);
     if (old) {
       old.group.visible = false;
-      return (d.boats[id] = old);
+      return this.dressed(d, (d.boats[id] = old), id, true);
     }
-    const b = new Boat(this.scene, { kind: kindOf(id), look: { stripe: d.look.coat } });
+    // (As built: her own looks are put on her next, as theirs are: see dressed.)
+    const b = new Boat(this.scene, { kind: kindOf(id) });
     // (J1c: drawn where word says, never moved by anything in your game: see Boat.nearby.)
     b.drawn = true;
-    const M = b.selfMats, L = d.look;
-    M[0].color.set(L.coat);
-    M[1].color.set(L.skin);
-    M[2].color.set(L.hatColor);
-    M[3].color.set(L.legs);
-    M[4].color.set(L.boots);
     b.setRower(true);
     b.group.visible = false;
     d.boats[id] = b;
-    return b;
+    return this.dressed(d, b, id, true);
   }
 
   // One of a friend's boats lying where they left her (nobody aboard): her own instance, apart from
   // the one they ride in.
   mooredFor(d, id) {
-    if (d.moored[id]) return d.moored[id];
+    if (d.moored[id]) return this.dressed(d, d.moored[id], id);
     const old = this.keptBoat(d.name, 'moored', id);
     if (old) {
       old.group.visible = false;
-      return (d.moored[id] = old);
+      return this.dressed(d, (d.moored[id] = old), id);
     }
-    const b = new Boat(this.scene, { kind: kindOf(id), look: { stripe: d.look.coat } });
+    const b = new Boat(this.scene, { kind: kindOf(id) });
     b.drawn = true;
     b.setRower(false);
     b.group.visible = false;
     d.moored[id] = b;
-    return b;
+    return this.dressed(d, b, id);
   }
 
   figureFor(d, id) {
@@ -185,8 +212,36 @@ export class VisitorView {
     return best;
   }
 
-  // A friend's own colour (their coat), for the map.
-  colourOf(name) { return lookFor(name).coat; }
+  // A friend's own colour (their coat, as they made it; for an older game, their name's), for the map.
+  colourOf(name, look = null) { return look?.coat || lookFor(name).coat; }
+
+  // (H1e) A friend's boat at anchor (an, from their pose or fleet: see together.js anchorWire): her
+  // anchor where theirs lies, and her rode from her bow down to it, hanging as that much rode
+  // would (anchoring.js); going down or coming up, straight. None tied up, under way, or too far
+  // off to see. Boat.updateGear draws it.
+  anchorView(b, an, near = true) {
+    if (!an || !near) {
+      b.anchor = null;
+      b.anchored = false;
+      return;
+    }
+    const [x, z, out, ph] = an;
+    let A = b.anchor;
+    if (!A || A.x !== x || A.z !== z) {
+      const floor = solidHeight(x, z);
+      A = b.anchor = { x, z, floor, y: floor, phase: 'set', out };
+    }
+    A.out = out;
+    A.phase = ph === 0 ? 'drop' : ph === 2 ? 'haul' : 'set';
+    b.anchored = true;
+    b.tie = null;
+    // (The catenary: her bow X from the anchor along the bottom and h above it, that much out.)
+    b.body.localToWorld(_fl.copy(b.fairlead));
+    const X = Math.hypot(_fl.x - x, _fl.z - z), h = Math.max(0.05, _fl.y - A.floor);
+    A.R ||= rodeOf(b.anchorRode || 'rope', b.hull.mass || 300);
+    const o = rodeShape(X, h, Math.max(out, Math.hypot(X, h) + 0.05), A.R, 1e6, A.rope?.out?.H || 0, A.rope?.out || {});
+    A.rope = { out: o };
+  }
 
   // On foot, the rod they're really using in the figure's hand (in place of its plain one).
   rodLook(d, f, id) {
@@ -446,6 +501,8 @@ export class VisitorView {
       let tip = null;
       if (onFoot) {
         const f = this.figureFor(d, p.id);
+        // (H1a) In what they're wearing just now: the raincoat, or the jumper, or a shirt.
+        f.wear?.(P.wr, P.wt || 0);
         // (Just landed one: held up for you to see, a few seconds.)
         d.lift = Math.max(0, (d.lift || 0) - dt);
         // (Crewing in a boat: stood in her where they are, going with her, not walking on the water.)
@@ -472,8 +529,10 @@ export class VisitorView {
         }
       } else if (afloat) {
         const b = this.boatFor(d, P.bi || P.k);
+        // (H1a) Their skipper in what they're wearing just now (a friend whose game says).
+        if (d.full && P.wr != null) b.dress?.set({ coat: !!(P.wr & 1), jumper: !!(P.wr & 2), hat: !!(P.wr & 4) }, P.wt || 0);
         if (P.r) b.setRod(P.r);
-        this.drawBoat(d, b, P, A, dt, t, { fx, glow, night, lights, eye });
+        this.drawBoat(d, b, P, A, dt, t, { fx, glow, night, lights, eye, from });
         // (L7) Their tender on her chocks, riding with her.
         if (P.tc && b.chocksAt) this.drawCarried(b, this.mooredFor(d, P.tc));
         if (P.f || P.o) tip = b.rodTip;
@@ -491,7 +550,7 @@ export class VisitorView {
         const fid = F.i || F.k;
         if ((P.m === 'boat' && fid === (P.bi || P.k)) || (afloat && P.tw && fid === (P.tw.i || P.tw.k)) || Math.hypot(F.x - from.x, F.z - from.z) > 900) continue;
         keep.add(fid);
-        this.drawMoored(this.mooredFor(d, fid), F, t, false, dt);
+        this.drawMoored(this.mooredFor(d, fid), F, t, false, dt, from);
       }
       for (const [k, b] of Object.entries(d.moored)) if (!keep.has(k)) b.group.visible = false;
     }
@@ -558,7 +617,9 @@ export class VisitorView {
 
   // dt: given, a boat lying near where she was eases to where word now says (swinging at her
   // anchor, someone may be stood in her: see crewBoat), rather than jumping there.
-  drawMoored(b, F, t, towed = false, dt = 0) {
+  drawMoored(b, F, t, towed = false, dt = 0, from = null) {
+    // (H1e: at anchor or tied up, as word says, kept through the easing below.)
+    const an = towed || F.ty ? null : F.an || null, tied = !!F.ty;
     const moved = !b.group.visible || Math.hypot(b.pos.x - F.x, b.pos.z - F.z) > 0.3;
     const ease = dt > 0 && b.group.visible && Math.hypot(b.pos.x - F.x, b.pos.z - F.z) < MOORED_EASE;
     b.group.visible = true;
@@ -579,8 +640,11 @@ export class VisitorView {
     b.body.rotation.z = Math.sin(t * 0.8 + F.x) * 0.03;
     b.animate(0, t, 0, 0, 0);
     b.group.updateMatrixWorld(true);
-    // (Lying at a berth, she's tied up there; on a towline she's tied to nothing.)
-    if (towed) b.tie = null;
+    // (Lying at a berth, she's tied up there; on a towline she's tied to nothing; H1e: at anchor,
+    // her rode out to where theirs lies.)
+    const near = !from || Math.hypot(F.x - from.x, F.z - from.z) < RODE_SEEN;
+    this.anchorView(b, an, near);
+    if (towed || (an && !tied)) b.tie = null;
     else if (moved) b.tie = berthFor({ hull: H, pos: { x: F.x, z: F.z }, heading: F.h }, [], { reach: 1.5 });
     b.updateGear();
     b.afloat(t);
@@ -595,7 +659,7 @@ export class VisitorView {
 
   // Like the harbour's own boats (see folk.js): she rides the swell where she is, bow up a little
   // under way, her skipper at the helm, a rod out if they're fishing, the sail up if it is.
-  drawBoat(d, b, P, A, dt, t, { fx, glow, night, lights = null, eye = null }) {
+  drawBoat(d, b, P, A, dt, t, { fx, glow, night, lights = null, eye = null, from = null }) {
     b.group.visible = true;
     const fw = { x: Math.sin(A.h), z: Math.cos(A.h) };
     const speed = A.v || 0;
@@ -646,6 +710,13 @@ export class VisitorView {
     if (b.setPlatform && P.pf != null && P.pf !== b.platformDrop) b.setPlatform(P.pf);
     b.animate(dt, t, speed > 0.3 && !H.sail ? 0.7 : 0, 0, P.n ? night : 0);
     b.group.updateMatrixWorld(true);
+    // (H1e) At anchor: her rode, from her bow to where their anchor lies (near enough to see it).
+    // Tied up: her lines and fenders, made fast to the pier she's lying at. Neither: both stowed.
+    this.anchorView(b, P.ty ? null : P.an, !from || Math.hypot(A.x - from.x, A.z - from.z) < RODE_SEEN);
+    if (P.ty) {
+      if (!b.tie) b.tie = berthFor({ hull: H, pos: { x: A.x, z: A.z }, heading: A.h }, [], { reach: 1.5 });
+    } else b.tie = null;
+    b.updateGear();
     // (Solid to your boats: you bump off a friend's boat as off any other.)
     b.afloat(t);
     // (F2c) Their lights after dark (navlights.js): at anchor or tied up they show the anchor light.

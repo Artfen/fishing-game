@@ -48,10 +48,10 @@ export function cleanLook(raw) {
 }
 export const isDefault = (look) => Object.keys(DEFAULT_LOOK).every((k) => look[k] === DEFAULT_LOOK[k]);
 
-// The look a friend's figure takes (world/folk.js Figure: the sun hat is drawn as a bucket hat;
-// no hat shows the hair).
+// The look a friend's figure takes (world/folk.js Figure, hats.js: the sun hat as yours is; no hat
+// shows the hair). (H1a) With the rest of it, for what the folk figure doesn't make itself: the
+// jumper and shirt (worn as the weather has them: see visitors.js), the beard and glasses.
 export function figureLook(look) {
   const L = cleanLook(look);
-  const hat = L.hat === 'sun' ? 'bucket' : L.hat;
-  return { coat: L.coat, legs: L.legs, boots: L.boots, skin: L.skin, hat, hatColor: hat === 'hair' || hat === 'bun' ? L.hair : L.hatColor, hair: L.hair };
+  return { coat: L.coat, legs: L.legs, boots: L.boots, skin: L.skin, hat: L.hat, hatColor: L.hat === 'hair' || L.hat === 'bun' ? L.hair : L.hatColor, hair: L.hair, jumper: L.jumper, shirt: L.shirt, beard: L.beard, glasses: L.glasses };
 }

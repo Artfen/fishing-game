@@ -4,6 +4,7 @@ import { waveHeight } from './water.js';
 import { Boat, floatDraft, wakeOf } from '../boat.js';
 import { wakes } from './wakes.js';
 import { buildHat } from '../hats.js';
+import { faceParts } from '../dress.js';
 import { damp, dampAngle, clamp, smoothstep, wrapAngle } from '../util.js';
 import { FOLK, FOLK_IDS, SPOTS, POTS } from '../townsfolk.js';
 import { Skipper } from './skipper.js';
@@ -91,6 +92,8 @@ export class Figure {
     this.group.visible = false;
     this.group.scale.setScalar(L.scale ?? L.big ?? 1);
     const coat = mat(L.coat), skin = mat(L.skin), legs = mat(L.legs), boots = mat(L.boots), dark = mat('#2b2522');
+    // (A friend's figure wears what they're wearing over it: see wear.)
+    this.coatMat = coat;
     this.body = new THREE.Group();
     this.group.add(this.body);
     const limb = new THREE.CylinderGeometry(1, 1, 1, 7).translate(0, -0.5, 0);
@@ -139,6 +142,8 @@ export class Figure {
     nose.position.set(0, -0.015, 0.125);
     this.head.add(nose);
     this.head.add(this.hat(L));
+    // (H1a) A friend's beard and glasses, as yours are made (dress.js): the townsfolk have their own.
+    for (const o of faceParts(L)) this.head.add(o);
     // Arms: shoulder → elbow → hand (a rolled sleeve shows the forearm).
     this.arms = [1, -1].map((s) => {
       const sh = new THREE.Group();
@@ -283,6 +288,17 @@ export class Figure {
 
   // Gone for good (a passenger ashore, a castaway picked up): out of the scene, and the shapes and
   // colours made for them alone given back to the graphics card.
+  // (H1a) A friend's figure, dressed as they are just now (their pose's wr, see together.js): the
+  // raincoat's colour, or their jumper's with it off, or their shirt's; a shade darker wet. Only
+  // when it changes.
+  wear(wr, wet = 0) {
+    const L = this.look, key = `${wr}|${wet}`;
+    if (this.wearKey === key || !L.jumper) return;
+    this.wearKey = key;
+    const top = wr & 1 ? L.coat : wr & 2 ? L.jumper : wr == null ? L.coat : L.shirt;
+    this.coatMat.color.set(top).multiplyScalar(1 - 0.32 * wet);
+  }
+
   dispose() {
     this.group.removeFromParent();
     const done = new Set();

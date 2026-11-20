@@ -110,6 +110,7 @@ import { storesAboard, draw as drawStores, stockUp, daysWords, storesFor, FILL a
 import { PRICES as BOAT_PRICES, PAINTS, FITS, usable as usableBoat, owns as ownsBoat, buyBoat, buyAnother, hireBoat, hiredToday, paintBoat, nameBoat, fitBoat, unfitBoat, fitEffect, engineOf, repowerBoat, repropBoat, trimBoat } from './shipyard.js';
 import { BIRD_KINDS } from './birdData.js';
 import { cleanLook } from './looks.js';
+import { boatLooksOf } from './boatlooks.js';
 import { dressFigure } from './dress.js';
 import { flagById, logLine, addRun, addFish } from './papers.js';
 import { follow as followLeg, courseWords, rangeWords, routeDay, lastMarkBefore } from './routes.js';
@@ -589,7 +590,9 @@ const folkView = new FolkView(scene);
 // Willowhaven's other people, out and about of a fine day (see world/passersby.js).
 const passersby = new Passersby(scene, town.paths);
 // Playing together (see together.js): friends in a session, drawn where they are.
-const together = new Together({ config: () => cloud.cfg, name: () => settings.player.name, look: () => state.look || null, kinds: BOAT_KINDS, skies: Object.keys(SKIES), rods: Object.keys(RODS), items: Object.keys(TACKLE) });
+// (H1a: your look always, the one you're drawn in, even before it's ever been chosen; H1c: your
+// boats' looks, by each one's id.)
+const together = new Together({ config: () => cloud.cfg, name: () => settings.player.name, look: () => cleanLook(state.look), boatLooks: () => boatLooksOf(state.yard, Object.keys(BOATS), (id) => fitEffect(state.yard, id).list), kinds: BOAT_KINDS, skies: Object.keys(SKIES), rods: Object.keys(RODS), items: Object.keys(TACKLE) });
 const visitors = new VisitorView(scene);
 visitors.audio = audio; // (a friend's fish splashing near you: see fishAtEnd)
 visitors.agentOf = (id) => eco.agents[id] || null; // (a friend's hooked fish: the same fish here)
@@ -9259,6 +9262,8 @@ function applyYard() {
     b.setFits?.(e.list);
     trollOf(b);
   }
+  // (H1c) Friends see your boats as they now are.
+  together.renamed();
 }
 // What a boat carries beyond her own weight as built, and where (boat.js setLoads, loadPlace):
 // each of her fittings where it's fitted; an engine from the catalogue at her transom (lighter or
@@ -12244,7 +12249,7 @@ let friendMapT = 0;
 function friendsOnMap() {
   return together.others.filter((p) => p.at && (p.view || p.pose)).map((p) => {
     const P = p.view || p.pose;
-    return { name: p.name, x: p.at.x, z: p.at.z, heading: p.at.h, mode: P.m, boat: P.m === 'boat' ? BOATS[P.k]?.name : null, colour: visitors.colourOf(p.name), on: !!P.o };
+    return { name: p.name, x: p.at.x, z: p.at.z, heading: p.at.h, mode: P.m, boat: P.m === 'boat' ? BOATS[P.k]?.name : null, colour: visitors.colourOf(p.name, p.look), on: !!P.o };
   });
 }
 // (E3a) The word at a friend's helm: while they play a fish (see crew.js helmWords), where it is
@@ -12623,8 +12628,8 @@ function whereIAm() {
     else if (F && !F.atNet) gear.mv = F.jumping > 0 ? 'jump' : F.shakeT > 0 ? 'shake' : F.move === 'charge' ? 'charge' : F.move === 'sound' ? 'sound' : F.move === 'circle' && !F.pulling ? 'circle' : F.pulling ? (F.move === 'dive' || F.move === 'longrun' ? F.move : 'run') : undefined;
     if (F) Object.assign(gear, { sp: F.sp.id, sz: Math.round(F.size) });
   }
-  if (onFoot && crew.on) return { m: 'foot', x: walker.pos.x, z: walker.pos.z, h: walker.heading, a: fishing.lineOut ? 'fish' : walker.moving ? 'walk' : 'stand', o: on, cr: crew.on.id, cx: crew.on.x, cz: crew.on.z, ...(crew.on.y != null ? { cy: crew.on.y } : {}), ...gear };
-  if (onFoot) return { m: 'foot', x: walker.pos.x, z: walker.pos.z, h: walker.heading, a: sitting ? 'sit' : fishing.lineOut ? 'fish' : walker.speed > 0.4 ? 'walk' : 'stand', o: on, ...gear };
+  if (onFoot && crew.on) return { m: 'foot', x: walker.pos.x, z: walker.pos.z, h: walker.heading, a: fishing.lineOut ? 'fish' : walker.moving ? 'walk' : 'stand', o: on, ...wearWire(), cr: crew.on.id, cx: crew.on.x, cz: crew.on.z, ...(crew.on.y != null ? { cy: crew.on.y } : {}), ...gear };
+  if (onFoot) return { m: 'foot', x: walker.pos.x, z: walker.pos.z, h: walker.heading, a: sitting ? 'sit' : fishing.lineOut ? 'fish' : walker.speed > 0.4 ? 'walk' : 'stand', o: on, ...wearWire(), ...gear };
   // (Her bow trolling motor, where it is: friends see it stowed, swinging down, or at work.)
   const T = boat.troll, tr = T ? trollWire(T.tier, T.mech, T.angle, T.f > 20 || (boat.bowNotch > 0 && T.deployed)) : undefined;
   // (F4b) Towing: the boat on your towline, where she is, the pull on it and the line let run, so
@@ -12634,7 +12639,7 @@ function whereIAm() {
   // (L7) Away from her wheel, where you are on her deck; her platform and the tender on it.
   const D = boat.deck && !boat.atHelm ? boat.deck : null, dk = D ? [D.x, D.z, D.yaw, ...(D.y != null ? [D.y] : [])] : undefined;
   const tc = boat.hull.platform ? carriedOn(state, boat.id) : null;
-  return { m: 'boat', k: boat.kind, ...(boat.id !== boat.kind ? { bi: boat.id } : {}), x: boat.pos.x, z: boat.pos.z, h: boat.heading, f: fishing.lineOut, s: !!boat.sailUp, n: !!(boat.anchored || boat.tie), ...(sleeping ? { zz: 1 } : {}), ...(boat.helmIn ? { hi: 1 } : {}), o: on, ...(tr ? { tr } : {}), ...(tw ? { tw } : {}), ...(dk ? { dk } : {}), ...(boat.hull.platform ? { pf: boat.platformDrop || 0 } : {}), ...(tc ? { tc } : {}), ...gear };
+  return { m: 'boat', k: boat.kind, ...(boat.id !== boat.kind ? { bi: boat.id } : {}), x: boat.pos.x, z: boat.pos.z, h: boat.heading, f: fishing.lineOut, s: !!boat.sailUp, n: !!(boat.anchored || boat.tie), ...moorWire(boat), ...wearWire(), ...(sleeping ? { zz: 1 } : {}), ...(boat.helmIn ? { hi: 1 } : {}), o: on, ...(tr ? { tr } : {}), ...(tw ? { tw } : {}), ...(dk ? { dk } : {}), ...(boat.hull.platform ? { pf: boat.platformDrop || 0 } : {}), ...(tc ? { tc } : {}), ...gear };
 }
 // A friend's fish, as it fights at the end of their line.
 const FISH_MOVE_WORDS = { run: $t('fish on! it’s running'), jump: $t('fish on! it’s leaping'), shake: $t('fish on! head-shaking'), charge: $t('fish on! it’s charging'), dive: $t('fish on! it’s diving'), longrun: $t('fish on! a long run'), sound: $t('fish on! it’s sounding'), circle: $t('fish on! it’s circling') };
@@ -12645,7 +12650,22 @@ const gearWords = (P) => {
 };
 
 // Your boats in the water as your friends see them: where each is lying (but the one you're in).
-together.fleetSource = () => boats.filter((b) => !(b === boat && !onFoot)).map((b) => ({ k: b.kind, ...(b.id !== b.kind ? { i: b.id } : {}), x: b.pos.x, z: b.pos.z, h: b.heading }));
+together.fleetSource = () => boats.filter((b) => !(b === boat && !onFoot)).map((b) => ({ k: b.kind, ...(b.id !== b.kind ? { i: b.id } : {}), x: b.pos.x, z: b.pos.z, h: b.heading, ...moorWire(b) }));
+// (H1e) Tied up, or at anchor: where it lies, the rode out, and dropping (0), holding (1) or
+// hauling (2), so friends draw her rode from her bow to it (see visitors.js anchorView).
+function moorWire(b) {
+  if (b.tie) return { ty: 1 };
+  const A = b.anchored && b.anchor;
+  return A ? { an: [A.x, A.z, A.out ?? 0, A.phase === 'haul' ? 2 : A.phase === 'drop' ? 0 : 1] } : {};
+}
+// (H1a) What you're wearing over your look just now (the raincoat 1, the jumper 2, the woolly hat
+// 4: see dress.js) and how wet you are, for friends to see you as you are.
+function wearWire() {
+  const W = walker.dress?.wear;
+  if (!W) return {};
+  const wr = (W.coat ? 1 : 0) | (W.jumper ? 2 : 0) | (W.hat ? 4 : 0), wt = walker.dress.wet || 0;
+  return { wr, ...(wt > 0.05 ? { wt } : {}) };
+}
 // Playing in a friend's session you're a visitor in their harbour: your Willowhaven boats lying at
 // Willowhaven go to the visitors' row (theirs is the finger with their name on it); leaving it,
 // back to your own finger.
@@ -15746,6 +15766,8 @@ window.slowTide = {
   },
   // How loading went and whether the game is saving, e.g. { outcome: 'loaded', canSave: true, … }.
   saveInfo: () => ({ outcome: loaded.outcome, ...saveStatus }),
+  // (H1: the shipyard's work put on your boats, after changing state.yard by hand.)
+  applyYard: () => applyYard(),
   get modal() { return modal; },
   // Hand yourself a rod and tackle, e.g. slowTide.gear('fly', 'nymph').
   gear: (rod, item) => {
