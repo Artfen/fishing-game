@@ -161,6 +161,14 @@ export function cleanSettings(raw, legacy = {}) {
 /* ---------------- the Settings panel ---------------- */
 
 const $ = (id) => document.getElementById(id);
+// A line's first sentence and the rest ('' if it's all one): split after a full stop, a question
+// or exclamation mark (and its closing quote or bracket) followed by a space, in any language.
+export function splitLead(s) {
+  // (French puts a space before its ? and inside its « »: « Prêt ? » ends there.)
+  const m = /^([\s\S]+?[.!?…](?:[\s\u00a0\u202f]?[”’»)])?)\s+(\S[\s\S]*)$/.exec(s || '');
+  return m ? [m[1], m[2]] : [s || '', ''];
+}
+
 const el = (tag, cls, text) => {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
@@ -487,11 +495,21 @@ export class SettingsUI {
     return [this.row($t('Set up the buttons'), desc, g)];
   }
 
+  // A setting: its name, a line on it, and its control. (H2) Only the first sentence of the line
+  // shows; the rest comes up on the row you're on (focused with a controller or the keyboard, or
+  // under the mouse), so a pane reads at a glance and still says everything where you look.
   row(label, desc, control) {
     const r = el('div', 'st-row');
     const t = el('div', 'st-text');
     t.append(el('span', 'st-label', label));
-    if (desc) t.append(el('span', 'st-desc', desc));
+    if (desc) {
+      const [lead, rest] = splitLead(desc), d = el('span', 'st-desc', lead);
+      if (rest) {
+        d.classList.add('st-has-more');
+        d.append(el('span', 'st-more', ` ${rest}`));
+      }
+      t.append(d);
+    }
     r.append(t, control);
     return r;
   }
@@ -743,7 +761,13 @@ export class SettingsUI {
     });
     head.append(reset);
     out.push(head);
-    out.push(el('p', 'st-note', $t('Choose Change, then press the key you want. If another action had that key, it takes this action’s old key. Esc stops waiting. Touch screens use the on-screen controls.')));
+    // (H2) The whole list of keys, and of a controller's buttons: open for whichever you're using,
+    // folded away for the other (a click or A opens it).
+    const usingPad = !!globalThis.document?.body?.classList?.contains('pad');
+    const keyList = this.fold('keys', $t('Every key, and changing them'), !usingPad);
+    keyList.append(el('p', 'st-note', $t('Choose Change, then press the key you want. If another action had that key, it takes this action’s old key. Esc stops waiting. Touch screens use the on-screen controls.')));
+    keyList.append(list);
+    out.push(keyList);
     // How the boats, the cabin and the camera work, whatever the controls.
     out.push(el('h3', null, $t('Boats, the cabin and the camera')));
     out.push(this.row($t('Throttle'), C.throttle === 'lever'
@@ -756,6 +780,8 @@ export class SettingsUI {
       ? $t('The dashboard: in first person at the helm of the RIB or the centre console, the switches, key, throttle and trim are on the console itself. Point and click (or tap); with a controller or the keyboard, the engine key looks down at it to move round it. In third person the engine key opens the helm panel.')
       : $t('The helm panel: the engine key opens a panel with every switch, gauge and the start-up checklist, wherever you look from.'),
       this.choice([['dash', $t('Dashboard')], ['panel', $t('Panel')]], C.helm, (v) => this.set('controls', 'helm', v))));
+    // (H2) How it all works: there for whoever wants it, folded away until then.
+    const how = this.fold('how', $t('How the throttle, mooring, towing and the camera work'));
     for (const line of [
       $t('The throttle: the motor skiff, the tender, the bass boat, the cabin boat, the yacht, the trawler, the centre console and the jet ski have a lever with notches (astern, neutral, dead slow, slow, half, full), and the sailing boat’s outboard a smaller one. Forward and back move it a notch at a time and it stays where you leave it; you can also click or drag the lever on screen (bottom right), or tap a notch. Neutral (or the big Stop under the lever) stops the motor, and the boat coasts on. The motor takes a moment to build up and ease off, and pauses in neutral between ahead and astern.'),
       $t('Fishing under way: you can cast at up to trolling speed, and the boat carries the cast along as it flies. A moving boat tows your line behind it (trolling). With a line out the throttle goes no higher than slow ahead (+ and − move it, or the D-pad on a controller); when a fish takes, the motor goes to neutral.'),
@@ -764,17 +790,24 @@ export class SettingsUI {
       $t`Mooring: a second prompt (on the anchor key, ${padName('X')} on a controller, or a tap) says what holding her still means where you are. Out on the water it drops the anchor: it goes down to the seabed, and she drifts back on her rope and lies head to the anchor, riding the waves; again, and you haul it in. Too shallow or too deep (deeper than its 30 m rope) and it says so. Beside a jetty or quay it ties her up alongside instead (lines and fenders); tied up, it casts off, pushing her clear if there’s room. Stepping ashore at a jetty makes her fast for you.`,
       $t('Towing: alongside another boat, the prompt offers to step across or take her in tow. She follows on a line from your stern; the mooring prompt (or the same prompt beside her) lets her go. A small boat can’t tow a much bigger one.'),
       $t('The camera turns all the way round you or your boat. Drag upwards (or push the right stick up) and the view sinks past the waterline to look beneath it, at the hull or the fish below; drag down again and you’re back in the air. The view key still steps through first person, a fixed underwater view and your bait.'),
-    ]) out.push(el('p', 'st-note', line));
-    out.push(list);
+    ]) how.append(el('p', 'st-note', line));
+    out.push(how);
     // A controller: what its buttons do (they can't be changed), and whether it buzzes.
     out.push(el('h3', null, $t('Controller')));
+    // (H2) The drawing of it, each button named: the guide shown the first time you use one.
+    const guide = el('button', 'pk-btn quiet st-guide', $t('Show the controller guide'));
+    guide.type = 'button';
+    guide.addEventListener('click', () => this.hooks.padGuide?.());
+    out.push(guide);
     out.push(el('p', 'st-note', $t`An Xbox, PlayStation or Nintendo controller (or any the browser recognises) works as soon as you press a button on it; the hints follow whichever you used last, and name its buttons as they're printed on it. In menus: the D-pad or left stick moves, ${padName('A')} chooses, ${padName('B')} goes back, ${padName('LB')} and ${padName('RB')} change tabs, the right stick scrolls.`));
     out.push(this.row($t('Button names'), $t('Automatic: as printed on the controller you’re using, from the name it gives the browser. Choose one if the hints name the wrong buttons: a PlayStation controller through Steam or DS4Windows passes itself off as an Xbox one.'),
       this.choice([['auto', $t('Automatic')], ['xbox', $t('Xbox')], ['playstation', $t('PlayStation')], ['nintendo', $t('Nintendo')]], C.padNames, (v) => this.set('controls', 'padNames', v))));
     out.push(...this.padSetup());
     out.push(this.row($t('Controller vibration'), $t('Feel the game through your hands: the engine through the hull, a sea slamming under the bow, a knock, the starter, the bite, the hook going in, a fish running and the drag giving line (in the reel trigger too, where the browser can reach it). Best in Chrome or Edge, on an Xbox or PlayStation controller.'),
       this.choice([['off', $t('Off')], ['light', $t('Light')], ['normal', $t('Normal')], ['strong', $t('Strong')]], C.vibration, (v) => { this.set('controls', 'vibration', v); this.hooks.feltVibration?.(v); })));
+    const padList = this.fold('pads', $t('Every button, by what you’re doing'), usingPad);
     const pads = el('div', 'st-keys');
+    padList.append(pads);
     for (const [group, rows] of PAD_HELP) {
       pads.append(el('h4', null, group));
       for (const [ctx, action, words] of rows) {
@@ -785,7 +818,18 @@ export class SettingsUI {
         pads.append(r);
       }
     }
-    out.push(pads);
+    out.push(padList);
     return out;
+  }
+
+  // (H2) A part of a pane folded away under its heading (a <details>), opened by a click or a
+  // controller's A, and kept open or shut as the pane's drawn again.
+  fold(id, summary, open = false) {
+    this.folds ||= {};
+    const d = el('details', 'st-how');
+    d.open = this.folds[id] ?? open;
+    d.addEventListener('toggle', () => { this.folds[id] = d.open; });
+    d.append(el('summary', null, summary));
+    return d;
   }
 }

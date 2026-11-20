@@ -440,6 +440,17 @@
   <div class="card-act"><span class="desk-only"><kbd data-key="cast" data-ctx="catch">Space</kbd> continue</span><span class="touch-only">Tap to continue</span></div>
 </div>
 
+<div id="pad-guide" class="card pad-guide" role="dialog" aria-labelledby="pg-title" hidden>
+  <h2 id="pg-title">Your controller</h2>
+  <div class="pg-body">
+    <ul id="pg-left" class="pg-list"></ul>
+    <canvas id="pg-canvas" width="440" height="300" role="img" aria-label="A drawing of the controller, its buttons named"></canvas>
+    <ul id="pg-right" class="pg-list"></ul>
+  </div>
+  <p class="pg-more">The buttons change with what you’re doing: the line at the bottom of the screen always says what they do. Settings → Controls lists them all.</p>
+  <div class="card-act"><button id="pg-ok" class="pk-btn" type="button">Got it</button></div>
+</div>
+
 <div id="settings" class="sheet" role="dialog" aria-label="Settings" hidden>
   <div class="sheet-inner">
     <header>
@@ -468,6 +479,7 @@
           <button id="map-me" type="button" aria-label="Centre on you">◎</button>
           <button id="map-world" type="button" aria-label="The whole chart" aria-pressed="false">◫</button>
         </div>
+        <p class="map-padhint pad-only"><kbd>R-stick</kbd> move · <kbd data-pad="LT">LT</kbd> <kbd data-pad="RT">RT</kbd> zoom · <kbd data-pad="X">X</kbd> mark the middle</p>
       </div>
       <aside class="map-side">
         <h3>Camps &amp; boats</h3>
@@ -647,6 +659,7 @@
         <p id="offline-status" class="j-save-status"></p>
         <p id="update-note" class="j-save-status" role="status" hidden></p>
         <button id="update-now" type="button">Check for updates</button>
+        <button id="save-title" type="button">Save and go to the title screen</button>
         <button id="save-download" type="button">Download a copy</button>
         <span id="desktop-opts" class="j-desktop" hidden>
           <button id="desktop-saves" type="button">Open the saves folder</button>

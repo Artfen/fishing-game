@@ -693,6 +693,7 @@ export class MapSheet {
     let down = null;
     cv.addEventListener('pointerdown', (e) => {
       cv.setPointerCapture?.(e.pointerId);
+      this.padAim = false;
       down = { x: e.clientX, y: e.clientY, moved: 0 };
       pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a.x - b.x, a.y - b.y); }
@@ -720,20 +721,7 @@ export class MapSheet {
     cv.addEventListener('pointerup', (e) => {
       if (!down || down.moved > 6 || pts.size > 1) return;
       const r = cv.getBoundingClientRect();
-      const px = (e.clientX - r.left) * this.dpr, py = (e.clientY - r.top) * this.dpr;
-      const hit = this.state.pins.find((p) => {
-        const [x, y] = this.toPx(p.x, p.z);
-        return Math.hypot(x - px, y - py) < 14 * this.dpr;
-      });
-      if (this.planning) {
-        if (this.plan.length < POINTS_MAX) this.plan.push(this.toWorld(px, py).map(Math.round));
-        this.renderPlan();
-        this.draw();
-      } else if (hit) this.editPin(hit);
-      else if (this.marking) {
-        const [x, z] = this.toWorld(px, py);
-        this.addPin(x, z);
-      }
+      this.tapAt((e.clientX - r.left) * this.dpr, (e.clientY - r.top) * this.dpr);
       down = null;
     });
     cv.addEventListener('pointerup', end);
@@ -1288,6 +1276,68 @@ export class MapSheet {
     ctx.font = `${14 * s}px Kalam, cursive`;
     ctx.fillText(`${m} m`, bx + len + 6 * s, by);
     ctx.restore();
+    // (H2) With a controller: a crosshair on the middle, where X puts a mark or the route's next
+    // point (see tapCentre).
+    if (this.padAim) {
+      const cx = cv.width / 2, cy = cv.height / 2, a = 9 * s, gap = 3 * s;
+      ctx.save();
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 2 * s;
+      ctx.beginPath();
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        ctx.moveTo(cx + dx * gap, cy + dy * gap);
+        ctx.lineTo(cx + dx * (gap + a), cy + dy * (gap + a));
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  // (H2) A controller on the chart (gamepad.js menu, through main.js): the right stick moves it,
+  // the triggers zoom (zoom: −1 … 1, out to in), smoothly, so far a second at full tilt.
+  stick(rx, ry, zoom, dt) {
+    if (!this.isOpen) return;
+    if (rx || ry || zoom) this.padAim = true;
+    const v = this.view;
+    if (rx || ry) {
+      v.x += (rx * 420 * dt * this.dpr) / v.zoom;
+      v.z += (ry * 420 * dt * this.dpr) / v.zoom;
+      this.clampView();
+    }
+    if (zoom) this.zoomBy(Math.exp(zoom * 1.6 * dt));
+    if (rx || ry || zoom) this.draw();
+  }
+
+  // (H2) A controller's X: a click on the chart's middle, under the crosshair; and a new mark
+  // there when a click would do nothing (a button pressed on purpose, not a drag let go).
+  tapCentre() {
+    if (!this.isOpen) return false;
+    const px = this.canvas.width / 2, py = this.canvas.height / 2;
+    if (!this.tapAt(px, py)) {
+      const [x, z] = this.toWorld(px, py);
+      this.addPin(x, z);
+    }
+    this.padAim = true;
+    return true;
+  }
+
+  // A click on the chart at (px, py), canvas pixels: while planning, the route's next point; on a
+  // mark, edit it; while marking, a new one there. False if it did nothing.
+  tapAt(px, py) {
+    const hit = this.state.pins.find((p) => {
+      const [x, y] = this.toPx(p.x, p.z);
+      return Math.hypot(x - px, y - py) < 14 * this.dpr;
+    });
+    if (this.planning) {
+      if (this.plan.length < POINTS_MAX) this.plan.push(this.toWorld(px, py).map(Math.round));
+      this.renderPlan();
+      this.draw();
+    } else if (hit) this.editPin(hit);
+    else if (this.marking) {
+      const [x, z] = this.toWorld(px, py);
+      this.addPin(x, z);
+    } else return false;
+    return true;
   }
 
   // A label, unless it would sit on top of one already drawn.

@@ -106,6 +106,43 @@ near).
 Simpler first: a radial menu only if the run shows the shortcuts aren't enough; remapping beyond
 the existing layout set-up only if asked for.
 
+#### H2 as built
+
+- **Typing** (`src/osk.js`): A on any text box opens an on-screen keyboard over everything. The
+  D-pad moves round it, A types, B deletes, Y gives capitals and then the accents Spanish and
+  French need, X a space, Options is done. A session code (`inputmode="numeric"`) gets a digit
+  pad. Done gives the box its change event and focuses what you'd press next: its form's button,
+  or the first button after it in its panel.
+- **The chart** (`src/map.js` `stick`, `tapCentre`, `tapAt`): the right stick moves it, the
+  triggers zoom, X marks the spot under a crosshair (or adds the route's next point, or opens the
+  mark there). The mouse's click and X share `tapAt`. A hint on the chart, only with a controller.
+- **The Marine Works' boat** turns with the right stick, as a drag turns her.
+- **The controller guide** (`src/padguide.js`): a drawing of the controller, named as printed on
+  yours, each hand's buttons beside it with what they do as you play (checked against the button
+  map by `tests/controller.test.mjs`). Once, the first time you play with a controller, after a new
+  player's questions and a few calm seconds; Settings → Controls shows it again.
+- **The controller-only run** (a simulated DualSense, nothing else, every one of the brief's
+  sixteen steps) and what it found, each fixed:
+  - the name prompt's keyboard handed the focus back to the box, so A only reopened it;
+  - a question focused its last button ("Old salt") rather than the recommended one (Angler);
+  - the harbour sheets' tabs weren't tabs to the bumpers (now `role="tab"`);
+  - a pane drawn again after a choice lost the focus, or put it on the wrong ‹ › arrow (now found
+    again by id, by words and label, by words without their numbers, or by place: `gamepad.js`);
+  - at a motorboat's helm the bumpers trim, so there was no way to change rod or bait: at anchor or
+    tied up they're the rods' again;
+  - there was no way to leave without closing the tab: the journal's "Save and go to the title
+    screen".
+  The radial menu wasn't needed: every step had a direct button.
+- **Less to read**: a Settings row shows the first sentence of its line; the rest comes up on the
+  row you're on (focused, or under the mouse), so nothing is lost and nothing needs an extra
+  button press. Controls folds its long explanations, its list of keys and its list of buttons
+  (the one for what you're using open). The Marine Works' fittings show their paragraph on the
+  focused row, and each engine its top speed, range and weight as bars beside the figures (from
+  the same trials the words use, nothing invented). Controls went from 11,100 characters on show to
+  4,700, the Fit-out from 6,500 to 3,150. The backpack and tackle were already pictures, checks
+  (✓ ! ✕) and "Good for" chips from Step 6; a few words there and in the Marine Works that were
+  still English in Spanish and French are translated now.
+
 ### H3: the jet ski (issue 4)
 
 1. Its own engine voice: lower cutoff and no resonance peak, the "putter" modulation gone at

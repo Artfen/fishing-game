@@ -169,6 +169,8 @@ import { FishFinder } from './sonar.js';
 import { bottomOf } from './sonarRead.js';
 import { setupTouch } from './touch.js';
 import { Gamepads, buttonFor, topDialog, focusables, padName, setPadStyle, styleFor } from './gamepad.js';
+import { drawPad, guideRows } from './padguide.js';
+import { OnScreenKeyboard } from './osk.js';
 import { levers, nearest, step, setIndex, within, capIndex, leverWords, slide, valueAt, positionOf, displayIndex, positionAtIndex, leverPositionWords, GEAR_IN } from './throttle.js';
 import { LeverUI } from './lever.js';
 import { anchorCheck, berthFor, berthAt, castOffCheck, canTow, towStep, towLineFor, TOW } from './mooring.js';
@@ -957,7 +959,35 @@ const pads = new Gamepads(input, {
   },
   focusRoot: () => $('title'),
   rodStick: () => fishing.expert && fishing.lineOut && !modal,
+  // (H2: typing with a controller, see osk.js.)
+  typeInto: (el) => osk.open(el, oskHint()),
+  // (H2) The chart moved with the right stick, zoomed with the triggers, X a mark at its middle;
+  // a boat in the yard's picture turned with the right stick. True: the stick's taken.
+  panel: (root, s, dt) => {
+    if (root?.id === 'map' && mapSheet.isOpen) {
+      mapSheet.stick(s.rx, s.ry, s.zoom, dt);
+      if (s.x) mapSheet.tapCentre();
+      return true;
+    }
+    // (A boat at the Marine Works turned, as a drag turns her: a turn in under three seconds.)
+    if (s.rx && root?.querySelector('#hb-preview')) boatPreview.turn(s.rx * 240 * dt);
+    return false;
+  },
+  oskButton: (n) => osk.button(n),
 });
+// The on-screen keyboard: a text box typed into with a controller alone (your name, a code to join
+// a friend, a gift code, a title), its buttons named as printed on yours.
+const osk = new OnScreenKeyboard();
+const oskHint = () => $t`${padName('A')} type · ${padName('B')} delete · ${padName('Y')} capitals and accents · ${padName('X')} space · ${padName('Menu')} done`;
+// (Esc on a keyboard, or anywhere off it with a mouse: done with it.)
+addEventListener('keydown', (e) => {
+  if (!osk.isOpen || e.fromPad) return;
+  if (e.code === 'Escape' || e.code === 'Enter') {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    osk.done();
+  }
+}, true);
 input.padLabel = (a) => pads.label(a);
 // The controller's buttons named as printed on it (✕ on a PlayStation one), or as chosen in Settings.
 function padNamesNow() {
@@ -8520,6 +8550,50 @@ function closeNote() {
   if (next) setTimeout(() => showNote(...next), 250);
 }
 
+// (H2) The controller guide (padguide.js): the drawing, each hand's buttons beside it, named as
+// printed on the controller in use. fromSettings: Settings opens again on Controls after it.
+let padGuideBack = false;
+function showPadGuide(fromSettings = false) {
+  if (modal && modal !== 'settings') return;
+  if (modal === 'settings') closeSettings();
+  padGuideBack = fromSettings;
+  const [left, right] = guideRows();
+  for (const [id, rows] of [['pg-left', left], ['pg-right', right]]) {
+    $(id).replaceChildren(...rows.map(({ key, words }) => {
+      const li = document.createElement('li'), k = document.createElement('kbd'), w = document.createElement('span');
+      k.textContent = key;
+      w.textContent = words;
+      li.append(k, w);
+      return li;
+    }));
+  }
+  drawPad($('pg-canvas').getContext('2d'));
+  $('pad-guide').hidden = false;
+  modal = 'padguide';
+  state.tips.padGuide = true;
+  save();
+  audio.page();
+  $('pg-ok').focus();
+}
+function closePadGuide() {
+  $('pad-guide').hidden = true;
+  modal = null;
+  if (padGuideBack) openSettings('controls');
+  padGuideBack = false;
+  confirmClosed();
+}
+$('pg-ok').addEventListener('click', () => closePadGuide());
+// Due the first time you play with a controller, once the screen's been free for a few seconds
+// (a new player's questions come one after another, a moment apart) and nothing's happening: not
+// a line out, not at the wheel of the car.
+let padGuideCalm = 0;
+function padGuideDue() {
+  if (!started || modal || !$('confirm').hidden || noteQueue.length || fishing.aiming || fishing.lineOut || driving) padGuideCalm = t;
+  // (A new player: after their questions and the offer of a guided first trip.)
+  const asked = state.tips.style && (!newPlayer || (state.tips.play && state.guide?.offered));
+  return !state.tips.padGuide && asked && scheme() === 'pad' && t - padGuideCalm > 3;
+}
+
 /* ---------------- life on the coast: notes, adventures, the harbour, photographs ---------------- */
 
 // A card with a little sketch: a page found, an adventure's ending, a notice read.
@@ -11382,6 +11456,8 @@ const settingsUI = new SettingsUI(state, {
     settingsUI.render();
   },
   // (A taste of the new strength, straight away.)
+  // (H2) Settings → Controls: the controller guide, Settings again after it.
+  padGuide: () => showPadGuide(true),
   feltVibration: (id) => {
     const k = STRENGTHS[id] ?? 0;
     if (k) pads.feel(Math.min(1, 0.9 * k), Math.min(1, 0.5 * k), 0, Math.min(1, 0.7 * k), 260);
@@ -11718,6 +11794,8 @@ const STATUS_TEXT = {
 function padContext() {
   // (A question open before the game's begun, the name or how you like to play: the controller
   // answers it, rather than being pulled back to the title's buttons.)
+  // (H2: typing on the on-screen keyboard, anywhere.)
+  if (osk.isOpen) return 'menu';
   if (!started) return settingsUI.isOpen || !$('confirm').hidden ? 'menu' : 'title';
   if (modal === 'sleep' || modal === 'travel') return 'off';
   if (!$('confirm').hidden || !$('photo-card').hidden) return 'menu';
@@ -11734,6 +11812,9 @@ function padContext() {
   // (A line out from a boat under power: the D-pad works the throttle.)
   if (fishing.busy) return leverKind() ? 'troll' : 'fish';
   if (dashCtl.focused) return 'dash';
+  // (H2) At anchor or tied up there's nothing to trim or push about: the bumpers change the rod
+  // and the bait again, as they do ashore (the stick, B and L3 still the helm's).
+  if (!onFoot && !cabinIn && boat.motor && (boat.anchored || boat.tie)) return 'helm';
   if (!onFoot && !cabinIn && boat.motor && twinHelm()) return 'helmtwin';
   if (!onFoot && !cabinIn && boat.motor && boat.hull.thruster) return 'helmpilot';
   if (!onFoot && !cabinIn && boat.motor && ENGINES[boat.kind]?.trim) return 'helmtrim';
@@ -11910,7 +11991,8 @@ function currentHint() {
     const motor = kind === 'kayak' ? ` · ${T ? $t('Raise motor to paddle') : $t`${K('motor')} raise it and paddle`}` : kind === 'sail' ? ` · ${T ? $t('Raise the outboard on the lever') : $t`${K('outboard')} outboard up`}` : '';
     if (T) return $t`${kind === 'kayak' ? $t('Motor') : $t('Throttle')}: ${word} · the stick: up or down ${smooth ? $t('for the throttle') : $t('a notch')}, across to steer · Stop on the lever · ${fuel}`;
     // (The trawler: her autopilot and bow thruster.)
-    const aids = boat.hull.autopilot ? $t` · ${K('spotlock')} autopilot${pilot.on ? ` (${degrees(pilot.set)}°)` : ''} · ${P ? `${padName('LB')} ${padName('RB')}` : `${K('trimDown')}${K('trimUp')}`} thruster` : '';
+    // (Not at anchor or tied up: the bumpers are the rods' then, see padContext.)
+    const aids = boat.hull.autopilot && !boat.anchored && !boat.tie ? $t` · ${K('spotlock')} autopilot${pilot.on ? ` (${degrees(pilot.set)}°)` : ''} · ${P ? `${padName('LB')} ${padName('RB')}` : `${K('trimDown')}${K('trimUp')}`} thruster` : '';
     if (P) return $t`${kind === 'kayak' ? $t('Motor') : $t('Throttle')}: ${word} · ${kbd('L-stick')} ↕ ${notch}, ↔ ${pilot.on ? $t('its course') : $t('steer')} · ${K('neutral')} stop · ${K('anchor')} anchor${motor}${aids} · ${fuel}`;
     return $t`${kind === 'kayak' ? $t('Motor') : $t('Throttle')}: ${word} · ${UD} ${notch} · ${LR} ${pilot.on ? $t('its course') : $t('steer')} · ${K('neutral')} stop · ${K('anchor')} anchor${motor}${aids} · ${fuel}`;
   }
@@ -13326,7 +13408,8 @@ function cancelConfirm() {
   confirmClosed();
 }
 function ask(title, text, buttons, opts = {}) {
-  if (!$('confirm').hidden) {
+  // (Behind another question, or the controller guide: next, once it's done.)
+  if (!$('confirm').hidden || modal === 'padguide') {
     confirmQueue.push([title, text, buttons, opts]);
     return;
   }
@@ -13373,7 +13456,9 @@ function ask(title, text, buttons, opts = {}) {
   if (input != null) {
     box.focus();
     box.select();
-  } else acts.lastChild?.focus();
+  // (The focus on the card's own choice, the last that isn't a quiet one: Angler of the styles,
+  // not the last of them.)
+  } else ([...acts.children].reverse().find((b) => !b.classList.contains('quiet')) || acts.lastChild)?.focus();
 }
 
 function downloadSave() {
@@ -14075,6 +14160,8 @@ function openMap(highlight = null) {
   if (modal) return;
   if (fishing.aiming) fishing.cancel();
   const p = player();
+  // (Opened with a controller: the crosshair X marks under, at once. See map.js tapCentre.)
+  mapSheet.padAim = scheme() === 'pad';
   mapSheet.open({ player: { x: p.pos.x, z: p.pos.z, heading: p.heading }, onFoot, boats, boat, friends: friendsOnMap, jobs: jobsOnMap }, typeof highlight === 'string' ? highlight : null);
   modal = 'map';
   audio.page();
@@ -14276,6 +14363,10 @@ input.on('press', (code, acts) => {
   }
   if (modal === 'note') {
     if (is('cast') || code === 'Enter' || code === 'Escape' || is('interact')) closeNote();
+    return;
+  }
+  if (modal === 'padguide') {
+    if (code === 'Escape' || is('cancel')) closePadGuide();
     return;
   }
   if (modal === 'photo') {
@@ -14586,6 +14677,13 @@ applyDifficulty();
 applyBehaviour();
 applyControls();
 fishing.drags = state.gear.drag;
+// (H2) Done for now: saved, and back to the title (your games, settings, the language), as a
+// controller can't close the tab. Playing together, your friends see you leave.
+$('save-title').addEventListener('click', () => {
+  save();
+  together.leave(true);
+  location.reload();
+});
 $('save-download').addEventListener('click', downloadSave);
 $('save-load').addEventListener('click', () => $('save-file').click());
 $('save-file').addEventListener('change', (e) => {
@@ -15033,6 +15131,7 @@ function tick(now, manual = false) {
   if (started) {
     // (A card that waited behind a menu or the catch card: now, once the screen's free.)
     if (noteQueue.length && !modal && $('confirm').hidden) showNote(...noteQueue.shift());
+    else if (padGuideDue()) showPadGuide();
     updateJobs(dt);
     updateCalls(dt);
     passengers.update(dt, t);

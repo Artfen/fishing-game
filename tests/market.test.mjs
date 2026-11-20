@@ -17,7 +17,11 @@ class FakeEl {
     this.disabled = false;
     this.isConnected = true;
     this.listeners = {};
+    this.attrs = {};
+    this.style = {};
   }
+  setAttribute(k, v) { this.attrs[k] = String(v); }
+  getAttribute(k) { return this.attrs[k] ?? null; }
   addEventListener(k, f) { (this.listeners[k] ??= []).push(f); }
   append(...c) { this.children.push(...c); }
   replaceChildren(...c) { this.children = c; }

@@ -1652,6 +1652,7 @@ body.touch #rest-veil { padding-bottom: calc(170px + env(safe-area-inset-bottom,
   background: rgba(243, 232, 207, 0.92); color: var(--ink); font: 700 20px/1 var(--font-ui); cursor: pointer;
 }
 .map-zoom button:hover { background: var(--paper-shade); }
+.map-padhint { position: absolute; right: 10px; bottom: 8px; margin: 0; padding: 3px 8px; border-radius: 6px; background: rgba(243, 232, 207, 0.9); font: 600 12px var(--font-ui); color: var(--ink); pointer-events: none; }
 .map-side { min-height: 0; overflow-y: auto; padding-right: 4px; }
 .map-side h3:first-child { margin-top: 0; }
 .map-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
@@ -2973,3 +2974,63 @@ body.screen-clean.underway #gear { opacity: 0; pointer-events: none; }
 .st-swatches { display: flex; flex-wrap: wrap; gap: 6px; max-width: 320px; }
 .st-swatches .hb-swatch { padding: 5px; min-width: 0; }
 .st-swatches .hb-swatch[aria-pressed='true'] { outline: 2px solid var(--ink, #3a2e26); outline-offset: 1px; }
+
+/* ---------------- The on-screen keyboard (osk.js): typing with a controller ---------------- */
+#osk {
+  position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 60;
+  width: min(640px, calc(100vw - 32px)); padding: 14px; border-radius: 16px;
+  background: var(--paper); color: var(--ink); box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+  font: 600 16px var(--font-ui);
+}
+#osk[hidden] { display: none; }
+.osk-shown { min-height: 1.6em; margin: 0 4px 10px; padding: 8px 12px; border-radius: 10px; background: rgba(53, 41, 31, 0.08); font-size: 20px; letter-spacing: 0.02em; overflow-wrap: anywhere; }
+.osk-shown::after { content: '▏'; animation: osk-caret 1s steps(1) infinite; }
+.osk-shown.osk-empty { color: var(--ink-faint); }
+@keyframes osk-caret { 50% { opacity: 0; } }
+.osk-keys { display: grid; gap: 6px; }
+.osk-row { display: flex; gap: 6px; }
+.osk-key { flex: 1 1 0; min-width: 0; min-height: 44px; border: 0; border-radius: 9px; background: #fffaf0; color: var(--ink); font: 600 18px var(--font-ui); box-shadow: 0 2px 0 rgba(53, 41, 31, 0.18); cursor: pointer; }
+.osk-key:focus-visible, body.pad .osk-key:focus { outline: 3px solid var(--lantern); outline-offset: 2px; background: #fff2cf; }
+.osk-wide { flex-grow: 1.6; font-size: 15px; }
+.osk-space { flex-grow: 4; font-size: 15px; }
+.osk-done { background: #35676b; color: #fff9ef; }
+.osk-pad .osk-key { min-height: 56px; font-size: 22px; }
+.osk-pad { max-width: 320px; margin: 0 auto; }
+.osk-hint { margin: 10px 4px 0; font: 500 12px/1.4 var(--font-ui); color: var(--ink-soft); text-align: center; }
+
+/* The controller guide (src/padguide.js): the drawing in the middle, each hand's buttons beside it. */
+.card.pad-guide { width: min(920px, calc(100vw - 32px)); transform: translate(-50%, -50%) rotate(-0.4deg); cursor: default; }
+.pad-guide h2 { font-size: 40px; }
+.pg-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 340px) minmax(0, 1fr); align-items: center; gap: 12px; margin-top: 10px; }
+.pad-guide #pg-canvas { width: 100%; }
+.pg-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; font: 14px/1.3 var(--font-ui); }
+.pg-list li { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: 8px; text-align: left; }
+#pg-left li { grid-template-columns: minmax(0, 1fr) auto; text-align: right; }
+#pg-left li kbd { order: 2; }
+.pg-list kbd { min-width: 22px; text-align: center; }
+.pad-guide .pg-more { max-width: 60ch; font-size: 15px; }
+@media (max-width: 720px) {
+  .pg-body { grid-template-columns: minmax(0, 1fr); }
+  .pad-guide #pg-canvas { order: -1; max-width: 340px; margin: 0 auto; }
+  #pg-left li { grid-template-columns: auto minmax(0, 1fr); text-align: left; }
+  #pg-left li kbd { order: 0; }
+}
+
+/* (H2) Settings at a glance: a row's first sentence, the rest on the row you're on (settings.js row). */
+.st-more { display: none; }
+.st-row:hover .st-more, .st-row:focus-within .st-more { display: inline; }
+.st-has-more::after { content: ' …'; opacity: 0.6; }
+.st-row:hover .st-has-more::after, .st-row:focus-within .st-has-more::after { content: none; }
+.st-how { margin: 6px 0 10px; }
+.st-how > summary { cursor: pointer; font: 600 14px var(--font-ui); color: var(--ink); padding: 6px 2px; border-radius: 6px; }
+.st-how > summary:focus-visible { outline: 2px solid var(--lantern); outline-offset: 3px; }
+.st-how[open] > summary { margin-bottom: 4px; }
+/* (H2) The Marine Works: a fitting's paragraph on the row you're on; an engine's figures as bars. */
+.hb-fit .hb-fit-text > .cp-soft { display: none; }
+.hb-fit:hover .hb-fit-text > .cp-soft, .hb-fit:focus-within .hb-fit-text > .cp-soft { display: block; }
+.hb-bars { display: grid; grid-template-columns: max-content minmax(60px, 1fr) max-content; align-items: center; gap: 3px 8px; margin-top: 6px; max-width: 420px; font: 600 12px var(--font-ui); color: var(--ink-soft); }
+.hb-bar { display: contents; }
+.hb-bar-track { height: 7px; border-radius: 4px; background: rgba(53, 41, 31, 0.12); overflow: hidden; }
+.hb-bar-fill { display: block; height: 100%; border-radius: 4px; background: var(--ink); }
+.hb-fit.on .hb-bar-fill { background: #2f6b5a; }
+.hb-bar-value { font-variant-numeric: tabular-nums; color: var(--ink); }
