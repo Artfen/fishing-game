@@ -1864,7 +1864,6 @@ export default {
 "Golden from nose to tail: a xanthic {0}. You may never see another.": "Doré du museau à la queue : un spécimen xanthique de {0}. Tu n’en reverras peut-être jamais.",
 "White, with pink eyes: an albino {0}. One in many thousands.": "Blanc, aux yeux roses : un spécimen albinos de {0}. Un sur plusieurs milliers.",
 "Patched with white where its colour never came: a piebald {0}.": "Marqué de plaques blanches là où la couleur n’est jamais venue : un spécimen panaché de {0}.",
-"vLook = {0};\n  vObj = position;": "vLook = {0};\n  vObj = position;",
 "in the boat store behind the harbour office": "dans le hangar à bateaux derrière le bureau du port",
 "pulled up above the tide at the camp": "tiré au sec au-dessus de la marée, au camp",
 "in the boathouse on Longmere": "dans le hangar à bateaux de Longmere",

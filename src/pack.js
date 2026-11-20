@@ -578,13 +578,15 @@ export class PackUI {
       const t0 = performance.now();
       while (this.queue.length && performance.now() - t0 < 12) {
         const job = this.queue.shift();
-        const url = this.stage.thumb(job.ref, job.w, job.h, job.opts);
-        this.queued.delete(job.key);
-        for (const im of this.el.querySelectorAll(`img[data-thumb="${CSS.escape(job.key)}"]`)) {
-          im.src = url;
-          im.classList.remove('loading');
-          im.removeAttribute('data-thumb');
-        }
+        // (Drawn now, its picture encoded off the main thread: see gearView.js thumbAsync.)
+        this.stage.thumbAsync(job.ref, job.w, job.h, job.opts).then((url) => {
+          this.queued.delete(job.key);
+          for (const im of this.el.querySelectorAll(`img[data-thumb="${CSS.escape(job.key)}"]`)) {
+            im.src = url;
+            im.classList.remove('loading');
+            im.removeAttribute('data-thumb');
+          }
+        });
       }
       if (this.queue.length && this.isOpen) requestAnimationFrame(step);
       else this.pumping = false;
@@ -771,7 +773,7 @@ export class PackUI {
       rods.forEach((rid, i) => {
         const img = new Image();
         img.onload = () => ctx.drawImage(img, 0, (h / rods.length) * i, w, h / rods.length);
-        img.src = this.stage.thumb({ type: 'rod', id: rid }, w, Math.round(h / rods.length), { thick: 3 });
+        this.stage.thumbAsync({ type: 'rod', id: rid }, w, Math.round(h / rods.length), { thick: 3 }).then((url) => { img.src = url; });
       });
       return;
     }

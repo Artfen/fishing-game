@@ -177,6 +177,42 @@ the existing layout set-up only if asked for.
   - otherwise says plainly that she carries no anchor, and what to do instead.
   Her first-time tip, the helm's hint line and the diving prompt say the same.
 
+### Between H3 and H4: two stutters from a playtest
+
+Opening a menu stuttered, and a caught fish froze the game for about a second before its card
+came up. Profiled in the browser (the game stepped frame by frame, the CPU sampled):
+
+- **The cause, both times: the studio** (`src/gearView.js`), the small separate renderer the
+  backpack, field guide, journal and catch card photograph tackle and fish in. Each picture was
+  rendered and turned into a PNG with `toDataURL` at once: a synchronous read back from the
+  graphics card (which waits for everything drawn so far, a first use's shader compiling with it)
+  and a PNG encoded on the main thread. The catch card waited for its fish's picture; a panel
+  filling with pictures made one after another, frame after frame.
+- **Shader programs: one per species.** The fish bodies' program key carried the species' id
+  (`anatomy.js`), though nothing in the shader differs between species of a kind (their skins and
+  sheen are textures and uniforms): every species seen for the first time compiled a program, in
+  the game and in the studio.
+
+Fixed:
+- The studio warms in the background a few seconds into the game: its renderer, its light, and
+  the programs for one fish of every kind of shader (`fishVariants`) and the tackle's, compiled
+  with `compileAsync` (the browser's own thread where it has one). Afterwards no panel compiled a
+  program in the studio (before: 34 new opening the journal, 35 the backpack).
+- Pictures for panels (`thumbAsync`) are snapshotted and encoded off the main thread (`toBlob`);
+  the catch card's fish is drawn straight into the card a frame after it's up (`drawInto`, through
+  `createImageBitmap`), with no PNG at all.
+- The fish bodies share one program per kind: the game's own programs in the harbour went from 480
+  to 252 (fewer to build at the start and as new fish come into view). The field guide's pictures
+  are identical to before, pixel for pixel.
+- The map's chart and the journal's little map are read a few rows a frame in the background
+  (`bakeSome`, `buildMapBase(budget)`), finished at once only if opened first; both identical to
+  before.
+
+Measured (software graphics here, so the times are this machine's, not a player's; the shape is
+what counts): the frame the fish comes aboard went from 1,720 ms to 24 ms (a normal frame here is
+15–25 ms); the key opening the backpack from 80 ms to 17–24 ms, the map 337 ms to 18–23 ms,
+the journal 112 ms to 20 ms.
+
 ### H4: characters (issue 2)
 
 One figure for you on foot, you in a boat and your friends (the townsfolk after), with better

@@ -71,7 +71,8 @@ function drawSpecies(cv, f, { unknown = false, len = 0.78 } = {}) {
           x.fillText('?', c.width / 2, c.height / 2);
         }
       };
-      img.src = studio().thumb({ type: 'fish', id: sp.id }, c.width, c.height);
+      // (Its picture encoded off the main thread: see gearView.js thumbAsync.)
+      studio().thumbAsync({ type: 'fish', id: sp.id }, c.width, c.height).then((url) => { img.src = url; });
     }
     if (pending.length) requestAnimationFrame(step);
     else pumping = false;
@@ -669,19 +670,26 @@ export class Journal {
     more.textContent = $t`Show more (${list.length - this.shown} older)`;
   }
 
-  buildMapBase() {
+  // The little map's land and water. (Stutter) Its heights read a few rows at a time, budget
+  // milliseconds a go, in the background before the journal's first opened (main.js
+  // prepareInBackground); opened first, the rest's read there and then. True once it's made.
+  buildMapBase(budget = Infinity) {
+    if (this.mapBase) return true;
     const W = 330, H = 250;
+    const B = (this.mapBaking ||= { hs: new Float32Array(W * H), j: 0 }), hs = B.hs, t0 = performance.now();
+    for (; B.j < H; B.j++) {
+      if (performance.now() - t0 > budget) return false;
+      const j = B.j;
+      for (let i = 0; i < W; i++) {
+        hs[j * W + i] = solidHeight(MAP_RECT.x + ((i + 0.5) / W) * MAP_RECT.w, MAP_RECT.z + ((j + 0.5) / H) * MAP_RECT.h);
+      }
+    }
+    this.mapBaking = null;
     const c = document.createElement('canvas');
     c.width = W;
     c.height = H;
     const ctx = c.getContext('2d');
     const img = ctx.createImageData(W, H);
-    const hs = new Float32Array(W * H);
-    for (let j = 0; j < H; j++) {
-      for (let i = 0; i < W; i++) {
-        hs[j * W + i] = solidHeight(MAP_RECT.x + ((i + 0.5) / W) * MAP_RECT.w, MAP_RECT.z + ((j + 0.5) / H) * MAP_RECT.h);
-      }
-    }
     const d = img.data;
     for (let j = 1; j < H - 1; j++) {
       for (let i = 1; i < W - 1; i++) {
@@ -700,6 +708,7 @@ export class Journal {
     }
     ctx.putImageData(img, 0, 0);
     this.mapBase = c;
+    return true;
   }
 
   drawMap(where) {

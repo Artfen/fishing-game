@@ -161,7 +161,7 @@ import { MapSheet, Explored, OCEAN_SHEET, WORLD_SHEET } from './map.js';
 import { FieldGuide } from './guide.js';
 import { startTrip, endTrip, summaryText, backHome } from './trip.js';
 import { diagnose } from './advice.js';
-import { studio } from './gearView.js';
+import { studio, fishVariants } from './gearView.js';
 import { CameraRig } from './camera.js';
 import { RodView } from './firstperson.js';
 import { bendRod } from './props.js';
@@ -1791,16 +1791,12 @@ function showCatch(sp, size, agent, rigUsed) {
   // (Not your longest, but your heaviest: a word for it, quietly.)
   if (heavier && !record) verdict.tally += $t(' · your heaviest yet');
 
-  // The species' own model, as it swims in the water and appears in the field guide.
+  // The species' own model, as it swims in the water and appears in the field guide. (Stutter:
+  // drawn straight into the card a frame after it's up, never encoded as a picture and decoded
+  // again, so the card comes up at once; the studio's warmed in the background, see warmStudio.)
   const cv = $('cc-canvas');
-  const ctx = cv.getContext('2d');
-  ctx.clearRect(0, 0, cv.width, cv.height);
-  const photo = new Image();
-  photo.onload = () => {
-    ctx.clearRect(0, 0, cv.width, cv.height);
-    ctx.drawImage(photo, 0, 0, cv.width, cv.height);
-  };
-  photo.src = studio().thumb({ type: 'fish', id: sp.id }, cv.width, cv.height);
+  cv.getContext('2d').clearRect(0, 0, cv.width, cv.height);
+  requestAnimationFrame(() => { if (modal === 'catch') studio().drawInto(cv, { type: 'fish', id: sp.id }); });
   // The stamp: a fish of a lifetime, new in your journal, or your biggest yet (see reveal.js).
   const stampEl = $('cc-new');
   stampEl.hidden = !verdict.stamp;
@@ -13696,6 +13692,25 @@ function loadSaveFile(file) {
   reader.readAsText(file);
 }
 
+// (Stutter: docs/HUMAN-TOUCH.md) What the panels draw with, made ready in the background a few
+// seconds into the game, so opening one doesn't stall: the studio the backpack, the field guide,
+// the journal and the catch card photograph their tackle and fish in (its renderer, light and
+// shaders, compiled without waiting where the browser can), and the chart of the water you're on,
+// read a few rows a frame (the map's first opening otherwise reads it all at once).
+function prepareInBackground() {
+  studio().warm([...fishVariants(), { type: 'rod', id: 'float' }, { type: 'item', id: 'spinner' }, { type: 'item', id: 'worm' }, { type: 'item', id: 'dry' }]).catch(() => {});
+  if (modal === 'map') return;
+  const p = player();
+  mapSheet.useSheet(mapSheet.sheetFor(p.pos.x, p.pos.z));
+  // (Then the journal's little map, the same way.)
+  const step = () => {
+    if (modal === 'map' || modal === 'journal') return;
+    if (mapSheet.bakeSome(4) && journal.buildMapBase(4)) return;
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
 function begin() {
   if (started || !$('games').hidden) return;
   // (A name first, the very first time: see askName. Any key or click while it's asked waits.)
@@ -13731,6 +13746,8 @@ function begin() {
     setTimeout(() => hud.toast(FREE_WORDS, 10), 2500);
   }
   rig.settleUntil = t + 2.5;
+  // (Stutter) The panels' pictures and the chart made ready in the background, a little later.
+  setTimeout(prepareInBackground, 3000);
   if (state.sonar) toggleFinder(true);
   if (cloudStart?.note) setTimeout(() => hud.toast(cloudStart.note, 8), 2600);
   else if (LOAD_NOTES[loaded.outcome]) setTimeout(() => hud.toast(LOAD_NOTES[loaded.outcome], 9), 2600);
