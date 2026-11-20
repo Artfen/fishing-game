@@ -3037,3 +3037,5 @@ body.screen-clean.underway #gear { opacity: 0; pointer-events: none; }
 
 /* (H4b) You, turning, at the top of Settings → You. */
 .st-you-preview { display: block; width: min(240px, 60%); height: auto; aspect-ratio: 300 / 360; margin: 4px auto 6px; border-radius: 10px; background: radial-gradient(ellipse at 50% 40%, rgba(255, 255, 255, 0.55), transparent 70%), var(--paper-shade); cursor: grab; touch-action: none; }
+.st-row.st-row-wide { grid-template-columns: minmax(0, 1fr); }
+.st-row.st-row-wide > :last-child { justify-self: start; }
