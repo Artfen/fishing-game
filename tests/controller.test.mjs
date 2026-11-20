@@ -172,3 +172,36 @@ test('X on the chart: a mark under the crosshair, a mark there edited, or the ro
   assert.equal(plan.edited, null);
   assert.equal(chart({ el: { hidden: true } }).tapCentre(), false, 'shut: nothing');
 });
+
+// The controller guide: each button it names does what it says while you play, named as printed.
+const { GUIDE, guideRows, printed } = await import('../src/padguide.js');
+const { MAPS } = await import('../src/gamepad.js');
+
+test('the controller guide says what each button really does as you play', () => {
+  const seen = new Set();
+  for (const [b, side, action, words] of GUIDE()) {
+    assert.ok(side === 'l' || side === 'r');
+    assert.ok(words && words.length < 70, `${b}: a few words, not a paragraph`);
+    assert.ok(!seen.has(b), `${b} once`);
+    seen.add(b);
+    if (action) assert.equal(MAPS.play[b], action, `${b} does ${action} while you play`);
+  }
+  // Every button that does something as you play is in it (the sticks' presses with the sticks,
+  // the D-pad's four in one line).
+  for (const [b, action] of Object.entries(MAPS.play)) {
+    if (!action || ['L3', 'R3', 'UP', 'DOWN', 'LEFT', 'RIGHT'].includes(b)) continue;
+    assert.ok(seen.has(b), `${b} (${action}) is in the guide`);
+  }
+});
+
+test('the guide names the buttons as printed on the controller in hand', () => {
+  assert.equal(printed('A', 'playstation'), '✕');
+  assert.equal(printed('RT', 'playstation'), 'R2');
+  assert.equal(printed('MENU', 'playstation'), 'Options');
+  assert.equal(printed('A', 'nintendo'), 'B', 'a Nintendo controller\'s bottom button is its B');
+  assert.equal(printed('RT', 'xbox'), 'RT');
+  assert.equal(printed('L-stick', 'playstation'), 'L-stick');
+  const [left, right] = guideRows('playstation');
+  assert.ok(left.some((r) => r.key === 'L2') && right.some((r) => r.key === '✕'));
+  assert.equal(left.length + right.length, GUIDE().length);
+});

@@ -515,17 +515,34 @@ export class Gamepads {
     if (root !== this.root) {
       this.root = root;
       this.fresh = true;
-      this.last = null;
+      this.last = this.lastEl = this.lastId = null;
+      this.lastAt = -1;
     }
     if (this.fresh) {
       this.fresh = false;
       if (!inside()) firstFocus(root)?.focus();
     }
-    // A button that redrew itself as you pressed it (a tab, a step): back onto the new one.
-    if (inside()) this.last = document.activeElement.textContent.trim();
-    else if (this.last) {
-      const again = focusables(root).find((el) => el.textContent.trim() === this.last);
+    // A button that redrew itself as you pressed it (a tab, a step, a colour chosen and the pane
+    // drawn again): back onto the new one: the same id, the same words, or (its words changed,
+    // "2 of 8" now "3 of 8") the one in its place.
+    // (Its words: what it says, and its label, as a ‹ › pair's arrows say the same.)
+    const sig = (el) => `${el.getAttribute('aria-label') || ''}|${el.textContent.trim()}`;
+    if (inside()) {
+      const a = document.activeElement;
+      this.last = sig(a);
+      if (a !== this.lastEl) {
+        this.lastEl = a;
+        this.lastId = a.id || null;
+        this.lastAt = focusables(root).indexOf(a);
+      }
+    } else if (this.last != null) {
+      const all = focusables(root);
+      // (Words with their numbers left out: "Hat colour: 2 of 8" is "Hat colour: 3 of 8" now.)
+      const bare = (s) => s.replace(/\d+/g, '#'), was = bare(this.last);
+      const again = (this.lastId && all.find((el) => el.id === this.lastId)) || all.find((el) => sig(el) === this.last)
+        || all.find((el) => bare(sig(el)) === was) || (this.lastAt >= 0 ? all[Math.min(this.lastAt, all.length - 1)] : null);
       (again || firstFocus(root))?.focus();
+      again?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
     }
     // Directions: the D-pad, or the left stick pushed well over (repeating while held).
     let dir = pressed[BTN.UP] ? 'up' : pressed[BTN.DOWN] ? 'down' : pressed[BTN.LEFT] ? 'left' : pressed[BTN.RIGHT] ? 'right' : null;

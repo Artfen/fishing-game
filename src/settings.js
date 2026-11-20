@@ -768,6 +768,11 @@ export class SettingsUI {
     out.push(list);
     // A controller: what its buttons do (they can't be changed), and whether it buzzes.
     out.push(el('h3', null, $t('Controller')));
+    // (H2) The drawing of it, each button named: the guide shown the first time you use one.
+    const guide = el('button', 'pk-btn quiet st-guide', $t('Show the controller guide'));
+    guide.type = 'button';
+    guide.addEventListener('click', () => this.hooks.padGuide?.());
+    out.push(guide);
     out.push(el('p', 'st-note', $t`An Xbox, PlayStation or Nintendo controller (or any the browser recognises) works as soon as you press a button on it; the hints follow whichever you used last, and name its buttons as they're printed on it. In menus: the D-pad or left stick moves, ${padName('A')} chooses, ${padName('B')} goes back, ${padName('LB')} and ${padName('RB')} change tabs, the right stick scrolls.`));
     out.push(this.row($t('Button names'), $t('Automatic: as printed on the controller you’re using, from the name it gives the browser. Choose one if the hints name the wrong buttons: a PlayStation controller through Steam or DS4Windows passes itself off as an Xbox one.'),
       this.choice([['auto', $t('Automatic')], ['xbox', $t('Xbox')], ['playstation', $t('PlayStation')], ['nintendo', $t('Nintendo')]], C.padNames, (v) => this.set('controls', 'padNames', v))));

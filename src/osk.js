@@ -130,13 +130,16 @@ export class OnScreenKeyboard {
     now[Math.min(at, now.length - 1)]?.focus();
   }
 
-  // Finished: the box told (its change event), and the focus back on it, or on its form's button.
+  // Finished: the box told (its change event), and the focus on what you'd press next: its form's
+  // button, or the first button after it in its panel ("That's me", "Keep it", "Sign-write it"),
+  // or back on the box. (Never the box when there's a button: A on it would only open the
+  // keyboard again.)
   done() {
     const I = this.target;
     this.close();
     if (!I) return;
     I.dispatchEvent(new Event('change', { bubbles: true }));
-    const go = I.form?.querySelector('button[type="submit"], button:not([type])');
+    const go = I.form?.querySelector('button[type="submit"], button:not([type])') || nextButton(I);
     (go || I).focus();
   }
 
@@ -156,6 +159,14 @@ export class OnScreenKeyboard {
     else return false;
     return true;
   }
+}
+
+// The first button after a box in its panel (a dialog, or the page), that can be pressed.
+function nextButton(I) {
+  if (typeof I.compareDocumentPosition !== 'function') return null;
+  const panel = I.closest?.('[role="dialog"], [role="alertdialog"]') || I.ownerDocument?.body;
+  const FOLLOWING = 4;
+  return [...(panel?.querySelectorAll('button') || [])].find((b) => (I.compareDocumentPosition(b) & FOLLOWING) && !b.disabled && !b.closest('[hidden]') && b.getClientRects().length > 0) || null;
 }
 
 // A text box the keyboard is for (not a checkbox, a range, a file).

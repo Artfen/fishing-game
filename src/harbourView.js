@@ -169,6 +169,9 @@ export class HarbourSheet {
     $('hb-tabs').replaceChildren(...tabs.map(([id, text]) => {
       const b = el('button', id === this.tab ? 'on' : '', text);
       b.type = 'button';
+      // (Tabs, for a screen reader and a controller's bumpers: gamepad.js tabs.)
+      b.setAttribute('role', 'tab');
+      b.setAttribute('aria-selected', id === this.tab ? 'true' : 'false');
       b.addEventListener('click', () => {
         this.tab = id;
         this.render();

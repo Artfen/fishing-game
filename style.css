@@ -2997,3 +2997,21 @@ body.screen-clean.underway #gear { opacity: 0; pointer-events: none; }
 .osk-pad .osk-key { min-height: 56px; font-size: 22px; }
 .osk-pad { max-width: 320px; margin: 0 auto; }
 .osk-hint { margin: 10px 4px 0; font: 500 12px/1.4 var(--font-ui); color: var(--ink-soft); text-align: center; }
+
+/* The controller guide (src/padguide.js): the drawing in the middle, each hand's buttons beside it. */
+.card.pad-guide { width: min(920px, calc(100vw - 32px)); transform: translate(-50%, -50%) rotate(-0.4deg); cursor: default; }
+.pad-guide h2 { font-size: 40px; }
+.pg-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 340px) minmax(0, 1fr); align-items: center; gap: 12px; margin-top: 10px; }
+.pad-guide #pg-canvas { width: 100%; }
+.pg-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; font: 14px/1.3 var(--font-ui); }
+.pg-list li { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: 8px; text-align: left; }
+#pg-left li { grid-template-columns: minmax(0, 1fr) auto; text-align: right; }
+#pg-left li kbd { order: 2; }
+.pg-list kbd { min-width: 22px; text-align: center; }
+.pad-guide .pg-more { max-width: 60ch; font-size: 15px; }
+@media (max-width: 720px) {
+  .pg-body { grid-template-columns: minmax(0, 1fr); }
+  .pad-guide #pg-canvas { order: -1; max-width: 340px; margin: 0 auto; }
+  #pg-left li { grid-template-columns: auto minmax(0, 1fr); text-align: left; }
+  #pg-left li kbd { order: 0; }
+}
